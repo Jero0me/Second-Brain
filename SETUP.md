@@ -1,7 +1,7 @@
 # Dashboard — Setup Guide (fork → deploy in ~5 min)
 
 This is a static dashboard (plain HTML/JS) that deploys on **Vercel** and syncs across your
-devices with **Supabase**. WHOOP is an optional add-on.
+devices with **Supabase**. Apple Health sync is an optional add-on.
 
 ---
 
@@ -79,22 +79,32 @@ Replace the old URL/key in these files:
 
 ---
 
-## 3. WHOOP (optional)
+## 3. Apple Health (optional)
 
-1. **developer.whoop.com** → create an app.
-2. Set its **Redirect URI** to exactly: `https://your-app.vercel.app/api/whoop-callback`
-   (use your real Vercel domain — add every domain you'll open the site from).
-3. Put your app's **Client ID** in [`health.html`](health.html) (`const CLIENT_ID = '...'`),
-   and add these in Vercel → **Settings → Environment Variables**, then redeploy:
+There's no public Apple Health API a website can call directly — instead, the free-ish
+**Health Auto Export – JSON+CSV** iOS app pushes your data to this dashboard on a schedule.
+No login/OAuth involved; it's a one-way webhook.
+
+1. Pick a shared secret (any random string) and add it in Vercel → **Settings → Environment
+   Variables**, then redeploy:
 
 | Variable | Value |
 |---|---|
-| `WHOOP_CLIENT_ID` | your WHOOP app's Client ID |
-| `WHOOP_CLIENT_SECRET` | your WHOOP app's Client Secret (**secret**) |
+| `HEALTH_IMPORT_SECRET` | any random string you choose — this is the shared secret |
 
-4. Open the site at that exact domain → Health page → **Connect WHOOP**.
+2. On your iPhone, install **Health Auto Export – JSON+CSV** from the App Store.
+3. Create a new **REST API** automation:
+   - URL: `https://your-app.vercel.app/api/health-import`
+   - Method: `POST`
+   - Header: `Authorization: Bearer <the HEALTH_IMPORT_SECRET value>`
+   - Metrics to include: Heart Rate Variability, Resting Heart Rate, Respiratory Rate,
+     Blood Oxygen Saturation, Active Energy, Step Count, Apple Exercise Time, Sleep Analysis.
+4. Turn the automation on (e.g. run every morning). After it fires once, open the site →
+   Health page — the Apple Health card fills in automatically. No connect button, no login.
 
-> The callback auto-detects the domain, so you do **not** need a `WHOOP_REDIRECT_URI` env var.
+> The dashboard reads the latest synced snapshot from Supabase (`app_state`, key
+> `apple_health`) — the same table used for everything else, so no extra SQL is needed
+> beyond the block in step 2 above.
 
 ---
 
@@ -110,5 +120,6 @@ console.anthropic.com.
 1. Fork → import to Vercel → deploy.
 2. New Supabase → run the **SQL** above → paste your **URL + anon key** into `sync.js`,
    `topbar.js`, `gym.html`.
-3. (Optional) WHOOP: Client ID in `health.html` + the two env vars in Vercel.
+3. (Optional) Apple Health: `HEALTH_IMPORT_SECRET` env var in Vercel + a Health Auto Export
+   REST API automation on your iPhone pointed at `/api/health-import`.
 4. Change the password in `lock.js`. Done.

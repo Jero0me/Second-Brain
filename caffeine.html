@@ -11,6 +11,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="sync.js" defer></script>
 <script src="topbar.js" defer></script>
+<script src="applehealth.js" defer></script>
 
 <style>
 :root {
@@ -334,7 +335,7 @@ body::after {
 
   /* ============ Personal data ============ */
   let bodyKg = null, recovery = null;
-  let wakeHour = 7, bedHour = 23;   // defaults; overridden by WHOOP
+  let wakeHour = 7, bedHour = 23;   // defaults; overridden by Apple Health sleep sync
   function readProfile() {
     const w = loadJSON('po_water_v1', null);
     if (w && w.profile && w.profile.weightKg) {
@@ -387,26 +388,20 @@ body::after {
   function stateWord(v){ if(v>=80)return'Peak'; if(v>=62)return'High'; if(v>=44)return'Steady'; if(v>=28)return'Dip'; return'Low'; }
   function energyColor(v){ if(v>=62)return'#6BE3A4'; if(v>=40)return'#F2C063'; return '#FF8A8A'; }
 
-  /* ============ WHOOP (optional) ============ */
-  async function loadWhoop(){
-    let t = loadJSON('whoop_tokens_v1', null);
-    if (!t || !t.access) return;
-    async function whFetch(path, tok){
-      const [p,qs]=path.split('?'); const params=new URLSearchParams(qs||''); params.set('path',p);
-      const r=await fetch('/api/whoop-data?'+params.toString(),{headers:{'Authorization':'Bearer '+tok.access,'Accept':'application/json'}});
-      if(!r.ok) throw new Error('whoop '+r.status); return r.json();
-    }
+  /* ============ Apple Health (optional) ============ */
+  async function loadHealth(){
+    if (!window.AppleHealth) return;
     try{
-      const [rec, sleep] = await Promise.all([
-        whFetch('/recovery?limit=1',t).catch(()=>null),
-        whFetch('/activity/sleep?limit=1',t).catch(()=>null),
-      ]);
-      const r0=rec&&rec.records&&rec.records[0];
-      if(r0&&r0.score&&r0.score.recovery_score!=null) recovery=Math.round(r0.score.recovery_score);
-      const s0=sleep&&sleep.records&&sleep.records[0];
-      if(s0){
-        if(s0.start){ const d=new Date(s0.start); bedHour=clamp(d.getHours()+d.getMinutes()/60,20,23.9); }
-        if(s0.end){ const d=new Date(s0.end); wakeHour=clamp(d.getHours()+d.getMinutes()/60,4,11); }
+      const res = await window.AppleHealth.get();
+      const latest = res && res.latest;
+      if (!latest) return;
+      if (latest.sleep && latest.sleep.asleepMin != null) {
+        recovery = Math.min(100, Math.round(latest.sleep.asleepMin / 480 * 100));
+      }
+      const s = latest.sleep;
+      if (s){
+        if(s.sleepStart){ const d=new Date(s.sleepStart); bedHour=clamp(d.getHours()+d.getMinutes()/60,20,23.9); }
+        if(s.sleepEnd){ const d=new Date(s.sleepEnd); wakeHour=clamp(d.getHours()+d.getMinutes()/60,4,11); }
       }
       renderAll();
     }catch(e){}
@@ -542,7 +537,7 @@ body::after {
     if(atBed>=50) tips.push(['⚠️','~'+atBed+' mg will still be active at bedtime — that\'s enough to delay deep sleep. Ease off.']);
     if(a.crashSignificant) tips.push(['🚶','Beat the '+fmtClock(a.crashT)+' dip with 10 min of daylight + water instead of another coffee — you\'ll avoid stacking a late crash.']);
     tips.push(['💧','Drink a glass of water per caffeinated drink — dehydration mimics and worsens the crash.']);
-    if(recovery!=null && recovery<34) tips.push(['🔋','WHOOP recovery is '+recovery+'% — low. Caffeine masks fatigue but won\'t repay sleep debt; keep today under '+dailyLimit()+' mg.']);
+    if(recovery!=null && recovery<34) tips.push(['🔋','Last night\'s sleep was only '+recovery+'% of your goal — low. Caffeine masks fatigue but won\'t repay sleep debt; keep today under '+dailyLimit()+' mg.']);
     const ul=$('tips'); ul.innerHTML='';
     tips.forEach(([ic,txt])=>{ const li=document.createElement('li'); li.className='tip'; li.innerHTML='<span class="ic">'+ic+'</span><span>'+txt+'</span>'; ul.appendChild(li); });
   }
@@ -564,7 +559,7 @@ body::after {
     const parts=[];
     if(bodyKg) parts.push('Target ~'+target+' mg (3 mg/kg for '+Math.round(bodyKg)+' kg). Ceiling '+limit+' mg.');
     else parts.push('Using the 400 mg/day ceiling — add your weight in Settings for a personalized target.');
-    if(recovery!=null) parts.push('WHOOP recovery '+recovery+'%'+(recovery<34?' — limit pulled back to '+limit+' mg.':'.'));
+    if(recovery!=null) parts.push('Last night\'s sleep '+recovery+'% of goal'+(recovery<34?' — limit pulled back to '+limit+' mg.':'.'));
     $('dailyNote').innerHTML=parts.join('<br>');
   }
 
@@ -627,7 +622,7 @@ body::after {
   readProfile();
   renderResults('');
   renderAll();
-  loadWhoop();
+  loadHealth();
   setInterval(()=>{ if(scrubT==null) renderAll(); }, 60000);
 
   /* ============ Cloud sync ============ */

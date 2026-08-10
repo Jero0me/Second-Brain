@@ -509,7 +509,7 @@ main {
 
 <main>
 
-  <!-- ===== WHOOP card (full) ===== -->
+  <!-- ===== Apple Health card (full) ===== -->
   <style>
     .whoop-section { margin-bottom: 32px; }
     .whoop-card {
@@ -599,21 +599,33 @@ main {
     .wh-verdict-reasons { font-size:12.5px; color:var(--text-secondary); line-height:1.65; }
     /* Disconnect */
     .wh-disconnect-link { display:block; margin:16px auto 0; padding:6px 14px; background:transparent; border:none; color:var(--text-tertiary); font-family:inherit; font-size:11px; text-align:center; cursor:pointer; letter-spacing:0.04em; }
-    .wh-disconnect-link:hover { color:var(--text-secondary); text-decoration:underline; }
     .wh-err { background:rgba(255,107,107,0.08); border:1px solid rgba(255,107,107,0.28); color:#FF8A8A; padding:10px 12px; border-radius:10px; font-size:11.5px; font-family:var(--font-mono); margin-bottom:14px; }
+    .wh-disc-sub { max-width:320px; }
+    .wh-setup { width:100%; max-width:360px; text-align:left; margin-top:16px; padding:14px 16px; background:rgba(255,255,255,0.025); border:1px solid rgba(255,255,255,0.06); border-radius:14px; }
+    .wh-setup ol { margin:0; padding-left:18px; font-size:12px; color:var(--text-secondary); line-height:1.7; }
+    .wh-setup code { font-family:var(--font-mono); font-size:11px; background:rgba(255,255,255,0.06); padding:1px 5px; border-radius:5px; color:var(--text-primary); word-break:break-all; }
   </style>
   <div class="whoop-section">
-    <div class="section-title">Whoop</div>
+    <div class="section-title">Apple Health</div>
     <div class="whoop-card">
       <div id="whDisc" class="wh-disc">
-        <div class="wh-brand"><span class="wh-brand-mark">W</span><span class="wh-brand-text">WHOOP</span></div>
-        <div class="wh-disc-title">Not connected</div>
-        <div class="wh-disc-sub">Link your account to see live recovery, sleep, and strain.</div>
-        <button id="whConnectBtn" class="wh-connect" type="button">Connect WHOOP</button>
+        <div class="wh-brand"><span class="wh-brand-mark">♥</span><span class="wh-brand-text">APPLE HEALTH</span></div>
+        <div class="wh-disc-title">Not synced yet</div>
+        <div class="wh-disc-sub">No login here — data comes from the "Health Auto Export" iPhone app pushing straight to this dashboard. Set the automation up once and this card fills in on its own.</div>
+        <button id="whConnectBtn" class="wh-connect" type="button">Setup steps</button>
+        <div id="whSetup" class="wh-setup" style="display:none">
+          <ol>
+            <li>Install <b>Health Auto Export – JSON+CSV</b> from the App Store.</li>
+            <li>Create a new <b>REST API</b> automation with URL: <code id="whSetupUrl">—</code></li>
+            <li>Add header <code>Authorization: Bearer &lt;HEALTH_IMPORT_SECRET&gt;</code> — the value you set for that env var in Vercel.</li>
+            <li>Include Heart Rate Variability, Resting Heart Rate, Respiratory Rate, Blood Oxygen, Active Energy, Step Count, Exercise Time, and Sleep Analysis.</li>
+            <li>Turn the automation on (e.g. every morning). This card updates automatically after the first sync.</li>
+          </ol>
+        </div>
       </div>
       <div id="whConn" style="display:none">
         <div class="wh-head">
-          <div class="wh-brand"><span class="wh-brand-mark">W</span><span class="wh-brand-text">WHOOP</span><span class="wh-live"><span class="wh-live-dot"></span>live</span></div>
+          <div class="wh-brand"><span class="wh-brand-mark">♥</span><span class="wh-brand-text">APPLE HEALTH</span><span class="wh-live"><span class="wh-live-dot"></span>live</span></div>
           <div class="wh-head-right">
             <span id="whUpdated" class="wh-updated">—</span>
             <button id="whRefresh" class="wh-refresh" type="button" aria-label="Refresh"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M20.49 15A9 9 0 1 1 5.64 5.64L23 10"/></svg></button>
@@ -627,7 +639,7 @@ main {
           </svg>
           <div class="wh-ring-center">
             <div id="whRecNum" class="wh-ring-num">—</div>
-            <div class="wh-ring-unit">recovery</div>
+            <div class="wh-ring-unit">sleep</div>
             <div id="whRecLabel" class="wh-ring-label">—</div>
           </div>
         </div>
@@ -648,12 +660,12 @@ main {
         </div>
         <div class="wh-stats">
           <div class="wh-stat"><span class="wh-zone" id="whZoneSleep"></span><div class="wh-stat-label">Sleep</div><div class="wh-stat-val" id="whSleep">—</div><div class="wh-stat-sub" id="whSleepSub">—</div></div>
-          <div class="wh-stat"><span class="wh-zone" id="whZoneStrain"></span><div class="wh-stat-label">Strain</div><div class="wh-stat-val" id="whStrain">—</div><div class="wh-stat-sub" id="whStrainSub">today</div></div>
+          <div class="wh-stat"><span class="wh-zone" id="whZoneStrain"></span><div class="wh-stat-label">Active</div><div class="wh-stat-val" id="whStrain">—</div><div class="wh-stat-sub" id="whStrainSub">kcal</div></div>
           <div class="wh-stat"><span class="wh-zone" id="whZoneHrv"></span><div class="wh-stat-label">HRV</div><div class="wh-stat-val" id="whHrv">—</div><div class="wh-stat-sub">ms</div></div>
           <div class="wh-stat"><span class="wh-zone" id="whZoneRhr"></span><div class="wh-stat-label">RHR</div><div class="wh-stat-val" id="whRhr">—</div><div class="wh-stat-sub">bpm</div></div>
         </div>
         <div id="whBio" class="wh-bio" style="display:none">
-          <div class="wh-bio-item"><span class="wh-zone" id="whZoneSkin"></span><span class="wh-bio-label">Skin temp</span><span class="wh-bio-val" id="whSkin">—</span></div>
+          <div class="wh-bio-item"><span class="wh-zone" id="whZoneSkin"></span><span class="wh-bio-label">Exercise</span><span class="wh-bio-val" id="whSkin">—</span></div>
           <div class="wh-bio-item"><span class="wh-zone" id="whZoneSpo2"></span><span class="wh-bio-label">Blood O₂</span><span class="wh-bio-val" id="whSpo2">—</span></div>
           <div class="wh-bio-item"><span class="wh-zone" id="whZoneResp"></span><span class="wh-bio-label">Resp rate</span><span class="wh-bio-val" id="whResp">—</span></div>
         </div>
@@ -668,224 +680,155 @@ main {
           <div id="whVerdictHead" class="wh-verdict-headline"></div>
           <div id="whVerdictReasons" class="wh-verdict-reasons"></div>
         </div>
-        <button id="whDisconnectBtn" class="wh-disconnect-link" type="button">Disconnect</button>
       </div>
     </div>
   </div>
+  <script src="applehealth.js" defer></script>
   <script>
-  (function () {
-    const KEY = 'whoop_tokens_v1';
-    const CLIENT_ID = '3b9d1b01-31fb-4bd8-b18c-c7fa27deed2f';
-    const REDIRECT  = window.location.origin + '/api/whoop-callback';
-    const SCOPES    = 'read:recovery read:sleep read:workout read:cycles read:profile read:body_measurement offline';
-
-    function load() { try { return JSON.parse(localStorage.getItem(KEY)); } catch { return null; } }
-    function save(t) { try { localStorage.setItem(KEY, JSON.stringify(t)); } catch {} }
-    function wipe() { try { localStorage.removeItem(KEY); } catch {} }
-
-    if (location.hash && location.hash.indexOf('whoop_access') !== -1) {
-      const h = new URLSearchParams(location.hash.slice(1));
-      const access = h.get('whoop_access'), refresh = h.get('whoop_refresh');
-      const expires = Number(h.get('whoop_expires')) || Date.now() + 3500e3;
-      if (access) { save({ access, refresh, expires }); history.replaceState(null, '', location.pathname + location.search); }
-    }
-
+  document.addEventListener('DOMContentLoaded', function () {
     const $ = (id) => document.getElementById(id);
     const errEl = $('whErr');
     function showErr(m) { errEl.textContent = m || ''; errEl.style.display = m ? 'block' : 'none'; }
 
+    const setupUrlEl = $('whSetupUrl');
+    if (setupUrlEl) setupUrlEl.textContent = window.location.origin + '/api/health-import';
+
     $('whConnectBtn').addEventListener('click', () => {
-      const url = 'https://api.prod.whoop.com/oauth/oauth2/auth'
-        + '?client_id='     + encodeURIComponent(CLIENT_ID)
-        + '&redirect_uri='  + encodeURIComponent(REDIRECT)
-        + '&response_type=code'
-        + '&scope='         + encodeURIComponent(SCOPES)
-        + '&state='         + Math.random().toString(36).slice(2);
-      location.href = url;
+      const el = $('whSetup');
+      el.style.display = (el.style.display === 'none' ? '' : 'none');
     });
-    $('whDisconnectBtn').addEventListener('click', () => { wipe(); render(); });
     $('whRefresh').addEventListener('click', async (e) => {
       const btn = e.currentTarget; btn.classList.add('spin');
       try { await loadData(); } finally { setTimeout(() => btn.classList.remove('spin'), 600); }
     });
 
-    async function refreshTok(t) {
-      if (!t.refresh) return null;
-      try {
-        const r = await fetch('/api/whoop-refresh', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ refresh_token: t.refresh }) });
-        const j = await r.json();
-        if (j.access_token) {
-          const next = { access: j.access_token, refresh: j.refresh_token || t.refresh, expires: Date.now() + (j.expires_in||3500)*1000 };
-          save(next); return next;
-        }
-      } catch {}
-      return null;
-    }
-    async function whFetch(path, t) {
-      const [p, qs] = path.split('?');
-      const params = new URLSearchParams(qs || ''); params.set('path', p);
-      const r = await fetch('/api/whoop-data?' + params.toString(), { headers: { 'Authorization': 'Bearer ' + t.access, 'Accept':'application/json' } });
-      if (r.status === 401) { const n = await refreshTok(t); if (n) return whFetch(path, n); throw new Error('unauthorized — reconnect'); }
-      if (!r.ok) throw new Error('WHOOP ' + r.status + ': ' + (await r.text()));
-      return await r.json();
-    }
-
-    function fmtMins(ms) { const m = Math.round(ms/60000); const h = Math.floor(m/60); return h + 'h ' + String(m%60).padStart(2,'0') + 'm'; }
-    function fmtMinsShort(ms) { const m = Math.round(ms/60000); const h = Math.floor(m/60); return (h>0?h+'h ':'') + (m%60)+'m'; }
+    function fmtMinsShort(min) { const m = Math.round(min); const h = Math.floor(m/60); return (h>0?h+'h ':'') + (m%60)+'m'; }
     function zone(el, c) { el.className = 'wh-zone'; if (c) el.classList.add('z-' + c); }
-    function recoveryZone(v) { if (v == null) return null; if (v >= 67) return 'good'; if (v >= 34) return 'warn'; return 'bad'; }
     function sleepZone(p) { if (p == null) return null; if (p >= 85) return 'good'; if (p >= 70) return 'norm'; return 'warn'; }
-    function strainZone(s) { if (s == null) return null; if (s < 6) return 'norm'; if (s < 14) return 'good'; if (s < 18) return 'warn'; return 'bad'; }
     function hrvZone(h) { if (h == null) return null; if (h >= 60) return 'good'; if (h >= 40) return 'norm'; return 'warn'; }
     function rhrZone(r) { if (r == null) return null; if (r <= 55) return 'good'; if (r <= 70) return 'norm'; return 'warn'; }
-    function tempZone(t) { if (t == null) return null; if (t >= 32.5 && t <= 34) return 'good'; if (t >= 31 && t <= 35) return 'norm'; return 'warn'; }
     function spo2Zone(s) { if (s == null) return null; if (s >= 95) return 'good'; if (s >= 92) return 'norm'; if (s >= 88) return 'warn'; return 'bad'; }
     function respZone(r) { if (r == null) return null; if (r >= 12 && r <= 18) return 'good'; if (r >= 10 && r <= 22) return 'norm'; return 'warn'; }
 
-    function ringStroke(score) {
-      // green > yellow > red
-      if (score >= 67) return '#6BE3A4';
-      if (score >= 34) return '#F2C063';
+    function ringStroke(pct) {
+      if (pct >= 85) return '#6BE3A4';
+      if (pct >= 70) return '#F2C063';
       return '#FF8A8A';
     }
-    function recoveryLabel(score) {
-      if (score >= 67) return 'Go hard today';
-      if (score >= 34) return 'Moderate — listen to body';
-      return 'Recover today';
+    function sleepLabel(pct) {
+      if (pct >= 85) return 'Well rested';
+      if (pct >= 70) return 'Could use more';
+      return 'Short on sleep';
     }
 
-    function verdict(rec, strain, sleepPerf) {
-      if (rec == null) return null;
-      let cls = 'green', badge = 'GREEN', headline = 'Push hard today. Body\'s primed — go for the PR, do the harder workout, take on the heavy task.';
-      if (rec < 67 && rec >= 34) { cls = 'yellow'; badge = 'YELLOW'; headline = 'Moderate day. Train, but don\'t max out. Stick to planned volume, skip the max effort sets.'; }
-      else if (rec < 34) { cls = 'red'; badge = 'RED'; headline = 'Recover. Body is asking for rest — light movement, walk, mobility, sleep early.'; }
-      return { cls, badge, headline };
+    function verdict(sleepPct, hrv, rhr) {
+      if (sleepPct == null && hrv == null && rhr == null) return null;
+      const sleepOk = sleepPct == null || sleepPct >= 80;
+      const hrvOk = hrv == null || hrv >= 50;
+      const rhrOk = rhr == null || rhr <= 60;
+      const okCount = [sleepOk, hrvOk, rhrOk].filter(Boolean).length;
+      if (okCount === 3) return { cls:'green', badge:'GREEN', headline:'Solid night. Body\'s primed — go for the harder workout, the big task, the PR attempt.' };
+      if (okCount >= 1)  return { cls:'yellow', badge:'YELLOW', headline:'Mixed signals. Train as planned, but skip the max-effort sets.' };
+      return { cls:'red', badge:'RED', headline:'Rough night / stressed system. Ease up — light movement, hydrate, sleep early tonight.' };
+    }
+
+    function applyData(latest) {
+      showErr('');
+      const sleep = latest.sleep;
+      let sleepPct = null, sleepMin = null;
+      if (sleep && sleep.asleepMin != null) {
+        sleepMin = sleep.asleepMin;
+        sleepPct = Math.min(100, Math.round(sleep.asleepMin / 480 * 100));
+      }
+
+      const fill = $('whRingFill');
+      const C = 603.19;
+      if (sleepPct != null) {
+        fill.style.strokeDashoffset = String(C * (1 - sleepPct/100));
+        fill.style.stroke = ringStroke(sleepPct);
+        $('whRecNum').textContent = String(sleepPct);
+        const labelEl = $('whRecLabel');
+        labelEl.textContent = sleepLabel(sleepPct);
+        labelEl.style.color = ringStroke(sleepPct);
+      }
+
+      if (sleep) {
+        const rem = sleep.remMin || 0, deep = sleep.deepMin || 0, light = sleep.coreMin || 0, awake = sleep.awakeMin || 0;
+        const total = rem + deep + light + awake;
+        if (total > 0) {
+          $('whStages').style.display = '';
+          $('whBarRem').style.width   = (100*rem/total)   + '%';
+          $('whBarDeep').style.width  = (100*deep/total)  + '%';
+          $('whBarLight').style.width = (100*light/total) + '%';
+          $('whBarAwake').style.width = (100*awake/total) + '%';
+          $('whStagesMeta').textContent = fmtMinsShort(total) + ' total';
+          $('whRem').textContent   = fmtMinsShort(rem);
+          $('whDeep').textContent  = fmtMinsShort(deep);
+          $('whLight').textContent = fmtMinsShort(light);
+          $('whAwake').textContent = fmtMinsShort(awake);
+        }
+      }
+      if (sleepMin != null) {
+        $('whSleep').textContent = fmtMinsShort(sleepMin);
+        $('whSleepSub').textContent = (sleepPct != null ? sleepPct + '% of goal' : '—');
+        zone($('whZoneSleep'), sleepZone(sleepPct));
+      }
+
+      if (latest.activeKcal != null) { $('whStrain').textContent = String(Math.round(latest.activeKcal)); }
+      if (latest.hrv != null) { $('whHrv').textContent = String(Math.round(latest.hrv)); zone($('whZoneHrv'), hrvZone(latest.hrv)); }
+      if (latest.rhr != null) { $('whRhr').textContent = String(Math.round(latest.rhr)); zone($('whZoneRhr'), rhrZone(latest.rhr)); }
+
+      const anyBio = (latest.spo2 != null) || (latest.resp != null) || (latest.exerciseMin != null);
+      if (anyBio) {
+        $('whBio').style.display = '';
+        if (latest.exerciseMin != null) { $('whSkin').textContent = Math.round(latest.exerciseMin) + ' min'; }
+        if (latest.spo2 != null) { $('whSpo2').textContent = Number(latest.spo2).toFixed(1) + '%'; zone($('whZoneSpo2'), spo2Zone(latest.spo2)); }
+        if (latest.resp != null) { $('whResp').textContent = Number(latest.resp).toFixed(1) + ' br/min'; zone($('whZoneResp'), respZone(Number(latest.resp))); }
+      }
+
+      const v = verdict(sleepPct, latest.hrv, latest.rhr);
+      if (v) {
+        $('whVerdict').style.display = '';
+        const badge = $('whVerdictBadge');
+        badge.textContent = v.badge;
+        badge.className = 'wh-verdict-badge ' + v.cls;
+        $('whVerdictHead').textContent = v.headline;
+        const reasons = [];
+        if (sleepPct != null) reasons.push((sleepPct >= 80 ? '✓' : '·') + ' Sleep ' + sleepPct + '% of goal — ' + (sleepPct >= 80 ? 'you slept well.' : 'sub-par sleep.'));
+        if (latest.hrv != null) reasons.push((latest.hrv >= 50 ? '✓' : '·') + ' HRV ' + Math.round(latest.hrv) + 'ms — ' + (latest.hrv >= 50 ? 'strong autonomic state.' : 'autonomic stress.'));
+        if (latest.rhr != null) reasons.push((latest.rhr <= 60 ? '✓' : '·') + ' RHR ' + Math.round(latest.rhr) + 'bpm — ' + (latest.rhr <= 60 ? 'well-conditioned.' : 'elevated.'));
+        if (latest.activeKcal != null) reasons.push('· Active energy ' + Math.round(latest.activeKcal) + ' kcal today.');
+        $('whVerdictReasons').innerHTML = reasons.join('<br>');
+      }
+
+      const now = new Date();
+      $('whUpdated').textContent = 'Updated ' + now.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+    }
+
+    function render(res) {
+      const latest = res && res.latest;
+      const hasData = latest && (latest.hrv != null || latest.rhr != null || latest.sleep);
+      if (hasData) {
+        $('whDisc').style.display = 'none'; $('whConn').style.display = '';
+        applyData(latest);
+      } else {
+        $('whDisc').style.display = ''; $('whConn').style.display = 'none';
+      }
     }
 
     async function loadData() {
-      let t = load(); if (!t) return;
-      if (t.expires && Date.now() > t.expires - 60000) { const n = await refreshTok(t); if (n) t = n; }
-      showErr('');
+      if (!window.AppleHealth) return;
       try {
-        const [rec, sleep, cycle] = await Promise.all([
-          whFetch('/recovery?limit=1', t).catch((e)=>{console.error('[whoop] recovery', e.message); return null;}),
-          whFetch('/activity/sleep?limit=1', t).catch((e)=>{console.error('[whoop] sleep', e.message); return null;}),
-          whFetch('/cycle?limit=1', t).catch((e)=>{console.error('[whoop] cycle', e.message); return null;}),
-        ]);
-
-        let recScore = null, hrv = null, rhr = null, skin = null, spo2 = null;
-        const r0 = rec && rec.records && rec.records[0];
-        if (r0 && r0.score) {
-          recScore = Math.round(r0.score.recovery_score || 0);
-          hrv = r0.score.hrv_rmssd_milli != null ? Math.round(r0.score.hrv_rmssd_milli) : null;
-          rhr = r0.score.resting_heart_rate != null ? Math.round(r0.score.resting_heart_rate) : null;
-          skin = r0.score.skin_temp_celsius != null ? r0.score.skin_temp_celsius : null;
-          spo2 = r0.score.spo2_percentage != null ? r0.score.spo2_percentage : null;
-        }
-
-        // Ring
-        const fill = $('whRingFill');
-        const C = 603.19;
-        if (recScore != null) {
-          fill.style.strokeDashoffset = String(C * (1 - recScore/100));
-          fill.style.stroke = ringStroke(recScore);
-          $('whRecNum').textContent = String(recScore);
-          const labelEl = $('whRecLabel');
-          labelEl.textContent = recoveryLabel(recScore);
-          labelEl.style.color = ringStroke(recScore);
-        }
-
-        // Sleep
-        let sleepPerf = null, sleepDuration = null, resp = null;
-        const s0 = sleep && sleep.records && sleep.records[0];
-        if (s0 && s0.score) {
-          sleepPerf = Math.round(s0.score.sleep_performance_percentage || 0);
-          resp = s0.score.respiratory_rate != null ? Number(s0.score.respiratory_rate).toFixed(1) : null;
-          if (s0.score.stage_summary) {
-            const ss = s0.score.stage_summary;
-            const inBed = ss.total_in_bed_time_milli || 0;
-            const awake = ss.total_awake_time_milli || 0;
-            sleepDuration = inBed - awake;
-            const rem = ss.total_rem_sleep_time_milli || 0;
-            const deep = ss.total_slow_wave_sleep_time_milli || 0;
-            const light = ss.total_light_sleep_time_milli || 0;
-            const total = rem + deep + light + awake;
-            if (total > 0) {
-              $('whStages').style.display = '';
-              $('whBarRem').style.width   = (100*rem/total)   + '%';
-              $('whBarDeep').style.width  = (100*deep/total)  + '%';
-              $('whBarLight').style.width = (100*light/total) + '%';
-              $('whBarAwake').style.width = (100*awake/total) + '%';
-              $('whStagesMeta').textContent = fmtMins(total) + ' total';
-              $('whRem').textContent   = fmtMinsShort(rem);
-              $('whDeep').textContent  = fmtMinsShort(deep);
-              $('whLight').textContent = fmtMinsShort(light);
-              $('whAwake').textContent = fmtMinsShort(awake);
-            }
-          }
-        }
-        if (sleepPerf != null) {
-          $('whSleep').textContent = sleepPerf + '%';
-          const hrs = sleepDuration ? (sleepDuration/3.6e6).toFixed(1) + 'h' : '—';
-          $('whSleepSub').textContent = hrs;
-          zone($('whZoneSleep'), sleepZone(sleepPerf));
-        }
-
-        // Strain
-        let strain = null, kcal = null;
-        const c0 = cycle && cycle.records && cycle.records[0];
-        if (c0 && c0.score && c0.score.strain != null) {
-          strain = Number(c0.score.strain);
-          $('whStrain').textContent = strain.toFixed(1);
-          if (c0.score.kilojoule != null) {
-            kcal = Math.round(c0.score.kilojoule / 4.184);
-            $('whStrainSub').textContent = kcal + ' kcal';
-          }
-          zone($('whZoneStrain'), strainZone(strain));
-        }
-
-        if (hrv != null) { $('whHrv').textContent = String(hrv); zone($('whZoneHrv'), hrvZone(hrv)); }
-        if (rhr != null) { $('whRhr').textContent = String(rhr); zone($('whZoneRhr'), rhrZone(rhr)); }
-
-        // Biomarkers
-        const anyBio = (skin != null) || (spo2 != null) || (resp != null);
-        if (anyBio) {
-          $('whBio').style.display = '';
-          if (skin != null) { $('whSkin').textContent = Number(skin).toFixed(1) + '°C'; zone($('whZoneSkin'), tempZone(skin)); }
-          if (spo2 != null) { $('whSpo2').textContent = Number(spo2).toFixed(1) + '%'; zone($('whZoneSpo2'), spo2Zone(spo2)); }
-          if (resp != null) { $('whResp').textContent = resp + ' br/min'; zone($('whZoneResp'), respZone(Number(resp))); }
-        }
-
-        // Verdict
-        const v = verdict(recScore, strain, sleepPerf);
-        if (v) {
-          $('whVerdict').style.display = '';
-          const badge = $('whVerdictBadge');
-          badge.textContent = v.badge;
-          badge.className = 'wh-verdict-badge ' + v.cls;
-          $('whVerdictHead').textContent = v.headline;
-          const reasons = [];
-          if (sleepPerf != null) reasons.push((sleepPerf >= 80 ? '✓' : '·') + ' Sleep score ' + sleepPerf + '% — ' + (sleepPerf >= 80 ? 'you slept well.' : 'sub-par sleep.'));
-          if (strain != null)   reasons.push((strain < 14 ? '·' : '✓') + ' Strain ' + strain.toFixed(1) + ' yesterday — ' + (strain < 14 ? 'room to push today if recovery allows.' : 'high load logged.'));
-          if (hrv != null)      reasons.push((hrv >= 50 ? '✓' : '·') + ' HRV ' + hrv + 'ms — ' + (hrv >= 50 ? 'strong autonomic state.' : 'autonomic stress.'));
-          if (rhr != null)      reasons.push((rhr <= 60 ? '✓' : '·') + ' RHR ' + rhr + 'bpm — ' + (rhr <= 60 ? 'well-conditioned.' : 'elevated.'));
-          $('whVerdictReasons').innerHTML = reasons.join('<br>');
-        }
-
-        const now = new Date();
-        $('whUpdated').textContent = 'Updated ' + now.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+        const res = await window.AppleHealth.get();
+        render(res);
       } catch (e) {
         showErr(e.message || String(e));
       }
     }
 
-    function render() {
-      const t = load();
-      if (t && t.access) { $('whDisc').style.display = 'none'; $('whConn').style.display = ''; loadData(); }
-      else { $('whDisc').style.display = ''; $('whConn').style.display = 'none'; }
-    }
-    render();
-  })();
+    loadData();
+    if (window.AppleHealth) window.AppleHealth.subscribe(render);
+  });
   </script>
 
   <div class="section-title">Daily Stack</div>
