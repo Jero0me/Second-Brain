@@ -233,13 +233,18 @@ body.topbar-modal-open {
     const p = (window.location.pathname || '').toLowerCase();
     return p.endsWith('/finance.html') || p.endsWith('finance.html');
   }
+  // Meal Prep also has its own internal 4-tab bottom nav and back button.
+  function isMealPrepPage() {
+    const p = (window.location.pathname || '').toLowerCase();
+    return p.endsWith('/mealprep.html') || p.endsWith('mealprep.html');
+  }
   // When the water tracker is iframed inside health.html, the embedded
   // page shouldn't render its own chrome again.
   function isEmbedded() {
     try { return window.self !== window.top; } catch (e) { return true; }
   }
   function shouldShowChrome() {
-    return !isFinancePage() && !isEmbedded();
+    return !isFinancePage() && !isMealPrepPage() && !isEmbedded();
   }
   function currentPageKey() {
     const p = (window.location.pathname || '').toLowerCase();

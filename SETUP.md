@@ -55,6 +55,22 @@ create policy "anon manage progress-photos"
   with check (bucket_id = 'progress-photos');
 ```
 
+### SQL #3 — meal-prep recipe photos (Storage bucket)
+Dish photos on the Meal Prep page upload to a Supabase **Storage** bucket called
+`meal-photos` (same pattern as progress photos above — only the image URL syncs through
+`app_state`). Skip this if you don't plan to attach photos to recipes.
+```sql
+insert into storage.buckets (id, name, public)
+values ('meal-photos', 'meal-photos', true)
+on conflict (id) do nothing;
+
+create policy "anon manage meal-photos"
+  on storage.objects for all
+  to anon
+  using (bucket_id = 'meal-photos')
+  with check (bucket_id = 'meal-photos');
+```
+
 ### Connect YOUR Supabase — pick ONE way
 Supabase → **Project Settings → API**. Copy the **Project URL** and the **anon / publishable** key.
 
@@ -139,6 +155,21 @@ else above.
 No setup or key in the repo. Each user **pastes their own Anthropic API key** on the
 **Nova** tile; it's stored only in their browser and sent straight to Anthropic. Get a key at
 console.anthropic.com.
+
+The same key also powers the AI features on **Main** (auto-schedule) and **Meal Prep**
+(recipe-screenshot extraction, "What can I make?", weekly meal-prep generation) — paste
+it once on the Nova tile and every AI feature across the app picks it up.
+
+---
+
+## 5. Meal Prep (recipes, fridge, AI chef) — optional
+
+Fully client-side, no new backend endpoint. Needs:
+- **SQL #3** above, if you want dish photos to upload and sync across devices.
+- The same **Anthropic key** as Nova (see §4) for recipe-screenshot extraction, meal
+  recommendations, and the weekly meal-prep generator — without a key, the page still
+  works for manually adding recipes and fridge items, the AI buttons just prompt you to
+  set a key first.
 
 ---
 
