@@ -110,6 +110,20 @@
 
   function dateKey(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
 
+  // Health Auto Export sends sleepStart/sleepEnd as "YYYY-MM-DD HH:MM:SS +0000"
+  // (space-separated, no colon in the offset). Chrome's Date parser is lenient
+  // enough to accept that, but Safari/WebKit (i.e. every iPhone) returns
+  // Invalid Date for it — which then poisons every downstream computation with
+  // NaN (a NaN wake/bed hour, a NaN energy %, etc.) with no visible error.
+  // Normalize to a form both engines parse before ever calling `new Date()`.
+  function parseHealthDate(str) {
+    if (typeof str !== 'string' || !str) return null;
+    let s = str.trim().replace(' ', 'T').replace(/([+-]\d{2})(\d{2})$/, '$1:$2');
+    let d = new Date(s);
+    if (isNaN(d.getTime())) d = new Date(str);
+    return isNaN(d.getTime()) ? null : d;
+  }
+
   async function computeContext() {
     const ctx = {
       wakeHour: 7, bedHour: 23,
@@ -134,8 +148,10 @@
             ctx.recovery = Math.min(100, Math.round(s.asleepMin / 480 * 100));
           }
           if (s) {
-            if (s.sleepStart) { const d = new Date(s.sleepStart); ctx.bedHour = clamp(d.getHours() + d.getMinutes() / 60, 20, 23.9); }
-            if (s.sleepEnd)   { const d = new Date(s.sleepEnd);   ctx.wakeHour = clamp(d.getHours() + d.getMinutes() / 60, 4, 11); ctx.syncDate = dateKey(d); }
+            const bedD = parseHealthDate(s.sleepStart);
+            if (bedD) ctx.bedHour = clamp(bedD.getHours() + bedD.getMinutes() / 60, 20, 23.9);
+            const wakeD = parseHealthDate(s.sleepEnd);
+            if (wakeD) { ctx.wakeHour = clamp(wakeD.getHours() + wakeD.getMinutes() / 60, 4, 11); ctx.syncDate = dateKey(wakeD); }
           }
         }
       } catch (e) {}
@@ -147,6 +163,6 @@
     computeContext,
     energyAt, sample, stateWord, energyColor, predictNap,
     activeAt, totalActiveAt,
-    fmtClock, clamp, nowHour,
+    fmtClock, clamp, nowHour, parseHealthDate,
   };
 })();

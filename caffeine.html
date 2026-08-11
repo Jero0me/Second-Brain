@@ -387,8 +387,10 @@ body::after {
       }
       const s = latest.sleep;
       if (s){
-        if(s.sleepStart){ const d=new Date(s.sleepStart); bedHour=clamp(d.getHours()+d.getMinutes()/60,20,23.9); }
-        if(s.sleepEnd){ const d=new Date(s.sleepEnd); wakeHour=clamp(d.getHours()+d.getMinutes()/60,4,11); }
+        const bedD = window.EnergyModel.parseHealthDate(s.sleepStart);
+        if (bedD) bedHour = clamp(bedD.getHours()+bedD.getMinutes()/60,20,23.9);
+        const wakeD = window.EnergyModel.parseHealthDate(s.sleepEnd);
+        if (wakeD) wakeHour = clamp(wakeD.getHours()+wakeD.getMinutes()/60,4,11);
       }
       renderAll();
     }catch(e){}
