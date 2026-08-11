@@ -9,6 +9,7 @@
 <title>Caffeine · Dashboard</title>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="energy.js"></script>
 <script src="sync.js" defer></script>
 <script src="topbar.js" defer></script>
 <script src="applehealth.js" defer></script>
@@ -286,7 +287,6 @@ body::after {
   'use strict';
   const $ = (id) => document.getElementById(id);
   const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
-  const gauss = (x,mu,sd) => Math.exp(-Math.pow(x-mu,2)/(2*sd*sd));
 
   /* ============ Pharmacokinetics ============ */
   const HALF_LIFE_H = 5, PEAK_MIN = 45, FDA_MAX = 400;
@@ -360,33 +360,20 @@ body::after {
   }
   function fmtTime(ts) { const d=new Date(ts); return fmtClock(d.getHours()+d.getMinutes()/60); }
 
-  /* ============ Pharmacokinetics ============ */
-  function activeAt(dose, ts, t) { const hrs=(t-ts)/3600000; return hrs<0?0:dose*Math.pow(0.5,hrs/HALF_LIFE_H); }
-  function totalActiveAt(t) { let s=0; for(const l of logs) s+=activeAt(l.mg,l.ts,t); return s; }
+  /* ============ Pharmacokinetics (delegates to shared EnergyModel) ============ */
+  function activeAt(dose, ts, t) { return window.EnergyModel.activeAt(dose, ts, t); }
+  function totalActiveAt(t) { return window.EnergyModel.totalActiveAt(logs, t); }
   function milestones(l) {
     const peak=l.ts+PEAK_MIN*60000, half=l.ts+HALF_LIFE_H*3600000;
     const clearedH = l.mg>10 ? HALF_LIFE_H*Math.log2(l.mg/10) : 0.5;
     return { peak, half, cleared: l.ts+clearedH*3600000 };
   }
 
-  /* ============ Energy model (two-process + caffeine) ============ */
-  // circadian alertness, peaks ~16:30, troughs ~04:30
-  function circadian(t){ return 50 + 18*Math.cos(2*Math.PI*(t-16.5)/24); }
-  function lunchDip(t){ return 10*gauss(t,14,1.4); }
-  function sleepPressure(awakeH){ return clamp(awakeH,0,24)*1.7; }
-  function morningBump(t){ const d=t-wakeHour; return (d<0||d>4)?0:10*gauss(d,1.2,0.9); }
-  function caffeineBoostAt(t){ const a=totalActiveAt(hToTs(t)); return 34*(1-Math.exp(-a/110)); }
-  function asleepAt(t){ return (t < wakeHour) || (t >= bedHour); }
-  // energy with or without caffeine
-  function energyAt(t, withCaf){
-    const C = circadian(t);
-    if (asleepAt(t)) return clamp(C-34, 3, 20);
-    let e = C - lunchDip(t) - sleepPressure(t-wakeHour) + morningBump(t);
-    if (withCaf !== false) e += caffeineBoostAt(t);
-    return clamp(e, 0, 100);
-  }
-  function stateWord(v){ if(v>=80)return'Peak'; if(v>=62)return'High'; if(v>=44)return'Steady'; if(v>=28)return'Dip'; return'Low'; }
-  function energyColor(v){ if(v>=62)return'#6BE3A4'; if(v>=40)return'#F2C063'; return '#FF8A8A'; }
+  /* ============ Energy model (two-process + caffeine) — delegates to shared EnergyModel ============ */
+  function ctxNow() { return { wakeHour, bedHour, recovery, caffeineLogs: logs }; }
+  function energyAt(t, withCaf){ return window.EnergyModel.energyAt(t, ctxNow(), withCaf); }
+  function stateWord(v){ return window.EnergyModel.stateWord(v); }
+  function energyColor(v){ return window.EnergyModel.energyColor(v); }
 
   /* ============ Apple Health (optional) ============ */
   async function loadHealth(){
@@ -622,14 +609,18 @@ body::after {
   readProfile();
   renderResults('');
   renderAll();
-  loadHealth();
   setInterval(()=>{ if(scrubT==null) renderAll(); }, 60000);
 
-  /* ============ Cloud sync ============ */
-  if(window.initCloudSync){
-    window.initCloudSync({ appKey:'caffeine', syncedKeys:[LOGS_KEY,CUSTOM_KEY],
-      onApplied:function(){ logs=loadJSON(LOGS_KEY,[]); custom=loadJSON(CUSTOM_KEY,[]); renderResults($('search').value); renderAll(); } });
-  }
+  // loadHealth() and initCloudSync depend on applehealth.js/sync.js, which
+  // are `defer`red — they haven't run yet when this inline script executes
+  // (inline scripts run during parsing, before any deferred script does).
+  document.addEventListener('DOMContentLoaded', function () {
+    loadHealth();
+    if (window.initCloudSync) {
+      window.initCloudSync({ appKey:'caffeine', syncedKeys:[LOGS_KEY,CUSTOM_KEY],
+        onApplied:function(){ logs=loadJSON(LOGS_KEY,[]); custom=loadJSON(CUSTOM_KEY,[]); renderResults($('search').value); renderAll(); } });
+    }
+  });
 })();
 </script>
 </body>

@@ -8,8 +8,10 @@
 <meta name="theme-color" content="#050506">
 <title>Jerome's Second Brain</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="energy.js"></script>
 <script src="sync.js" defer></script>
 <script src="topbar.js" defer></script>
+<script src="applehealth.js" defer></script>
 <style>
 :root {
   --text-primary: #FAFAFA;
@@ -391,18 +393,7 @@ body::after {
   text-decoration: line-through;
   text-decoration-color: rgba(255,255,255,0.4);
 }
-.gm-row.gm-row-queued {
-  background: rgba(242,192,99,0.10);
-  box-shadow: inset 3px 0 0 0 #F2C063;
-}
-.gm-row.gm-row-queued .gm-text { color: #FFE2A8; }
 .gm-row.is-drag-over { border-top: 2px solid #6BE3A4; }
-.gm-row.is-queue-flashing { animation: gm-queue-flash 0.48s ease-out; }
-@keyframes gm-queue-flash {
-  0%   { background: rgba(255,255,255,0.035); transform: scale(1); }
-  40%  { background: rgba(242,192,99,0.32); transform: scale(1.015); }
-  100% { background: rgba(255,255,255,0.035); transform: scale(1); }
-}
 
 .gm-handle {
   width: 14px; flex-shrink: 0;
@@ -474,11 +465,6 @@ body::after {
   transition: opacity 0.2s, color 0.2s, transform 0.1s;
 }
 .gm-queue-btn:hover { opacity: 1; }
-.gm-queue-btn.gm-queue-active {
-  color: #F2C063;
-  opacity: 1;
-  filter: drop-shadow(0 0 4px rgba(242,192,99,0.65));
-}
 .gm-queue-btn:disabled { cursor: not-allowed; opacity: 0.3; }
 
 .goal-delete {
@@ -590,6 +576,150 @@ body::after {
 }
 .gm-status.gm-status-error { color: var(--danger); }
 
+.gm-habit-icon { font-size: 12px; opacity: 0.7; flex-shrink: 0; }
+
+.hb-form {
+  margin-top: 14px; padding-top: 14px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+  display: flex; flex-direction: column; gap: 10px;
+}
+.hb-form-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.hb-field { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 140px; }
+.hb-label {
+  font-size: 10px; font-weight: 700;
+  letter-spacing: 0.10em; text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+.hb-seg, .hb-days { display: flex; gap: 4px; }
+.hb-seg button, .hb-days button {
+  flex: 1; padding: 8px 6px;
+  border: 1px solid rgba(255,255,255,0.08); border-radius: 8px;
+  background: rgba(0,0,0,0.28); color: var(--text-tertiary);
+  font-family: inherit; font-size: 12px; font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.hb-seg button.on, .hb-days button.on {
+  background: rgba(255,255,255,0.10); color: var(--text-primary);
+  border-color: rgba(255,255,255,0.24);
+}
+.hb-num { max-width: 100px; }
+.hb-select { cursor: pointer; }
+.hb-row-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.hb-row-text { padding: 0; margin: 0; cursor: default; }
+.hb-row-meta { font-size: 11px; color: var(--text-tertiary); font-family: var(--font-mono); }
+
+.tpl-blocks { display: flex; flex-direction: column; gap: 6px; }
+.tpl-block-chip {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 8px 12px; border-radius: 10px;
+  background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.06);
+  font-size: 12.5px; color: var(--text-primary);
+}
+.tpl-block-rm { border: 0; background: transparent; color: var(--text-tertiary); font-size: 16px; cursor: pointer; padding: 0 4px; flex-shrink: 0; }
+.tpl-block-rm:hover { color: var(--danger); }
+.tpl-apply-btn {
+  border: 1px solid rgba(255,255,255,0.10); background: rgba(255,255,255,0.04);
+  color: var(--text-secondary); font-family: inherit; font-size: 11px; font-weight: 600;
+  padding: 6px 10px; border-radius: 8px; cursor: pointer; flex-shrink: 0;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.tpl-apply-btn:hover { background: rgba(255,255,255,0.08); color: var(--text-primary); border-color: rgba(255,255,255,0.20); }
+.tb-grid-wrap { margin-bottom: 14px; }
+.tb-grid {
+  display: flex; gap: 8px;
+  max-height: 420px; overflow-y: auto;
+  border: 1px solid rgba(255,255,255,0.06); border-radius: 14px;
+  background: rgba(255,255,255,0.02); padding: 10px 10px 10px 0;
+}
+.tb-hours { position: relative; width: 44px; flex-shrink: 0; }
+.tb-hour-label {
+  position: absolute; left: 0; right: 6px; transform: translateY(-50%);
+  font-size: 9.5px; font-family: var(--font-mono); color: var(--text-tertiary);
+  text-align: right;
+}
+.tb-body { position: relative; flex: 1; min-width: 0; }
+.tb-hour-line { position: absolute; left: 0; right: 0; height: 1px; background: rgba(255,255,255,0.05); }
+.tb-now-line {
+  position: absolute; left: 0; right: 0; height: 2px;
+  background: #6BE3A4; box-shadow: 0 0 8px rgba(107,227,164,0.6); z-index: 5;
+}
+.tb-now-line::before {
+  content: ''; position: absolute; left: -3px; top: -3px;
+  width: 8px; height: 8px; border-radius: 50%; background: #6BE3A4;
+}
+
+.tb-block {
+  position: absolute; left: 4px; right: 4px;
+  border-radius: 8px; padding: 5px 8px; overflow: hidden;
+  font-size: 11px; cursor: default;
+  touch-action: none;
+}
+.tb-block-fixed {
+  background: rgba(123,91,176,0.14); border: 1px solid rgba(123,91,176,0.35);
+  color: #C9B6EA;
+}
+.tb-block-task {
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.10);
+  color: var(--text-primary); cursor: grab; user-select: none;
+}
+.tb-block-task.tb-dragging { cursor: grabbing; z-index: 10; box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
+.tb-block-task.tb-imp-3 { box-shadow: inset 3px 0 0 0 #FF8A8A; }
+.tb-block-task.tb-imp-2 { box-shadow: inset 3px 0 0 0 #F2C063; }
+.tb-block-task.tb-imp-1 { box-shadow: inset 3px 0 0 0 rgba(255,255,255,0.25); }
+.tb-block-label { font-weight: 700; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
+.tb-block-time { font-family: var(--font-mono); font-size: 9.5px; opacity: 0.75; margin-top: 1px; }
+.tb-block-unplace {
+  position: absolute; top: 3px; right: 4px;
+  border: 0; background: transparent; color: inherit; opacity: 0.55;
+  font-size: 11px; cursor: pointer; padding: 2px;
+}
+.tb-block-unplace:hover { opacity: 1; }
+.tb-resize-handle { position: absolute; left: 0; right: 0; bottom: 0; height: 8px; cursor: ns-resize; }
+
+.tb-tray-head {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.10em; text-transform: uppercase;
+  color: var(--text-tertiary); margin: 4px 0 8px;
+}
+
+.tb-imp-btn {
+  width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0;
+  border: 1px solid rgba(255,255,255,0.14); background: rgba(255,255,255,0.04);
+  color: var(--text-tertiary); font-size: 10px; font-weight: 800; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.tb-imp-btn.tb-imp-2 { color: #F2C063; border-color: rgba(242,192,99,0.4); background: rgba(242,192,99,0.08); }
+.tb-imp-btn.tb-imp-3 { color: #FF8A8A; border-color: rgba(255,138,138,0.4); background: rgba(255,138,138,0.08); }
+.tb-imp-btn:disabled { cursor: not-allowed; opacity: 0.4; }
+
+.tb-place-btn { font-size: 13px; }
+.tb-place-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 14px 12px; margin: -2px 0 6px;
+}
+.tb-place-row input[type="time"] { flex: 1; min-width: 0; }
+
+.tb-block-nap {
+  background: rgba(158,132,255,0.14); border: 1px solid rgba(158,132,255,0.40);
+  color: #C9BBFF;
+}
+.tb-ai-row {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.tb-ai-btn {
+  padding: 9px 16px; border: 0; border-radius: 12px;
+  background: linear-gradient(180deg, #C9BBFF 0%, #9E84FF 100%);
+  color: #0A0A0B; font-family: inherit; font-size: 12.5px; font-weight: 700;
+  cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.5), 0 4px 14px rgba(158,132,255,0.30);
+  transition: transform 0.1s, filter 0.15s, opacity 0.15s;
+}
+.tb-ai-btn:hover:not(:disabled) { filter: brightness(1.06); transform: translateY(-1px); }
+.tb-ai-btn:disabled { cursor: not-allowed; opacity: 0.35; box-shadow: none; background: rgba(255,255,255,0.08); color: var(--text-tertiary); }
+.tb-ai-status { font-size: 11px; color: var(--text-tertiary); }
+
 @media (max-width: 480px) {
   body { padding: max(20px, env(safe-area-inset-top)) 14px 50px; }
   .gm-card { padding: 16px; }
@@ -662,6 +792,17 @@ body::after {
         </div>
       </div>
       <div class="gm-bar" id="gmBar"></div>
+      <div class="tb-ai-row">
+        <button type="button" id="todayAutoBtn" class="tb-ai-btn" disabled>✨ Auto-schedule</button>
+        <span class="tb-ai-status" id="todayAutoStatus">Checking today's sleep sync…</span>
+      </div>
+      <div class="tb-grid-wrap">
+        <div class="tb-grid">
+          <div class="tb-hours" id="todayGridHours"></div>
+          <div class="tb-body" id="todayGridBody"></div>
+        </div>
+      </div>
+      <div class="tb-tray-head">Unscheduled</div>
       <ul id="goalList" class="goal-list gm-list"></ul>
       <div id="emptyState" class="empty-state">No goals for today yet — add one below.</div>
       <button type="button" id="gmPushBtn" class="gm-push-btn" style="display:none;">Push remaining to tomorrow</button>
@@ -682,6 +823,17 @@ body::after {
         </div>
         <div class="gm-tomorrow-count" id="gmTomorrowCount">0 planned</div>
       </div>
+      <div class="tb-ai-row">
+        <button type="button" id="tomorrowAutoBtn" class="tb-ai-btn" disabled>✨ Auto-schedule</button>
+        <span class="tb-ai-status" id="tomorrowAutoStatus">Available once tomorrow arrives and syncs</span>
+      </div>
+      <div class="tb-grid-wrap">
+        <div class="tb-grid">
+          <div class="tb-hours" id="tomorrowGridHours"></div>
+          <div class="tb-body" id="tomorrowGridBody"></div>
+        </div>
+      </div>
+      <div class="tb-tray-head">Unscheduled</div>
       <ul id="tomorrowList" class="goal-list gm-list"></ul>
       <div id="tomorrowEmpty" class="empty-state">Nothing planned for tomorrow yet</div>
       <div class="goal-input-wrap gm-input-wrap">
@@ -689,6 +841,131 @@ body::after {
         <button type="button" id="tomorrowAddBtn"    class="gm-add">+ Add</button>
         <button type="button" id="tomorrowPolishBtn" class="gm-polish">✨ Polish</button>
         <div class="gm-status" id="tomorrowStatus"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Habits</div>
+    <div class="gm-card" id="habitsCard">
+      <div class="gm-header">
+        <div class="gm-header-left">
+          <div class="gm-eyebrow">Recurring</div>
+          <div class="gm-progress-row">
+            <span class="gm-progress-num" id="habitsCount">0</span>
+            <span class="gm-progress-label">active</span>
+          </div>
+        </div>
+        <button type="button" id="habitsAddToggle" class="gm-polish">+ Add habit</button>
+      </div>
+      <ul id="habitsList" class="goal-list gm-list"></ul>
+      <div id="habitsEmpty" class="empty-state">No habits yet — add one below.</div>
+
+      <div id="habitsForm" class="hb-form" style="display:none">
+        <input id="habitText" class="gm-input" type="text" placeholder="Habit (e.g. Stretch 10 min)" autocomplete="off">
+        <div class="hb-form-row">
+          <div class="hb-field">
+            <label class="hb-label">Importance</label>
+            <div class="hb-seg" id="habitImportanceSeg">
+              <button type="button" data-v="1">Low</button>
+              <button type="button" data-v="2" class="on">Med</button>
+              <button type="button" data-v="3">High</button>
+            </div>
+          </div>
+          <div class="hb-field">
+            <label class="hb-label">Duration (min)</label>
+            <input id="habitDuration" class="gm-input hb-num" type="number" min="5" step="5" value="15">
+          </div>
+        </div>
+        <div class="hb-field">
+          <label class="hb-label">Days</label>
+          <div class="hb-days" id="habitDays">
+            <button type="button" data-d="0">S</button>
+            <button type="button" data-d="1">M</button>
+            <button type="button" data-d="2">T</button>
+            <button type="button" data-d="3">W</button>
+            <button type="button" data-d="4">T</button>
+            <button type="button" data-d="5">F</button>
+            <button type="button" data-d="6">S</button>
+          </div>
+        </div>
+        <div class="hb-field">
+          <label class="hb-label">Preferred time</label>
+          <select id="habitWindow" class="gm-input hb-select">
+            <option value="any">Any time</option>
+            <option value="morning">Morning</option>
+            <option value="midday">Midday</option>
+            <option value="afternoon">Afternoon</option>
+            <option value="evening">Evening</option>
+          </select>
+        </div>
+        <div class="goal-input-wrap gm-input-wrap" style="border-top:none; padding-top:0; margin-top:2px;">
+          <button type="button" id="habitSaveBtn" class="gm-add">Save habit</button>
+          <button type="button" id="habitCancelBtn" class="gm-polish">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Shift Templates</div>
+    <div class="gm-card" id="templatesCard">
+      <div class="gm-header">
+        <div class="gm-header-left">
+          <div class="gm-eyebrow">Reusable</div>
+          <div class="gm-progress-row">
+            <span class="gm-progress-num" id="templatesCount">0</span>
+            <span class="gm-progress-label">saved</span>
+          </div>
+        </div>
+        <button type="button" id="templatesAddToggle" class="gm-polish">+ New template</button>
+      </div>
+      <ul id="templatesList" class="goal-list gm-list"></ul>
+      <div id="templatesEmpty" class="empty-state">No templates yet — build one below.</div>
+
+      <div id="templatesForm" class="hb-form" style="display:none">
+        <input id="templateName" class="gm-input" type="text" placeholder="Template name (e.g. Office day)" autocomplete="off">
+
+        <div id="templateBlocksList" class="tpl-blocks"></div>
+
+        <div class="hb-field">
+          <label class="hb-label">New block</label>
+          <div class="hb-seg" id="templateBlockKindSeg">
+            <button type="button" data-v="fixed" class="on">Fixed time</button>
+            <button type="button" data-v="zone">Energy zone</button>
+          </div>
+        </div>
+        <div class="hb-form-row">
+          <div class="hb-field">
+            <label class="hb-label">Label</label>
+            <input id="tplBlockLabel" class="gm-input" type="text" placeholder="Deep work">
+          </div>
+          <div class="hb-field" id="templateBlockFixedFields">
+            <label class="hb-label">Start – End</label>
+            <div class="hb-form-row">
+              <input id="tplBlockStart" class="gm-input" type="time" value="09:00">
+              <input id="tplBlockEnd" class="gm-input" type="time" value="12:00">
+            </div>
+          </div>
+          <div class="hb-field" id="templateBlockZoneFields" style="display:none">
+            <label class="hb-label">Duration (min)</label>
+            <input id="tplBlockDuration" class="gm-input hb-num" type="number" min="5" step="5" value="60">
+          </div>
+        </div>
+        <div class="hb-field" id="templateBlockZoneZoneField" style="display:none">
+          <label class="hb-label">Energy zone</label>
+          <div class="hb-seg" id="tplBlockZoneSeg">
+            <button type="button" data-v="high" class="on">High</button>
+            <button type="button" data-v="low">Low</button>
+            <button type="button" data-v="any">Any</button>
+          </div>
+        </div>
+        <button type="button" id="tplAddBlockBtn" class="gm-polish" style="align-self:flex-start;">+ Add block</button>
+
+        <div class="goal-input-wrap gm-input-wrap" style="border-top:none; padding-top:0; margin-top:2px;">
+          <button type="button" id="templateSaveBtn" class="gm-add">Save template</button>
+          <button type="button" id="templateCancelBtn" class="gm-polish">Cancel</button>
+        </div>
       </div>
     </div>
   </div>
@@ -702,8 +979,10 @@ body::after {
   // Paste your Anthropic key here to enable ✨ Polish. Empty = falls back to plain add.
   const ANTHROPIC_API_KEY = '';
 
-  const WAKE_HOUR  = 8;
-  const SLEEP_HOUR = 24;
+  // Fallback window used only until EnergyModel.computeContext() resolves
+  // with real Apple Health wake/bed times (or if AppleHealth isn't synced yet).
+  const FALLBACK_WAKE_HOUR  = 7;
+  const FALLBACK_SLEEP_HOUR = 23;
 
   // ---------- storage helpers ----------
   function storeGet(key) {
@@ -754,11 +1033,244 @@ body::after {
   function todayKey()    { return 'goals:' + getActiveDateString(); }
   function tomorrowKey() { return 'goals:' + getTomorrowDateString(); }
 
+  // ---------- task item shape (lazy migration) ----------
+  // Items originally only had {text, done, doneAt?, queued?}. New fields
+  // below are filled in the first time an item is read, and persisted back
+  // so ids stay stable across reads (needed once Phase 6+ references tasks
+  // by id for grid placement). Old and new shapes coexist safely.
+  function genId() { return 'g_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+  function upgradeGoal(g) {
+    let changed = false;
+    if (!g.id)                     { g.id = genId();  changed = true; }
+    if (!g.type)                   { g.type = 'task'; changed = true; } // 'task' | 'habit' | 'job'
+    if (g.importance == null)      { g.importance = 2; changed = true; } // 1=low 2=med 3=high
+    if (g.durationMin == null)     { g.durationMin = 30; changed = true; }
+    if (g.scheduled === undefined) { g.scheduled = null; changed = true; } // {start:'HH:MM', end:'HH:MM'} | null
+    if (g.locked == null)          { g.locked = false; changed = true; }
+    return changed;
+  }
+
   function getGoals(key) {
     const g = storeGet(key);
-    return Array.isArray(g) ? g : [];
+    const list = Array.isArray(g) ? g : [];
+    let anyChanged = false;
+    list.forEach((item) => { if (upgradeGoal(item)) anyChanged = true; });
+    if (anyChanged) storeSet(key, list);
+    return list;
   }
   function setGoals(key, list) { storeSet(key, list); }
+
+  // ---------- habits & shift templates ----------
+  function getHabits()        { const h = storeGet('habits:defs');   return Array.isArray(h) ? h : []; }
+  function setHabits(list)    { storeSet('habits:defs', list); }
+  function getTemplates()     { const t = storeGet('templates:defs'); return Array.isArray(t) ? t : []; }
+  function setTemplates(list) { storeSet('templates:defs', list); }
+  function getPlan(dateStr) {
+    const p = storeGet('plan:' + dateStr);
+    return (p && typeof p === 'object') ? p : { date: dateStr, templateId: null, fixedBlocks: [], napSuggestion: null, generatedAt: null };
+  }
+  function setPlan(dateStr, plan) { storeSet('plan:' + dateStr, plan); }
+
+  // ---------- habits: daily materialization into the goals pool ----------
+  // Mirrors rollover()'s "carry forward, dedup, don't duplicate" shape —
+  // dedup here is by sourceHabitId instead of exact text match.
+  function habitDueOn(habit, dateStr) {
+    if (!habit.days || habit.days.length === 0) return true; // no days picked = every day
+    const parts = dateStr.split('-').map(Number);
+    const d = new Date(parts[0], parts[1] - 1, parts[2]);
+    return habit.days.indexOf(d.getDay()) !== -1;
+  }
+  function materializeHabits(dateStr) {
+    const key = 'goals:' + dateStr;
+    const list = getGoals(key);
+    const already = new Set(list.filter((g) => g.sourceHabitId).map((g) => g.sourceHabitId));
+    let changed = false;
+    getHabits().filter((h) => h.active).forEach((h) => {
+      if (already.has(h.id)) return;
+      if (!habitDueOn(h, dateStr)) return;
+      list.push({
+        id: genId(), text: h.text, done: false, type: 'habit',
+        importance: h.importance, durationMin: h.durationMin,
+        preferredWindow: h.preferredWindow, sourceHabitId: h.id,
+        locked: false, scheduled: null,
+      });
+      changed = true;
+    });
+    if (changed) setGoals(key, list);
+  }
+
+  function importanceLabel(v) { return v === 3 ? 'High' : v === 1 ? 'Low' : 'Med'; }
+  function daysLabel(days) {
+    if (!days || days.length === 0 || days.length === 7) return 'Every day';
+    const sorted = days.slice().sort();
+    if (sorted.length === 5 && [1,2,3,4,5].every((d) => days.indexOf(d) !== -1)) return 'Weekdays';
+    if (sorted.length === 2 && [0,6].every((d) => days.indexOf(d) !== -1)) return 'Weekends';
+    const names = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    return sorted.map((d) => names[d]).join(' ');
+  }
+  function windowLabel(w) { return w && w !== 'any' ? (w.charAt(0).toUpperCase() + w.slice(1)) : 'Any time'; }
+
+  function buildHabitRow(habit, reload) {
+    const li = document.createElement('li');
+    li.className = 'gm-row';
+    if (!habit.active) li.classList.add('gm-row-done');
+
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.className = 'gm-check';
+    cb.checked = !!habit.active;
+    cb.title = 'Active';
+    cb.addEventListener('change', () => {
+      const list = getHabits();
+      const h = list.find((x) => x.id === habit.id);
+      if (h) { h.active = cb.checked; setHabits(list); }
+      reload();
+    });
+    li.appendChild(cb);
+
+    const info = document.createElement('div');
+    info.className = 'hb-row-info';
+    const title = document.createElement('div');
+    title.className = 'gm-text hb-row-text';
+    title.textContent = habit.text;
+    info.appendChild(title);
+    const meta = document.createElement('div');
+    meta.className = 'hb-row-meta';
+    meta.textContent = importanceLabel(habit.importance) + ' · ' + habit.durationMin + 'm · ' + daysLabel(habit.days) + ' · ' + windowLabel(habit.preferredWindow);
+    info.appendChild(meta);
+    li.appendChild(info);
+
+    const del = document.createElement('button');
+    del.type = 'button';
+    del.className = 'goal-delete';
+    del.setAttribute('aria-label', 'Delete habit');
+    del.textContent = '×';
+    del.addEventListener('click', () => {
+      if (!confirm('Delete habit "' + habit.text + '"?')) return;
+      setHabits(getHabits().filter((x) => x.id !== habit.id));
+      reload();
+    });
+    li.appendChild(del);
+
+    return li;
+  }
+
+  function renderHabits() {
+    const habits = getHabits();
+    document.getElementById('habitsCount').textContent = String(habits.filter((h) => h.active).length);
+    const listEl = document.getElementById('habitsList');
+    const emptyEl = document.getElementById('habitsEmpty');
+    listEl.innerHTML = '';
+    emptyEl.style.display = habits.length === 0 ? 'block' : 'none';
+    habits.forEach((h) => listEl.appendChild(buildHabitRow(h, renderHabits)));
+  }
+
+  // ---------- shift templates: CRUD + apply-to-day ----------
+  function templateSummary(t) {
+    const fixed = t.blocks.filter((b) => b.kind === 'fixed').length;
+    const zone = t.blocks.filter((b) => b.kind === 'zone').length;
+    const parts = [];
+    if (fixed) parts.push(fixed + ' fixed');
+    if (zone) parts.push(zone + ' flexible');
+    return parts.join(' · ') || 'No blocks';
+  }
+
+  function buildTemplateRow(t, reload) {
+    const li = document.createElement('li');
+    li.className = 'gm-row';
+
+    const info = document.createElement('div');
+    info.className = 'hb-row-info';
+    const title = document.createElement('div');
+    title.className = 'gm-text hb-row-text';
+    title.textContent = t.name;
+    info.appendChild(title);
+    const meta = document.createElement('div');
+    meta.className = 'hb-row-meta';
+    meta.textContent = templateSummary(t);
+    info.appendChild(meta);
+    li.appendChild(info);
+
+    const applyToday = document.createElement('button');
+    applyToday.type = 'button';
+    applyToday.className = 'tpl-apply-btn';
+    applyToday.textContent = 'Today';
+    applyToday.addEventListener('click', () => applyTemplate(t.id, getActiveDateString()));
+    li.appendChild(applyToday);
+
+    const applyTomorrow = document.createElement('button');
+    applyTomorrow.type = 'button';
+    applyTomorrow.className = 'tpl-apply-btn';
+    applyTomorrow.textContent = 'Tmrw';
+    applyTomorrow.addEventListener('click', () => applyTemplate(t.id, getTomorrowDateString()));
+    li.appendChild(applyTomorrow);
+
+    const edit = document.createElement('button');
+    edit.type = 'button';
+    edit.className = 'gm-queue-btn';
+    edit.textContent = '✎';
+    edit.title = 'Edit template';
+    edit.addEventListener('click', () => startEditTemplate(t));
+    li.appendChild(edit);
+
+    const del = document.createElement('button');
+    del.type = 'button';
+    del.className = 'goal-delete';
+    del.setAttribute('aria-label', 'Delete template');
+    del.textContent = '×';
+    del.addEventListener('click', () => {
+      if (!confirm('Delete template "' + t.name + '"?')) return;
+      setTemplates(getTemplates().filter((x) => x.id !== t.id));
+      reload();
+    });
+    li.appendChild(del);
+
+    return li;
+  }
+
+  function renderTemplates() {
+    const list = getTemplates();
+    document.getElementById('templatesCount').textContent = String(list.length);
+    const listEl = document.getElementById('templatesList');
+    const emptyEl = document.getElementById('templatesEmpty');
+    listEl.innerHTML = '';
+    emptyEl.style.display = list.length === 0 ? 'block' : 'none';
+    list.forEach((t) => listEl.appendChild(buildTemplateRow(t, renderTemplates)));
+  }
+
+  function applyTemplate(templateId, dateStr) {
+    const tpl = getTemplates().find((t) => t.id === templateId);
+    if (!tpl) return;
+    const existing = getPlan(dateStr);
+    if (existing.fixedBlocks && existing.fixedBlocks.length > 0) {
+      const label = existing.templateId === templateId ? 'Re-apply' : 'Replace the existing template with';
+      if (!confirm(label + ' "' + tpl.name + '" on ' + dateStr + '?')) return;
+    }
+
+    const fixedBlocks = tpl.blocks
+      .filter((b) => b.kind === 'fixed')
+      .map((b) => ({ id: genId(), label: b.label, start: b.start, end: b.end }));
+    setPlan(dateStr, { date: dateStr, templateId: tpl.id, fixedBlocks, napSuggestion: null, generatedAt: null });
+
+    // Zone blocks aren't placed directly — they become pseudo-tasks in that
+    // day's pool (with a preferredZone hint) so they're scheduled like any
+    // other task once the AI scheduler (Phase 7) or manual placement runs.
+    const key = 'goals:' + dateStr;
+    const goals = getGoals(key);
+    tpl.blocks.filter((b) => b.kind === 'zone').forEach((b) => {
+      goals.push({
+        id: genId(), text: b.label, done: false, type: 'task',
+        importance: 2, durationMin: b.durationMin, preferredZone: b.energyZone,
+        locked: false, scheduled: null,
+      });
+    });
+    setGoals(key, goals);
+
+    // loadToday()/loadTomorrow() re-render the grid too, which now shows
+    // applied fixed blocks directly — no separate text summary needed.
+    loadToday();
+    loadTomorrow();
+  }
 
   // ---------- rollover: pull undone older goals into today ----------
   function rollover() {
@@ -773,7 +1285,11 @@ body::after {
       const old = getGoals(k);
       old.forEach(g => {
         if (!g.done && g.text && !texts.has(g.text)) {
-          today.push({ text: g.text, done: false });
+          // Carry the full item forward (importance/duration/type/etc.),
+          // not just its text — but placement/completion don't carry over.
+          const next = Object.assign({}, g, { id: genId(), done: false, scheduled: null, locked: false });
+          delete next.doneAt;
+          today.push(next);
           texts.add(g.text);
         }
       });
@@ -877,32 +1393,37 @@ body::after {
   });
 
   // ---------- Day Ring ----------
-  const PALETTE = [
-    [0,    [255, 216, 158]],
-    [12.5, [255, 205, 121]],
-    [25,   [255, 227, 143]],
-    [37.5, [255, 183, 106]],
-    [50,   [255, 149,  89]],
-    [62.5, [243, 111,  79]],
-    [75,   [226,  93, 122]],
-    [87.5, [123,  91, 176]],
-    [100,  [ 47,  58, 102]]
-  ];
-  function lerp(a, b, t) { return a + (b - a) * t; }
-  function paletteAt(p) {
-    if (p <= PALETTE[0][0]) return PALETTE[0][1];
-    if (p >= PALETTE[PALETTE.length - 1][0]) return PALETTE[PALETTE.length - 1][1];
-    for (let i = 0; i < PALETTE.length - 1; i++) {
-      const [p0, c0] = PALETTE[i];
-      const [p1, c1] = PALETTE[i + 1];
-      if (p >= p0 && p <= p1) {
-        const t = (p - p0) / (p1 - p0);
-        return [lerp(c0[0], c1[0], t), lerp(c0[1], c1[1], t), lerp(c0[2], c1[2], t)];
-      }
+  // ctx is refreshed from real Apple Health data (see refreshDayRingContext
+  // below); falls back to FALLBACK_WAKE_HOUR/FALLBACK_SLEEP_HOUR with no
+  // recovery/energy data until AppleHealth has synced at least once.
+  let dayRingCtx = { wakeHour: FALLBACK_WAKE_HOUR, bedHour: FALLBACK_SLEEP_HOUR, recovery: null, caffeineLogs: [] };
+
+  async function refreshDayRingContext() {
+    if (window.EnergyModel) {
+      try { dayRingCtx = await window.EnergyModel.computeContext(); } catch (e) {}
     }
-    return [255,255,255];
+    updateDayRing();
+    updateAutoScheduleAvailability();
   }
-  function rgb(c) { return 'rgb(' + Math.round(c[0]) + ',' + Math.round(c[1]) + ',' + Math.round(c[2]) + ')'; }
+
+  // Tomorrow's Auto-schedule button stays permanently disabled — there is no
+  // cross-day energy prediction (confirmed decision): a day only gets AI
+  // scheduling once its own real sleep data has synced that morning.
+  function updateAutoScheduleAvailability() {
+    const btn = document.getElementById('todayAutoBtn');
+    const statusEl = document.getElementById('todayAutoStatus');
+    if (!btn || !statusEl) return;
+    const eligible = dayRingCtx.syncDate === getActiveDateString();
+    btn.disabled = !eligible;
+    if (!eligible) {
+      statusEl.textContent = 'Syncs after you wake up (Apple Health)';
+    } else {
+      const plan = getPlan(getActiveDateString());
+      statusEl.textContent = plan.generatedAt
+        ? 'Last scheduled ' + new Date(plan.generatedAt).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+        : 'Uses this morning\'s sleep sync';
+    }
+  }
 
   function formatClock(d) {
     let h = d.getHours();
@@ -926,26 +1447,31 @@ body::after {
   function updateDayRing() {
     const now = new Date();
     const hours = now.getHours() + now.getMinutes() / 60 + now.getSeconds() / 3600;
+    const ctx = dayRingCtx;
     const percentEl   = document.getElementById('dayRingPercent');
     const phaseEl     = document.getElementById('dayRingPhase');
     const clockEl     = document.getElementById('dayRingClock');
     const statusEl    = document.getElementById('dayRingStatus');
     const remainingEl = document.getElementById('dayRingRemaining');
+    const hoursEl     = document.querySelector('.day-ring-hours');
+    if (hoursEl && window.EnergyModel) {
+      hoursEl.textContent = window.EnergyModel.fmtClock(ctx.wakeHour) + ' – ' + window.EnergyModel.fmtClock(ctx.bedHour);
+    }
 
     clockEl.textContent = formatClock(now);
 
-    if (hours < WAKE_HOUR) {
+    if (hours < ctx.wakeHour) {
       fillEl.setAttribute('stroke-dashoffset', C);
       fillEl.style.stroke = '#4D4B47';
       percentEl.textContent = '—';
       phaseEl.textContent   = 'SLEEPING';
       statusEl.textContent  = '😴 Still sleeping';
-      const minsUntil = (WAKE_HOUR - hours) * 60;
+      const minsUntil = (ctx.wakeHour - hours) * 60;
       remainingEl.textContent = formatRemaining(minsUntil) + ' until wake-up';
       return;
     }
 
-    if (hours >= SLEEP_HOUR) {
+    if (hours >= ctx.bedHour) {
       fillEl.setAttribute('stroke-dashoffset', 0);
       fillEl.style.stroke = '#E25D7A';
       percentEl.textContent = '100%';
@@ -955,27 +1481,29 @@ body::after {
       return;
     }
 
-    const span = SLEEP_HOUR - WAKE_HOUR;
-    const percent = (hours - WAKE_HOUR) / span * 100;
+    const percent = window.EnergyModel ? window.EnergyModel.energyAt(hours, ctx, true) : (hours - ctx.wakeHour) / (ctx.bedHour - ctx.wakeHour) * 100;
+    const color = window.EnergyModel ? window.EnergyModel.energyColor(percent) : '#F2C063';
     fillEl.setAttribute('stroke-dashoffset', C * (1 - percent / 100));
-    fillEl.style.stroke = rgb(paletteAt(percent));
-    percentEl.textContent = Math.floor(percent) + '%';
+    fillEl.style.stroke = color;
+    percentEl.textContent = Math.round(percent) + '%';
 
-    let phase, status;
-    if (percent < 25)      { phase = 'MORNING';   status = '☀️ Morning — fresh start'; }
-    else if (percent < 50) { phase = 'MIDDAY';    status = '⚡ Midday — keep moving'; }
-    else if (percent < 75) { phase = 'AFTERNOON'; status = '🔥 Afternoon — push it'; }
-    else if (percent < 90) { phase = 'EVENING';   status = '⏳ Evening — wrap up'; }
-    else                   { phase = 'BEDTIME';   status = '🌙 Bedtime soon'; }
-    phaseEl.textContent  = phase;
-    statusEl.textContent = status;
+    const phaseWord = window.EnergyModel ? window.EnergyModel.stateWord(percent) : 'STEADY';
+    const statusByPhase = {
+      Peak:   '🔥 Peak energy — push it',
+      High:   '⚡ High energy — keep moving',
+      Steady: '☀️ Steady — good working state',
+      Dip:    '⏳ Energy dip — lighter tasks',
+      Low:    '🌙 Low energy — wind down',
+    };
+    phaseEl.textContent  = phaseWord.toUpperCase();
+    statusEl.textContent = statusByPhase[phaseWord] || '—';
 
-    const minsLeft = (SLEEP_HOUR - hours) * 60;
+    const minsLeft = (ctx.bedHour - hours) * 60;
     remainingEl.textContent = formatRemaining(minsLeft) + ' awake time left';
   }
 
   // ---------- Row building ----------
-  function makeInlineEdit(textEl, goals, idx, key, reload) {
+  function makeInlineEdit(textEl, id, key, reload) {
     textEl.addEventListener('click', () => {
       if (textEl.getAttribute('contenteditable') === 'true') return;
       const original = textEl.textContent;
@@ -992,7 +1520,8 @@ body::after {
         textEl.removeAttribute('contenteditable');
         if (next && next !== original) {
           const list = getGoals(key);
-          if (list[idx]) { list[idx].text = next; setGoals(key, list); }
+          const item = list.find((g) => g.id === id);
+          if (item) { item.text = next; setGoals(key, list); }
           reload();
         } else {
           textEl.textContent = original;
@@ -1010,11 +1539,14 @@ body::after {
     });
   }
 
-  function wireDragReorder(row, listEl, key, reload) {
+  // Reorders within the day's full stored list (not just the visible/filtered
+  // subset), so dragging within the unscheduled tray still makes sense even
+  // when scheduled items are interleaved elsewhere in the underlying array.
+  function wireDragReorder(row, key, reload, id) {
     row.setAttribute('draggable', 'true');
     row.addEventListener('dragstart', (e) => {
       e.dataTransfer.effectAllowed = 'move';
-      e.dataTransfer.setData('text/plain', row.dataset.idx);
+      e.dataTransfer.setData('text/plain', id);
     });
     row.addEventListener('dragover', (e) => {
       e.preventDefault();
@@ -1024,23 +1556,378 @@ body::after {
     row.addEventListener('drop', (e) => {
       e.preventDefault();
       row.classList.remove('is-drag-over');
-      const from = parseInt(e.dataTransfer.getData('text/plain'), 10);
-      const to   = parseInt(row.dataset.idx, 10);
-      if (isNaN(from) || isNaN(to) || from === to) return;
+      const fromId = e.dataTransfer.getData('text/plain');
+      if (!fromId || fromId === id) return;
       const list = getGoals(key);
-      const [moved] = list.splice(from, 1);
-      list.splice(to, 0, moved);
+      const fromIdx = list.findIndex((g) => g.id === fromId);
+      if (fromIdx === -1) return;
+      const [moved] = list.splice(fromIdx, 1);
+      const toIdx = list.findIndex((g) => g.id === id); // recompute after removal shifts indices
+      list.splice(toIdx === -1 ? list.length : toIdx, 0, moved);
       setGoals(key, list);
       reload();
     });
   }
 
-  function buildGoalRow(goal, idx, key, readOnly, reload) {
+  // ---------- Time-blocking grid ----------
+  // Fixed 6am-midnight window (confirmed decision — not dynamic per day).
+  const GRID_START_HOUR = 6, GRID_END_HOUR = 24;
+  const GRID_PX_PER_MIN = 1.1;
+  const GRID_SNAP_MIN = 15;
+
+  function timeToMin(hhmm) { const p = hhmm.split(':').map(Number); return p[0] * 60 + p[1]; }
+  function minToTime(min) {
+    min = Math.max(0, Math.min(24 * 60 - 1, Math.round(min)));
+    return String(Math.floor(min / 60)).padStart(2, '0') + ':' + String(min % 60).padStart(2, '0');
+  }
+  function gridSnap(min) { return Math.round(min / GRID_SNAP_MIN) * GRID_SNAP_MIN; }
+  function minToTop(min) { return (min - GRID_START_HOUR * 60) * GRID_PX_PER_MIN; }
+  function topToMin(px) { return px / GRID_PX_PER_MIN + GRID_START_HOUR * 60; }
+  function fmtTimeLabel(hhmm) {
+    const p = hhmm.split(':').map(Number);
+    const ap = p[0] >= 12 ? 'PM' : 'AM';
+    let h12 = p[0] % 12; if (h12 === 0) h12 = 12;
+    return h12 + (p[1] ? ':' + String(p[1]).padStart(2, '0') : '') + ap;
+  }
+  function defaultPlaceTime() {
+    const now = new Date();
+    let min = gridSnap(now.getHours() * 60 + now.getMinutes() + GRID_SNAP_MIN - 1);
+    min = Math.max(GRID_START_HOUR * 60, Math.min((GRID_END_HOUR - 1) * 60, min));
+    return minToTime(min);
+  }
+
+  function wireGridBlockDrag(blockEl, resizeHandle, opts) {
+    let mode = null;
+    let startY = 0, startTop = 0, startHeight = 0;
+    const durationMin = timeToMin(opts.end) - timeToMin(opts.start);
+    const maxTop = (GRID_END_HOUR - GRID_START_HOUR) * 60 * GRID_PX_PER_MIN;
+
+    function begin(e, m) {
+      mode = m;
+      startY = e.clientY;
+      startTop = parseFloat(blockEl.style.top);
+      startHeight = parseFloat(blockEl.style.height);
+      try { blockEl.setPointerCapture(e.pointerId); } catch (err) {}
+      blockEl.classList.add('tb-dragging');
+      e.stopPropagation();
+    }
+    blockEl.addEventListener('pointerdown', (e) => {
+      if (e.target === resizeHandle || (e.target.closest && e.target.closest('.tb-block-unplace'))) return;
+      begin(e, 'move');
+    });
+    resizeHandle.addEventListener('pointerdown', (e) => begin(e, 'resize'));
+
+    blockEl.addEventListener('pointermove', (e) => {
+      if (!mode) return;
+      const dy = e.clientY - startY;
+      if (mode === 'move') {
+        blockEl.style.top = Math.max(0, Math.min(maxTop - startHeight, startTop + dy)) + 'px';
+      } else {
+        blockEl.style.height = Math.max(GRID_PX_PER_MIN * GRID_SNAP_MIN, startHeight + dy) + 'px';
+      }
+    });
+
+    function finish(e) {
+      if (!mode) return;
+      blockEl.classList.remove('tb-dragging');
+      const finalTop = parseFloat(blockEl.style.top);
+      const finalHeight = parseFloat(blockEl.style.height);
+      let newStartMin = gridSnap(topToMin(finalTop));
+      const newDurationMin = mode === 'move' ? durationMin : Math.max(GRID_SNAP_MIN, gridSnap(finalHeight / GRID_PX_PER_MIN));
+      newStartMin = Math.max(GRID_START_HOUR * 60, Math.min(GRID_END_HOUR * 60 - newDurationMin, newStartMin));
+      mode = null;
+      opts.onChange(minToTime(newStartMin), minToTime(newStartMin + newDurationMin));
+    }
+    blockEl.addEventListener('pointerup', finish);
+    blockEl.addEventListener('pointercancel', finish);
+  }
+
+  function buildGridBlock(opts) {
+    const el = document.createElement('div');
+    el.className = 'tb-block tb-block-' + opts.kind;
+    if (opts.kind === 'task') el.classList.add('tb-imp-' + opts.importance);
+    const startMin = timeToMin(opts.start), endMin = timeToMin(opts.end);
+    el.style.top = minToTop(startMin) + 'px';
+    el.style.height = Math.max(18, (endMin - startMin) * GRID_PX_PER_MIN) + 'px';
+
+    const label = document.createElement('div');
+    label.className = 'tb-block-label';
+    label.textContent = (opts.locked ? '🔒 ' : '') + opts.label;
+    el.appendChild(label);
+
+    const time = document.createElement('div');
+    time.className = 'tb-block-time';
+    time.textContent = fmtTimeLabel(opts.start) + '–' + fmtTimeLabel(opts.end);
+    el.appendChild(time);
+
+    if (opts.kind === 'task') {
+      const unplace = document.createElement('button');
+      unplace.type = 'button';
+      unplace.className = 'tb-block-unplace';
+      unplace.textContent = '↩';
+      unplace.title = 'Move back to unscheduled';
+      unplace.addEventListener('click', (e) => { e.stopPropagation(); opts.onUnplace(); });
+      el.appendChild(unplace);
+
+      const resizeHandle = document.createElement('div');
+      resizeHandle.className = 'tb-resize-handle';
+      el.appendChild(resizeHandle);
+
+      wireGridBlockDrag(el, resizeHandle, opts);
+    } else if (opts.kind === 'nap' && opts.onDismiss) {
+      const dismiss = document.createElement('button');
+      dismiss.type = 'button';
+      dismiss.className = 'tb-block-unplace';
+      dismiss.textContent = '×';
+      dismiss.title = 'Dismiss suggestion';
+      dismiss.addEventListener('click', (e) => { e.stopPropagation(); opts.onDismiss(); });
+      el.appendChild(dismiss);
+    }
+    return el;
+  }
+
+  function renderGridFor(dateStr, gridBodyId, gridHoursId, isToday) {
+    const body = document.getElementById(gridBodyId);
+    const hoursEl = document.getElementById(gridHoursId);
+    if (!body || !hoursEl) return;
+    const totalH = (GRID_END_HOUR - GRID_START_HOUR) * 60 * GRID_PX_PER_MIN;
+    body.style.height = totalH + 'px';
+    body.innerHTML = '';
+    hoursEl.style.height = totalH + 'px';
+    hoursEl.innerHTML = '';
+
+    for (let h = GRID_START_HOUR; h <= GRID_END_HOUR; h++) {
+      const line = document.createElement('div');
+      line.className = 'tb-hour-line';
+      line.style.top = minToTop(h * 60) + 'px';
+      body.appendChild(line);
+      if (h < GRID_END_HOUR) {
+        const lbl = document.createElement('div');
+        lbl.className = 'tb-hour-label';
+        lbl.style.top = minToTop(h * 60) + 'px';
+        lbl.textContent = fmtTimeLabel(String(h).padStart(2, '0') + ':00');
+        hoursEl.appendChild(lbl);
+      }
+    }
+
+    if (isToday) {
+      const now = new Date();
+      const nowMin = now.getHours() * 60 + now.getMinutes();
+      if (nowMin >= GRID_START_HOUR * 60 && nowMin <= GRID_END_HOUR * 60) {
+        const nowLine = document.createElement('div');
+        nowLine.className = 'tb-now-line';
+        nowLine.style.top = minToTop(nowMin) + 'px';
+        body.appendChild(nowLine);
+        // Open scrolled near "now" instead of always starting at 6am.
+        const gridEl = body.closest('.tb-grid');
+        if (gridEl) {
+          requestAnimationFrame(() => {
+            gridEl.scrollTop = Math.max(0, minToTop(nowMin) - gridEl.clientHeight / 2);
+          });
+        }
+      }
+    }
+
+    const plan = getPlan(dateStr);
+    (plan.fixedBlocks || []).forEach((b) => {
+      body.appendChild(buildGridBlock({ label: b.label, start: b.start, end: b.end, kind: 'fixed' }));
+    });
+
+    const key = 'goals:' + dateStr;
+    getGoals(key).filter((g) => g.scheduled).forEach((g) => {
+      body.appendChild(buildGridBlock({
+        label: g.text, start: g.scheduled.start, end: g.scheduled.end,
+        kind: 'task', importance: g.importance, locked: g.locked,
+        onUnplace: () => {
+          const list = getGoals(key);
+          const item = list.find((x) => x.id === g.id);
+          if (item) { item.scheduled = null; item.locked = false; setGoals(key, list); }
+          if (dateStr === getActiveDateString()) loadToday(); else loadTomorrow();
+        },
+        onChange: (start, end) => {
+          const list = getGoals(key);
+          const item = list.find((x) => x.id === g.id);
+          if (item) { item.scheduled = { start, end }; item.locked = true; setGoals(key, list); }
+          if (dateStr === getActiveDateString()) loadToday(); else loadTomorrow();
+        },
+      }));
+    });
+
+    if (plan.napSuggestion) {
+      const nap = plan.napSuggestion;
+      body.appendChild(buildGridBlock({
+        label: '💤 Nap — ' + nap.reason, start: nap.start, end: nap.end, kind: 'nap',
+        onDismiss: () => {
+          setPlan(dateStr, Object.assign({}, getPlan(dateStr), { napSuggestion: null }));
+          if (dateStr === getActiveDateString()) loadToday(); else loadTomorrow();
+        },
+      }));
+    }
+  }
+
+  // ---------- AI scheduler (Nova-powered) ----------
+  // Reuses Nova's own bring-your-own-key setup (localStorage['nova_lite_api_key'])
+  // rather than introducing a second key flow.
+  const NOVA_KEY_LS = 'nova_lite_api_key';
+  function savedNovaKey() { try { return localStorage.getItem(NOVA_KEY_LS) || ''; } catch (e) { return ''; } }
+
+  function buildSchedulerContext(dateStr) {
+    const ctx = dayRingCtx;
+    const plan = getPlan(dateStr);
+    const key = 'goals:' + dateStr;
+    const all = getGoals(key);
+
+    // Immovable = anything the AI must schedule around, never move: template
+    // fixed blocks, plus any task the user has already manually locked in
+    // place (this is also how "jobs" — fixed real-world commitments — are
+    // represented, since they're just locked tasks with a real time).
+    const immovableBlocks = (plan.fixedBlocks || []).map((b) => ({ label: b.label, start: b.start, end: b.end }));
+    all.filter((g) => g.locked && g.scheduled).forEach((g) => {
+      immovableBlocks.push({ label: g.text, start: g.scheduled.start, end: g.scheduled.end });
+    });
+
+    const tasks = all.filter((g) => !g.done && !(g.locked && g.scheduled)).map((g) => ({
+      id: g.id, text: g.text, importance: g.importance, durationMin: g.durationMin,
+      type: g.type, preferredZone: g.preferredZone || null, preferredWindow: g.preferredWindow || null,
+    }));
+
+    const energyCurve = window.EnergyModel
+      ? window.EnergyModel.sample(ctx, 30).map((p) => ({ time: minToTime(Math.round(p.t * 60)), score: Math.round(p.v) }))
+      : [];
+    const napHeuristic = window.EnergyModel ? window.EnergyModel.predictNap(ctx) : null;
+
+    return {
+      date: dateStr,
+      dayWindow: { start: minToTime(GRID_START_HOUR * 60), end: minToTime(GRID_END_HOUR * 60 - 1) },
+      immovableBlocks,
+      tasks,
+      energyCurve,
+      suggestedNapWindow: napHeuristic
+        ? { start: minToTime(Math.round(napHeuristic.start * 60)), end: minToTime(Math.round(napHeuristic.end * 60)), reason: napHeuristic.reason }
+        : null,
+      biometrics: { recovery: ctx.recovery, hrv: ctx.hrv, rhr: ctx.rhr, sleepAsleepMin: ctx.sleepAsleepMin },
+    };
+  }
+
+  function applyScheduleResult(dateStr, result, context) {
+    if (!result || !Array.isArray(result.placements)) throw new Error('unexpected response shape');
+    const key = 'goals:' + dateStr;
+    const list = getGoals(key);
+    const byId = new Map(list.map((g) => [g.id, g]));
+    const validTaskIds = new Set(context.tasks.map((t) => t.id));
+
+    // Never trust the model's placements blindly — re-validate every one
+    // against the real immovable blocks and against each other.
+    const occupied = context.immovableBlocks.map((b) => [timeToMin(b.start), timeToMin(b.end)]);
+    const timeRe = /^\d{2}:\d{2}$/;
+    const accepted = [];
+    result.placements.forEach((p) => {
+      if (!p || typeof p.taskId !== 'string' || !validTaskIds.has(p.taskId)) return;
+      if (typeof p.start !== 'string' || typeof p.end !== 'string' || !timeRe.test(p.start) || !timeRe.test(p.end)) return;
+      const s = timeToMin(p.start), e = timeToMin(p.end);
+      if (!(e > s) || s < GRID_START_HOUR * 60 || e > GRID_END_HOUR * 60) return;
+      if (occupied.some(([os, oe]) => s < oe && e > os)) return; // overlaps something already placed
+      occupied.push([s, e]);
+      accepted.push({ taskId: p.taskId, start: p.start, end: p.end });
+    });
+
+    accepted.forEach((p) => {
+      const item = byId.get(p.taskId);
+      // locked stays false — AI placements aren't manual locks, so a future
+      // Regenerate is free to move them again (unlike a user's own drag).
+      if (item) item.scheduled = { start: p.start, end: p.end };
+    });
+    setGoals(key, list);
+
+    let nap = null;
+    if (result.nap && typeof result.nap.start === 'string' && typeof result.nap.end === 'string' && timeRe.test(result.nap.start) && timeRe.test(result.nap.end)) {
+      const s = timeToMin(result.nap.start), e = timeToMin(result.nap.end);
+      if (e > s && !occupied.some(([os, oe]) => s < oe && e > os)) {
+        nap = { start: result.nap.start, end: result.nap.end, reason: String(result.nap.reason || 'Predicted energy dip.').slice(0, 200) };
+      }
+    }
+    setPlan(dateStr, Object.assign({}, getPlan(dateStr), { napSuggestion: nap, generatedAt: Date.now() }));
+
+    if (dateStr === getActiveDateString()) loadToday(); else loadTomorrow();
+  }
+
+  async function runAutoSchedule(dateStr) {
+    // Defense in depth: don't rely solely on the button's disabled attribute
+    // (there's a brief window before the first eligibility check resolves) —
+    // a day only ever gets scheduled using its own real synced sleep data.
+    if (dayRingCtx.syncDate !== dateStr) {
+      updateAutoScheduleAvailability();
+      return;
+    }
+    const key = savedNovaKey();
+    if (!key) {
+      alert('Paste your Anthropic API key on the Nova page first — the same key powers Auto-schedule.');
+      return;
+    }
+    const btn = document.getElementById('todayAutoBtn');
+    const statusEl = document.getElementById('todayAutoStatus');
+    const context = buildSchedulerContext(dateStr);
+    if (context.tasks.length === 0) {
+      statusEl.textContent = 'Nothing unscheduled to place.';
+      return;
+    }
+    btn.disabled = true;
+    statusEl.textContent = 'Scheduling…';
+    try {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-api-key': key,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true',
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-5',
+          max_tokens: 1500,
+          messages: [{
+            role: 'user',
+            content:
+              'Schedule one day\'s flexible tasks onto time slots.\n' +
+              'Day window: ' + context.dayWindow.start + ' to ' + context.dayWindow.end + '.\n' +
+              'These blocks are already fixed and immovable — nothing may overlap them: ' + JSON.stringify(context.immovableBlocks) + '\n' +
+              'Energy curve for the day (0-100, higher = better focus): ' + JSON.stringify(context.energyCurve) + '\n' +
+              'Place higher-importance (3=high, 2=medium, 1=low) and longer tasks into higher-energy windows; low-importance/low-effort tasks can go in energy dips. ' +
+              'Respect each task\'s preferredZone ("high"/"low"/"any") and preferredWindow ("morning"/"midday"/"afternoon"/"evening"/"any") when set.\n' +
+              'Tasks to place — each block you assign must be exactly durationMin long: ' + JSON.stringify(context.tasks) + '\n' +
+              'Deterministic nap heuristic for reference (only include a nap if warranted and non-conflicting): ' + JSON.stringify(context.suggestedNapWindow) + '\n' +
+              'Biometrics for context: ' + JSON.stringify(context.biometrics) + '\n' +
+              'No two placements (including immovable blocks) may overlap. Not every task needs to be placed — list ones you skip in "unplaced".\n' +
+              'Return ONLY strict JSON, no prose, no markdown code fences, matching exactly this shape:\n' +
+              '{"placements":[{"taskId":"...","start":"HH:MM","end":"HH:MM"}],"nap":{"start":"HH:MM","end":"HH:MM","reason":"..."}|null,"unplaced":["taskId",...]}',
+          }],
+        }),
+      });
+      const json = await res.json();
+      if (json.error) throw new Error(json.error.message || 'Anthropic API error');
+      const text = (json.content && json.content[0] && json.content[0].text) || '';
+      const cleaned = text.trim().replace(/^```(?:json)?/i, '').replace(/```$/, '').trim();
+      const result = JSON.parse(cleaned);
+      applyScheduleResult(dateStr, result, context);
+    } catch (e) {
+      statusEl.textContent = 'Failed — ' + (e && e.message ? e.message : 'try again');
+      setTimeout(updateAutoScheduleAvailability, 4000);
+      btn.disabled = false;
+      return;
+    }
+    updateAutoScheduleAvailability();
+  }
+
+  document.getElementById('todayAutoBtn').addEventListener('click', () => runAutoSchedule(getActiveDateString()));
+
+  function buildGoalRow(goal, key, readOnly, reload) {
+    const id = goal.id;
+    function findIdx(list) { return list.findIndex((g) => g.id === id); }
+
     const li = document.createElement('li');
     li.className = 'gm-row';
-    li.dataset.idx = String(idx);
+    li.dataset.id = id;
     if (goal.done) li.classList.add('gm-row-done');
-    if (goal.queued) li.classList.add('gm-row-queued');
 
     const handle = document.createElement('span');
     handle.className = 'gm-handle';
@@ -1054,7 +1941,8 @@ body::after {
     if (readOnly) { cb.disabled = true; cb.title = 'Activates at 6 AM tomorrow'; }
     cb.addEventListener('change', () => {
       const list = getGoals(key);
-      if (!list[idx]) return;
+      const idx = findIdx(list);
+      if (idx === -1) return;
       list[idx].done = cb.checked;
       if (cb.checked) list[idx].doneAt = Date.now();
       else delete list[idx].doneAt;
@@ -1063,27 +1951,51 @@ body::after {
     });
     li.appendChild(cb);
 
+    if (goal.sourceHabitId) {
+      const icon = document.createElement('span');
+      icon.className = 'gm-habit-icon';
+      icon.textContent = '🔁';
+      icon.title = 'From a habit';
+      li.appendChild(icon);
+    }
+
     const text = document.createElement('span');
     text.className = 'gm-text';
     text.textContent = goal.text;
     li.appendChild(text);
-    makeInlineEdit(text, null, idx, key, reload);
+    makeInlineEdit(text, id, key, reload);
 
-    const queueBtn = document.createElement('button');
-    queueBtn.type = 'button';
-    queueBtn.className = 'gm-queue-btn' + (goal.queued ? ' gm-queue-active' : '');
-    queueBtn.textContent = '⚡';
-    queueBtn.title = 'Queue for productivity window';
-    if (readOnly) queueBtn.disabled = true;
-    queueBtn.addEventListener('click', () => {
+    const impBtn = document.createElement('button');
+    impBtn.type = 'button';
+    impBtn.className = 'tb-imp-btn tb-imp-' + goal.importance;
+    impBtn.textContent = importanceLabel(goal.importance).charAt(0);
+    impBtn.title = 'Importance: ' + importanceLabel(goal.importance) + ' (tap to change)';
+    if (readOnly) impBtn.disabled = true;
+    impBtn.addEventListener('click', () => {
       const list = getGoals(key);
-      if (!list[idx]) return;
-      list[idx].queued = !list[idx].queued;
+      const idx = findIdx(list);
+      if (idx === -1) return;
+      list[idx].importance = list[idx].importance >= 3 ? 1 : list[idx].importance + 1;
       setGoals(key, list);
-      li.classList.add('is-queue-flashing');
-      setTimeout(reload, 480);
+      reload();
     });
-    li.appendChild(queueBtn);
+    li.appendChild(impBtn);
+
+    if (!goal.scheduled) {
+      const placeBtn = document.createElement('button');
+      placeBtn.type = 'button';
+      placeBtn.className = 'gm-queue-btn tb-place-btn';
+      placeBtn.textContent = '⏱';
+      placeBtn.title = 'Schedule on the grid';
+      placeBtn.addEventListener('click', () => {
+        const openRow = li.parentElement.querySelector('.tb-place-row');
+        const wasOpenForThisRow = openRow && openRow.previousElementSibling === li;
+        if (openRow) openRow.remove();
+        if (wasOpenForThisRow) return;
+        li.after(buildPlaceRow(goal, key, reload));
+      });
+      li.appendChild(placeBtn);
+    }
 
     const del = document.createElement('button');
     del.type = 'button';
@@ -1092,14 +2004,44 @@ body::after {
     del.textContent = '×';
     del.addEventListener('click', () => {
       const list = getGoals(key);
+      const idx = findIdx(list);
+      if (idx === -1) return;
       list.splice(idx, 1);
       setGoals(key, list);
       reload();
     });
     li.appendChild(del);
 
-    wireDragReorder(li, null, key, reload);
+    wireDragReorder(li, key, reload, id);
     return li;
+  }
+
+  function buildPlaceRow(goal, key, reload) {
+    const row = document.createElement('li');
+    row.className = 'tb-place-row';
+    const input = document.createElement('input');
+    input.type = 'time';
+    input.className = 'gm-input';
+    input.value = defaultPlaceTime();
+    row.appendChild(input);
+    const confirmBtn = document.createElement('button');
+    confirmBtn.type = 'button';
+    confirmBtn.className = 'gm-add';
+    confirmBtn.textContent = 'Set';
+    confirmBtn.addEventListener('click', () => {
+      if (!input.value) return;
+      const list = getGoals(key);
+      const idx = list.findIndex((g) => g.id === goal.id);
+      if (idx === -1) return;
+      const startMin = gridSnap(timeToMin(input.value));
+      const endMin = Math.min(GRID_END_HOUR * 60, startMin + (list[idx].durationMin || 30));
+      list[idx].scheduled = { start: minToTime(startMin), end: minToTime(endMin) };
+      list[idx].locked = true;
+      setGoals(key, list);
+      reload();
+    });
+    row.appendChild(confirmBtn);
+    return row;
   }
 
   // ---------- Renderers ----------
@@ -1151,7 +2093,7 @@ body::after {
     const reload = () => (key === todayKey() ? loadToday() : loadTomorrow());
 
     const visible = goals.length > 5 ? goals.slice(0, 5) : goals;
-    visible.forEach((g, i) => listEl.appendChild(buildGoalRow(g, i, key, readOnly, reload)));
+    visible.forEach((g) => listEl.appendChild(buildGoalRow(g, key, readOnly, reload)));
 
     if (goals.length > 5) {
       let expanded = false;
@@ -1165,8 +2107,8 @@ body::after {
       toggle.addEventListener('click', () => {
         expanded = !expanded;
         if (expanded) {
-          goals.slice(5).forEach((g, i) => {
-            const row = buildGoalRow(g, i + 5, key, readOnly, reload);
+          goals.slice(5).forEach((g) => {
+            const row = buildGoalRow(g, key, readOnly, reload);
             listEl.insertBefore(row, toggle);
           });
         } else {
@@ -1182,12 +2124,22 @@ body::after {
   }
 
   function loadToday() {
-    const goals = getGoals(todayKey());
-    renderListInto(goals, document.getElementById('goalList'), document.getElementById('emptyState'), todayKey(), false);
+    const dateStr = getActiveDateString();
+    const all = getGoals(todayKey());
+    const unscheduled = all.filter((g) => !g.scheduled);
+    renderGridFor(dateStr, 'todayGridBody', 'todayGridHours', true);
+    renderListInto(unscheduled, document.getElementById('goalList'), document.getElementById('emptyState'), todayKey(), false);
+    document.getElementById('emptyState').textContent =
+      (unscheduled.length === 0 && all.length > 0) ? 'Everything is scheduled — see the grid above.' : 'No goals for today yet — add one below.';
   }
   function loadTomorrow() {
-    const goals = getGoals(tomorrowKey());
-    renderListInto(goals, document.getElementById('tomorrowList'), document.getElementById('tomorrowEmpty'), tomorrowKey(), true);
+    const dateStr = getTomorrowDateString();
+    const all = getGoals(tomorrowKey());
+    const unscheduled = all.filter((g) => !g.scheduled);
+    renderGridFor(dateStr, 'tomorrowGridBody', 'tomorrowGridHours', false);
+    renderListInto(unscheduled, document.getElementById('tomorrowList'), document.getElementById('tomorrowEmpty'), tomorrowKey(), true);
+    document.getElementById('tomorrowEmpty').textContent =
+      (unscheduled.length === 0 && all.length > 0) ? 'Everything is scheduled — see the grid above.' : 'Nothing planned for tomorrow yet';
   }
 
   // ---------- Push remaining ----------
@@ -1295,19 +2247,191 @@ body::after {
     loadTomorrow
   );
 
+  // ---------- Habits: add-form wiring ----------
+  let habitDaysSelected = [];
+  let habitImportanceSelected = 2;
+
+  function resetHabitForm() {
+    document.getElementById('habitText').value = '';
+    document.getElementById('habitDuration').value = '15';
+    document.getElementById('habitWindow').value = 'any';
+    habitDaysSelected = [];
+    habitImportanceSelected = 2;
+    document.getElementById('habitImportanceSeg').querySelectorAll('button').forEach((x) => x.classList.toggle('on', Number(x.dataset.v) === 2));
+    document.getElementById('habitDays').querySelectorAll('button').forEach((x) => x.classList.remove('on'));
+  }
+
+  document.getElementById('habitsAddToggle').addEventListener('click', () => {
+    const form = document.getElementById('habitsForm');
+    form.style.display = form.style.display === 'none' ? '' : 'none';
+  });
+  document.getElementById('habitCancelBtn').addEventListener('click', () => {
+    document.getElementById('habitsForm').style.display = 'none';
+    resetHabitForm();
+  });
+  document.getElementById('habitImportanceSeg').querySelectorAll('button').forEach((b) => {
+    b.addEventListener('click', () => {
+      habitImportanceSelected = Number(b.dataset.v);
+      document.getElementById('habitImportanceSeg').querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b));
+    });
+  });
+  document.getElementById('habitDays').querySelectorAll('button').forEach((b) => {
+    b.addEventListener('click', () => {
+      const d = Number(b.dataset.d);
+      const idx = habitDaysSelected.indexOf(d);
+      if (idx === -1) habitDaysSelected.push(d); else habitDaysSelected.splice(idx, 1);
+      b.classList.toggle('on');
+    });
+  });
+  document.getElementById('habitSaveBtn').addEventListener('click', () => {
+    const text = document.getElementById('habitText').value.trim();
+    if (!text) return;
+    const duration = Math.max(5, parseInt(document.getElementById('habitDuration').value, 10) || 15);
+    const windowVal = document.getElementById('habitWindow').value;
+    const list = getHabits();
+    list.push({
+      id: genId(), text, importance: habitImportanceSelected, durationMin: duration,
+      days: habitDaysSelected.slice(), preferredWindow: windowVal, active: true, createdAt: Date.now(),
+    });
+    setHabits(list);
+    document.getElementById('habitsForm').style.display = 'none';
+    resetHabitForm();
+    renderHabits();
+    materializeHabits(getActiveDateString());
+    materializeHabits(getTomorrowDateString());
+    loadToday();
+    loadTomorrow();
+  });
+
+  // ---------- Shift templates: form wiring ----------
+  let templateBlocksDraft = [];
+  let editingTemplateId = null;
+
+  function renderTemplateBlocksDraft() {
+    const el = document.getElementById('templateBlocksList');
+    el.innerHTML = '';
+    templateBlocksDraft.forEach((b, i) => {
+      const row = document.createElement('div');
+      row.className = 'tpl-block-chip';
+      const label = document.createElement('span');
+      label.textContent = b.kind === 'fixed'
+        ? (b.label + ' · ' + b.start + '–' + b.end)
+        : (b.label + ' · ' + b.durationMin + 'm · ' + b.energyZone + ' energy');
+      row.appendChild(label);
+      const rm = document.createElement('button');
+      rm.type = 'button';
+      rm.className = 'tpl-block-rm';
+      rm.textContent = '×';
+      rm.addEventListener('click', () => { templateBlocksDraft.splice(i, 1); renderTemplateBlocksDraft(); });
+      row.appendChild(rm);
+      el.appendChild(row);
+    });
+  }
+
+  function setTemplateBlockKind(kind) {
+    document.getElementById('templateBlockKindSeg').querySelectorAll('button').forEach((x) => x.classList.toggle('on', x.dataset.v === kind));
+    const isFixed = kind === 'fixed';
+    document.getElementById('templateBlockFixedFields').style.display = isFixed ? '' : 'none';
+    document.getElementById('templateBlockZoneFields').style.display = isFixed ? 'none' : '';
+    document.getElementById('templateBlockZoneZoneField').style.display = isFixed ? 'none' : '';
+  }
+
+  document.getElementById('templateBlockKindSeg').querySelectorAll('button').forEach((b) => {
+    b.addEventListener('click', () => setTemplateBlockKind(b.dataset.v));
+  });
+  document.getElementById('tplBlockZoneSeg').querySelectorAll('button').forEach((b) => {
+    b.addEventListener('click', () => {
+      document.getElementById('tplBlockZoneSeg').querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b));
+    });
+  });
+
+  document.getElementById('tplAddBlockBtn').addEventListener('click', () => {
+    const kind = document.getElementById('templateBlockKindSeg').querySelector('button.on').dataset.v;
+    const label = document.getElementById('tplBlockLabel').value.trim();
+    if (!label) { alert('Give this block a label.'); return; }
+    if (kind === 'fixed') {
+      const start = document.getElementById('tplBlockStart').value;
+      const end = document.getElementById('tplBlockEnd').value;
+      if (!start || !end || start >= end) { alert('Start time must be before end time.'); return; }
+      templateBlocksDraft.push({ id: genId(), kind: 'fixed', label, start, end });
+    } else {
+      const duration = Math.max(5, parseInt(document.getElementById('tplBlockDuration').value, 10) || 60);
+      const zone = document.getElementById('tplBlockZoneSeg').querySelector('button.on').dataset.v;
+      templateBlocksDraft.push({ id: genId(), kind: 'zone', label, durationMin: duration, energyZone: zone });
+    }
+    document.getElementById('tplBlockLabel').value = '';
+    renderTemplateBlocksDraft();
+  });
+
+  function resetTemplateForm() {
+    editingTemplateId = null;
+    document.getElementById('templateName').value = '';
+    document.getElementById('tplBlockLabel').value = '';
+    templateBlocksDraft = [];
+    setTemplateBlockKind('fixed');
+    renderTemplateBlocksDraft();
+  }
+
+  function startEditTemplate(t) {
+    editingTemplateId = t.id;
+    document.getElementById('templateName').value = t.name;
+    templateBlocksDraft = t.blocks.map((b) => Object.assign({}, b));
+    renderTemplateBlocksDraft();
+    document.getElementById('templatesForm').style.display = '';
+  }
+
+  document.getElementById('templatesAddToggle').addEventListener('click', () => {
+    const form = document.getElementById('templatesForm');
+    if (form.style.display === 'none') { resetTemplateForm(); form.style.display = ''; }
+    else form.style.display = 'none';
+  });
+  document.getElementById('templateCancelBtn').addEventListener('click', () => {
+    document.getElementById('templatesForm').style.display = 'none';
+    resetTemplateForm();
+  });
+  document.getElementById('templateSaveBtn').addEventListener('click', () => {
+    const name = document.getElementById('templateName').value.trim();
+    if (!name) { alert('Give the template a name.'); return; }
+    if (templateBlocksDraft.length === 0) { alert('Add at least one block.'); return; }
+    const list = getTemplates();
+    if (editingTemplateId) {
+      const idx = list.findIndex((t) => t.id === editingTemplateId);
+      if (idx !== -1) list[idx] = { id: editingTemplateId, name, blocks: templateBlocksDraft.slice() };
+    } else {
+      list.push({ id: genId(), name, blocks: templateBlocksDraft.slice() });
+    }
+    setTemplates(list);
+    document.getElementById('templatesForm').style.display = 'none';
+    resetTemplateForm();
+    renderTemplates();
+  });
+
   // ---------- Boot ----------
   rollover();
+  materializeHabits(getActiveDateString());
+  materializeHabits(getTomorrowDateString());
+  renderHabits();
+  renderTemplates();
   processStreak();
   loadToday();
   loadTomorrow();
   renderStreak();
-  updateDayRing();
+  updateDayRing(); // paint immediately with fallback values, then refresh with real data below
   setInterval(updateDayRing, 60 * 1000);
   startTicker();
 
   // Re-render when storage changes from another tab (or our bridged parent).
   window.addEventListener('storage', () => {
     loadToday(); loadTomorrow(); renderStreak();
+  });
+
+  // applehealth.js/energy.js context depends on `defer`red scripts that
+  // haven't necessarily run yet at this point (this IIFE runs inline,
+  // during parsing) — refresh once the document (and deferred scripts)
+  // are ready, then again whenever fresh Apple Health data syncs in.
+  document.addEventListener('DOMContentLoaded', () => {
+    refreshDayRingContext();
+    if (window.AppleHealth) window.AppleHealth.subscribe(refreshDayRingContext);
   });
 })();
 </script>
@@ -1317,7 +2441,8 @@ document.addEventListener('DOMContentLoaded', function () {
   if (typeof initCloudSync !== 'function') return;
   initCloudSync({
     appKey: 'goals',
-    syncedPrefixes: ['goals:'],
+    syncedPrefixes: ['goals:', 'habits:', 'templates:', 'plan:'],
+    syncedKeys: ['goal_streak_v1'],
     onApplied: function () {
       window.dispatchEvent(new CustomEvent('goals-changed'));
       window.dispatchEvent(new Event('storage'));
