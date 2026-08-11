@@ -98,13 +98,39 @@ No login/OAuth involved; it's a one-way webhook.
    - Method: `POST`
    - Header: `Authorization: Bearer <the HEALTH_IMPORT_SECRET value>`
    - Metrics to include: Heart Rate Variability, Resting Heart Rate, Respiratory Rate,
-     Blood Oxygen Saturation, Active Energy, Step Count, Apple Exercise Time, Sleep Analysis.
+     Blood Oxygen Saturation, Active Energy, Step Count, Apple Exercise Time, Sleep Analysis,
+     Dietary Energy, Protein, Carbohydrates, Total Fat (the last four power the Calories card
+     on the Fitness page — see §3a below if you also use MyFitnessPal).
 4. Turn the automation on (e.g. run every morning). After it fires once, open the site →
    Health page — the Apple Health card fills in automatically. No connect button, no login.
 
 > The dashboard reads the latest synced snapshot from Supabase (`app_state`, key
 > `apple_health`) — the same table used for everything else, so no extra SQL is needed
 > beyond the block in step 2 above.
+
+### 3a. Calorie counting via MyFitnessPal (optional)
+
+MyFitnessPal's API is closed to individual developers, so there's no direct "Connect your
+MyFitnessPal account" flow — instead this rides the same Apple Health bridge as everything
+else above.
+
+1. In MyFitnessPal: **More → Settings → Sharing & Privacy → HealthKit Sharing** → turn it on.
+   This makes MFP write your logged meals' calories and macros into Apple Health automatically.
+2. Make sure your Health Auto Export automation (step 3 above) includes **Dietary Energy**,
+   **Protein**, **Carbohydrates**, and **Total Fat**.
+3. Open the site → Fitness page — the **Calories** card (right under Weight) fills in
+   automatically after your next sync.
+
+> **Caffeine does not sync this way** — MyFitnessPal explicitly excludes caffeine from its
+> Apple Health export. Keep logging coffee/tea in this dashboard's own Caffeine page (it
+> already has a full beverage database); there's no reliable path to pull that specifically
+> from MyFitnessPal without using an unofficial/ToS-violating API.
+>
+> Field names for the nutrition metrics in `/api/health-import.js` are best-effort guesses at
+> Health Auto Export's naming (`dietary_energy`, `protein`, `carbohydrates`, `total_fat`, etc.).
+> If the Calories card stays empty after a sync that should have data, check the `debug` array
+> in the Supabase `app_state` row (key `apple_health`) — it lists every metric name Health Auto
+> Export actually sent, so field names can be corrected quickly if they don't match.
 
 ---
 

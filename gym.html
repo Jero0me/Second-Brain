@@ -1263,9 +1263,28 @@ img, video, canvas, svg { max-width: 100%; }
   .wt-compare-meta-line { font-size: 11px; }
 }
 
+.cal-sub { font-size: 13px; color: var(--text-3); margin-bottom: 4px; }
+.cal-empty { font-size: 13px; color: var(--text-3); line-height: 1.5; margin-top: 2px; }
+.cal-macros {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+  margin-top: 16px;
+}
+.cal-macro {
+  background: rgba(255,255,255,0.03); border: 1px solid var(--border);
+  border-radius: 12px; padding: 10px 8px; text-align: center;
+}
+.cal-macro-label {
+  display: block; font-size: 9.5px; font-weight: 700;
+  letter-spacing: 0.10em; text-transform: uppercase; color: var(--text-3);
+  margin-bottom: 4px;
+}
+.cal-macro-val { display: block; font-size: 15px; font-weight: 700; color: var(--text-1); font-variant-numeric: tabular-nums; }
+.cal-updated { font-size: 11px; color: var(--text-4); margin-top: 14px; font-family: var(--font-mono); }
+
 .hidden { display: none !important; }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="applehealth.js" defer></script>
 </head>
 <body>
 
@@ -1356,6 +1375,63 @@ img, video, canvas, svg { max-width: 100%; }
       <span class="wt-progress-arrow">→</span>
     </button>
   </div>
+
+  <!-- CALORIES (from MyFitnessPal via Apple Health) -->
+  <div class="wt-section">
+    <div class="wt-divider"><span>CALORIES</span></div>
+
+    <div class="wt-card">
+      <div class="wt-row">
+        <span class="wt-num" id="calNum">—</span>
+        <span class="wt-unit">kcal</span>
+      </div>
+      <div class="cal-sub">today, via MyFitnessPal</div>
+
+      <div class="cal-empty" id="calEmpty">Not synced yet — log meals in MyFitnessPal with Apple Health sharing on, and include Dietary Energy/Protein/Carbohydrates/Fat in your Health Auto Export automation. See SETUP.md.</div>
+
+      <div class="cal-macros hidden" id="calMacros">
+        <div class="cal-macro"><span class="cal-macro-label">Protein</span><span class="cal-macro-val" id="calProtein">—</span></div>
+        <div class="cal-macro"><span class="cal-macro-label">Carbs</span><span class="cal-macro-val" id="calCarbs">—</span></div>
+        <div class="cal-macro"><span class="cal-macro-label">Fat</span><span class="cal-macro-val" id="calFat">—</span></div>
+      </div>
+      <div class="cal-updated hidden" id="calUpdated">—</div>
+    </div>
+  </div>
+  <script>
+  (function () {
+    'use strict';
+    const $ = (id) => document.getElementById(id);
+
+    function renderCalories(res) {
+      const latest = res && res.latest;
+      const n = latest && latest.nutrition;
+      const hasData = !!(n && n.calories != null);
+      $('calEmpty').classList.toggle('hidden', hasData);
+      $('calMacros').classList.toggle('hidden', !hasData);
+      $('calUpdated').classList.toggle('hidden', !hasData);
+      if (!hasData) { $('calNum').textContent = '—'; return; }
+      $('calNum').textContent = String(Math.round(n.calories));
+      $('calProtein').textContent = n.proteinG != null ? Math.round(n.proteinG) + 'g' : '—';
+      $('calCarbs').textContent = n.carbsG != null ? Math.round(n.carbsG) + 'g' : '—';
+      $('calFat').textContent = n.fatG != null ? Math.round(n.fatG) + 'g' : '—';
+      if (res.updatedAt) {
+        $('calUpdated').textContent = 'Synced ' + new Date(res.updatedAt).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+      }
+    }
+
+    async function loadCalories() {
+      if (!window.AppleHealth) return;
+      try { renderCalories(await window.AppleHealth.get()); } catch (e) {}
+    }
+
+    // applehealth.js is `defer`red, so it may not have run yet at this point
+    // (this inline script executes during parsing, before deferred scripts).
+    document.addEventListener('DOMContentLoaded', () => {
+      loadCalories();
+      if (window.AppleHealth) window.AppleHealth.subscribe(renderCalories);
+    });
+  })();
+  </script>
 
   <!-- Progress photos overlay -->
   <div class="wt-overlay" id="wtOverlay" aria-hidden="true">

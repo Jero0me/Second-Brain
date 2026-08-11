@@ -100,6 +100,18 @@ export default async function handler(req, res) {
     steps: sumQty('step_count'),
     exerciseMin: sumQty('apple_exercise_time'),
     sleep,
+    // Written to Apple Health by MyFitnessPal (HealthKit sharing) when you
+    // log food there — field names are best-effort HealthKit identifiers;
+    // check the `debug` fingerprint below on first sync to confirm/adjust.
+    nutrition: {
+      calories: sumQty('dietary_energy'),
+      proteinG: sumQty('protein'),
+      carbsG: sumQty('carbohydrates'),
+      fatG: sumQty('total_fat'),
+      fiberG: sumQty('fiber'),
+      sugarG: sumQty('sugar'),
+      sodiumMg: sumQty('sodium'),
+    },
   };
 
   const debug = metrics.map((m) => ({
