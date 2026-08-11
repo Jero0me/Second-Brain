@@ -962,6 +962,29 @@ body::after {
         </div>
         <button type="button" id="tplAddBlockBtn" class="gm-polish" style="align-self:flex-start;">+ Add block</button>
 
+        <div class="hb-field" style="border-top:1px solid rgba(255,255,255,0.06); padding-top:14px; margin-top:2px;">
+          <label class="hb-label">Recurs weekly on (leave blank for manual apply-only)</label>
+          <div class="hb-days" id="templateDays">
+            <button type="button" data-d="0">S</button>
+            <button type="button" data-d="1">M</button>
+            <button type="button" data-d="2">T</button>
+            <button type="button" data-d="3">W</button>
+            <button type="button" data-d="4">T</button>
+            <button type="button" data-d="5">F</button>
+            <button type="button" data-d="6">S</button>
+          </div>
+        </div>
+        <div class="hb-form-row">
+          <div class="hb-field">
+            <label class="hb-label">Starts (optional — e.g. semester start)</label>
+            <input id="templateStartDate" class="gm-input" type="date">
+          </div>
+          <div class="hb-field">
+            <label class="hb-label">Ends (optional)</label>
+            <input id="templateEndDate" class="gm-input" type="date">
+          </div>
+        </div>
+
         <div class="goal-input-wrap gm-input-wrap" style="border-top:none; padding-top:0; margin-top:2px;">
           <button type="button" id="templateSaveBtn" class="gm-add">Save template</button>
           <button type="button" id="templateCancelBtn" class="gm-polish">Cancel</button>
@@ -1067,7 +1090,11 @@ body::after {
   function setTemplates(list) { storeSet('templates:defs', list); }
   function getPlan(dateStr) {
     const p = storeGet('plan:' + dateStr);
-    return (p && typeof p === 'object') ? p : { date: dateStr, templateId: null, fixedBlocks: [], napSuggestion: null, generatedAt: null };
+    if (!p || typeof p !== 'object') return { date: dateStr, appliedTemplateIds: [], fixedBlocks: [], napSuggestion: null, generatedAt: null };
+    // Lazy-migrate the old single-template shape (pre multi-recurring-template support).
+    if (!Array.isArray(p.appliedTemplateIds)) p.appliedTemplateIds = p.templateId ? [p.templateId] : [];
+    if (!Array.isArray(p.fixedBlocks)) p.fixedBlocks = [];
+    return p;
   }
   function setPlan(dateStr, plan) { storeSet('plan:' + dateStr, plan); }
 
@@ -1097,6 +1124,27 @@ body::after {
       changed = true;
     });
     if (changed) setGoals(key, list);
+  }
+
+  // ---------- shift templates: weekly recurrence + auto-materialization ----------
+  // A template with no recurrence set behaves exactly as before (manual
+  // Apply-to-day only). One with `recurrence.days` set auto-applies itself
+  // every matching day — this is how "set my work/uni hours for the week"
+  // works: define the shape once, it repeats on its own from then on.
+  // `startDate`/`endDate` (optional) bound it to e.g. a semester's dates.
+  function templateDueOn(tpl, dateStr) {
+    const rec = tpl.recurrence;
+    if (!rec || !Array.isArray(rec.days) || rec.days.length === 0) return false;
+    if (rec.startDate && dateStr < rec.startDate) return false;
+    if (rec.endDate && dateStr > rec.endDate) return false;
+    const parts = dateStr.split('-').map(Number);
+    const d = new Date(parts[0], parts[1] - 1, parts[2]);
+    return rec.days.indexOf(d.getDay()) !== -1;
+  }
+  function materializeRecurringTemplates(dateStr) {
+    getTemplates().filter((t) => t.recurrence).forEach((t) => {
+      if (templateDueOn(t, dateStr)) applyTemplate(t.id, dateStr, { silent: true });
+    });
   }
 
   function importanceLabel(v) { return v === 3 ? 'High' : v === 1 ? 'Low' : 'Med'; }
@@ -1172,7 +1220,9 @@ body::after {
     const parts = [];
     if (fixed) parts.push(fixed + ' fixed');
     if (zone) parts.push(zone + ' flexible');
-    return parts.join(' · ') || 'No blocks';
+    let summary = parts.join(' · ') || 'No blocks';
+    if (t.recurrence) summary += ' · recurs ' + daysLabel(t.recurrence.days);
+    return summary;
   }
 
   function buildTemplateRow(t, reload) {
@@ -1238,30 +1288,45 @@ body::after {
     list.forEach((t) => listEl.appendChild(buildTemplateRow(t, renderTemplates)));
   }
 
-  function applyTemplate(templateId, dateStr) {
+  // Multiple templates (e.g. a recurring "Work" template and a recurring
+  // "Uni" template) can be applied to the same day at once — each owns its
+  // own fixed blocks (tagged sourceTemplateId) so re-applying or removing
+  // one never touches another's. `opts.silent` skips the confirm prompt and
+  // no-ops if already applied — that's what auto-materialization uses so it
+  // never re-prompts or duplicates blocks on every page load.
+  function applyTemplate(templateId, dateStr, opts) {
+    opts = opts || {};
     const tpl = getTemplates().find((t) => t.id === templateId);
     if (!tpl) return;
     const existing = getPlan(dateStr);
-    if (existing.fixedBlocks && existing.fixedBlocks.length > 0) {
-      const label = existing.templateId === templateId ? 'Re-apply' : 'Replace the existing template with';
-      if (!confirm(label + ' "' + tpl.name + '" on ' + dateStr + '?')) return;
+    const alreadyApplied = existing.appliedTemplateIds.indexOf(templateId) !== -1;
+    if (opts.silent) {
+      if (alreadyApplied) return;
+    } else if (alreadyApplied) {
+      if (!confirm('Re-apply "' + tpl.name + '" to ' + dateStr + '? This refreshes its blocks for the day.')) return;
     }
 
-    const fixedBlocks = tpl.blocks
-      .filter((b) => b.kind === 'fixed')
-      .map((b) => ({ id: genId(), label: b.label, start: b.start, end: b.end }));
-    setPlan(dateStr, { date: dateStr, templateId: tpl.id, fixedBlocks, napSuggestion: null, generatedAt: null });
+    const keptFixed = existing.fixedBlocks.filter((b) => b.sourceTemplateId !== templateId);
+    const newFixed = tpl.blocks.filter((b) => b.kind === 'fixed').map((b) => ({
+      id: genId(), label: b.label, start: b.start, end: b.end, sourceTemplateId: templateId,
+    }));
+    const appliedTemplateIds = alreadyApplied ? existing.appliedTemplateIds : existing.appliedTemplateIds.concat([templateId]);
+    setPlan(dateStr, Object.assign({}, existing, { appliedTemplateIds, fixedBlocks: keptFixed.concat(newFixed) }));
 
     // Zone blocks aren't placed directly — they become pseudo-tasks in that
     // day's pool (with a preferredZone hint) so they're scheduled like any
-    // other task once the AI scheduler (Phase 7) or manual placement runs.
+    // other task once the AI scheduler or manual placement runs. Dedup by
+    // source so re-applying (or a silent daily re-check) never duplicates them.
     const key = 'goals:' + dateStr;
     const goals = getGoals(key);
+    const existingZoneSources = new Set(goals.filter((g) => g.sourceTemplateBlockId).map((g) => g.sourceTemplateBlockId));
     tpl.blocks.filter((b) => b.kind === 'zone').forEach((b) => {
+      const sourceTemplateBlockId = templateId + ':' + b.id;
+      if (existingZoneSources.has(sourceTemplateBlockId)) return;
       goals.push({
         id: genId(), text: b.label, done: false, type: 'task',
         importance: 2, durationMin: b.durationMin, preferredZone: b.energyZone,
-        locked: false, scheduled: null,
+        locked: false, scheduled: null, sourceTemplateBlockId,
       });
     });
     setGoals(key, goals);
@@ -2363,11 +2428,17 @@ body::after {
     renderTemplateBlocksDraft();
   });
 
+  let templateDaysSelected = [];
+
   function resetTemplateForm() {
     editingTemplateId = null;
     document.getElementById('templateName').value = '';
     document.getElementById('tplBlockLabel').value = '';
     templateBlocksDraft = [];
+    templateDaysSelected = [];
+    document.getElementById('templateDays').querySelectorAll('button').forEach((x) => x.classList.remove('on'));
+    document.getElementById('templateStartDate').value = '';
+    document.getElementById('templateEndDate').value = '';
     setTemplateBlockKind('fixed');
     renderTemplateBlocksDraft();
   }
@@ -2377,6 +2448,10 @@ body::after {
     document.getElementById('templateName').value = t.name;
     templateBlocksDraft = t.blocks.map((b) => Object.assign({}, b));
     renderTemplateBlocksDraft();
+    templateDaysSelected = (t.recurrence && t.recurrence.days) ? t.recurrence.days.slice() : [];
+    document.getElementById('templateDays').querySelectorAll('button').forEach((x) => x.classList.toggle('on', templateDaysSelected.indexOf(Number(x.dataset.d)) !== -1));
+    document.getElementById('templateStartDate').value = (t.recurrence && t.recurrence.startDate) || '';
+    document.getElementById('templateEndDate').value = (t.recurrence && t.recurrence.endDate) || '';
     document.getElementById('templatesForm').style.display = '';
   }
 
@@ -2389,27 +2464,45 @@ body::after {
     document.getElementById('templatesForm').style.display = 'none';
     resetTemplateForm();
   });
+  document.getElementById('templateDays').querySelectorAll('button').forEach((b) => {
+    b.addEventListener('click', () => {
+      const d = Number(b.dataset.d);
+      const idx = templateDaysSelected.indexOf(d);
+      if (idx === -1) templateDaysSelected.push(d); else templateDaysSelected.splice(idx, 1);
+      b.classList.toggle('on');
+    });
+  });
   document.getElementById('templateSaveBtn').addEventListener('click', () => {
     const name = document.getElementById('templateName').value.trim();
     if (!name) { alert('Give the template a name.'); return; }
     if (templateBlocksDraft.length === 0) { alert('Add at least one block.'); return; }
+    const startDate = document.getElementById('templateStartDate').value || null;
+    const endDate = document.getElementById('templateEndDate').value || null;
+    if (startDate && endDate && startDate > endDate) { alert('Start date must be before end date.'); return; }
+    const recurrence = templateDaysSelected.length > 0 ? { days: templateDaysSelected.slice(), startDate, endDate } : null;
     const list = getTemplates();
     if (editingTemplateId) {
       const idx = list.findIndex((t) => t.id === editingTemplateId);
-      if (idx !== -1) list[idx] = { id: editingTemplateId, name, blocks: templateBlocksDraft.slice() };
+      if (idx !== -1) list[idx] = { id: editingTemplateId, name, blocks: templateBlocksDraft.slice(), recurrence };
     } else {
-      list.push({ id: genId(), name, blocks: templateBlocksDraft.slice() });
+      list.push({ id: genId(), name, blocks: templateBlocksDraft.slice(), recurrence });
     }
     setTemplates(list);
     document.getElementById('templatesForm').style.display = 'none';
     resetTemplateForm();
     renderTemplates();
+    // If it's newly (or still) recurring, materialize it right away rather
+    // than waiting for the next page load.
+    materializeRecurringTemplates(getActiveDateString());
+    materializeRecurringTemplates(getTomorrowDateString());
   });
 
   // ---------- Boot ----------
   rollover();
   materializeHabits(getActiveDateString());
   materializeHabits(getTomorrowDateString());
+  materializeRecurringTemplates(getActiveDateString());
+  materializeRecurringTemplates(getTomorrowDateString());
   renderHabits();
   renderTemplates();
   processStreak();
