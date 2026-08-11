@@ -66,15 +66,26 @@ export default async function handler(req, res) {
   const sleepData = sleepMetric && Array.isArray(sleepMetric.data) ? sleepMetric.data : [];
   if (sleepData.length) {
     const s = sleepData[sleepData.length - 1];
-    const asleepMin = s.asleep != null ? s.asleep : s.totalSleep;
-    const inBedMin = s.inBed != null ? s.inBed : null;
+    // Some exports report sleep_analysis in hours instead of minutes — normalize using the metric's own units.
+    const unitsLc = ((sleepMetric && sleepMetric.units) || '').toLowerCase();
+    const mult = (unitsLc.indexOf('hr') === 0 || unitsLc.indexOf('hour') === 0) ? 60 : 1;
+    const num = (v) => (typeof v === 'number' ? v * mult : null);
+
+    const coreMin = num(s.core);
+    const deepMin = num(s.deep);
+    const remMin = num(s.rem);
+    const inBedMin = num(s.inBed);
+    // Prefer the explicit total; fall back to summing the stages (some exports omit/zero the total).
+    let asleepMin = num(s.asleep != null ? s.asleep : s.totalSleep);
+    if (!asleepMin) {
+      const stageSum = (coreMin || 0) + (deepMin || 0) + (remMin || 0);
+      if (stageSum > 0) asleepMin = stageSum;
+    }
+
     sleep = {
-      asleepMin: typeof asleepMin === 'number' ? asleepMin : null,
-      coreMin: typeof s.core === 'number' ? s.core : null,
-      deepMin: typeof s.deep === 'number' ? s.deep : null,
-      remMin: typeof s.rem === 'number' ? s.rem : null,
-      inBedMin: typeof inBedMin === 'number' ? inBedMin : null,
-      awakeMin: (typeof inBedMin === 'number' && typeof asleepMin === 'number') ? Math.max(0, inBedMin - asleepMin) : null,
+      asleepMin: asleepMin != null ? asleepMin : null,
+      coreMin, deepMin, remMin, inBedMin,
+      awakeMin: (inBedMin != null && asleepMin != null) ? Math.max(0, inBedMin - asleepMin) : null,
       sleepStart: s.sleepStart || null,
       sleepEnd: s.sleepEnd || null,
     };
