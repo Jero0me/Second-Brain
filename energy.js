@@ -1,21 +1,20 @@
 // =============================================================
 // Shared energy-prediction model (two-process: circadian + sleep
-// pressure + caffeine decay). Originally lived inline in
-// caffeine.html; extracted so main.html's Day Ring and the future
-// AI day-planner can reason about the same energy curve instead of
-// each carrying its own copy.
+// pressure + caffeine decay). Shared by the planner's Day Ring, the
+// Auto-scheduler and E.F.I. so they all reason about the same curve.
 //
 // Pure math — no DOM, no localStorage writes. Callers build a
 // `ctx` (via computeContext(), or by hand) and pass it into the
 // stateless functions below.
 //
 // ctx shape: { wakeHour, bedHour, recovery, hrv, rhr, sleepAsleepMin, caffeineLogs }
-//   caffeineLogs: array of {mg, ts} — same shape as caffeine.html's 'caf:logs'.
+//   caffeineLogs: array of {mg, ts} — from EFI.data.caffeine (Apple Health
+//   "Dietary Caffeine" samples + anything logged through E.F.I.).
+//   bedHour may exceed 24 (e.g. 24.5 = 00:30) for after-midnight bedtimes.
 //
 // Load this WITHOUT `defer` (like supabase-js/api/config) — it has
 // no DOM dependency, and callers that run in non-deferred inline
-// scripts (caffeine.html's boot sequence) need window.EnergyModel
-// to already exist.
+// scripts need window.EnergyModel to already exist.
 // =============================================================
 (function () {
   'use strict';
@@ -86,7 +85,7 @@
   }
 
   // Heuristic trough detector — same steepest-sustained-drop logic
-  // caffeine.html already used for its "crash" callout, reused here
+  // the old caffeine page used for its "crash" callout, reused here
   // to decide whether a nap is actually worth suggesting.
   function predictNap(ctx) {
     const now = nowHour();
@@ -131,10 +130,6 @@
       caffeineLogs: [],
       syncDate: null, // 'YYYY-MM-DD' the most recent sleep sync's wake-up falls on, or null if no real sync yet
     };
-    try {
-      const raw = localStorage.getItem('caf:logs');
-      if (raw) ctx.caffeineLogs = JSON.parse(raw) || [];
-    } catch (e) {}
     if (typeof window !== 'undefined' && window.AppleHealth) {
       try {
         const res = await window.AppleHealth.get();
@@ -149,12 +144,23 @@
           }
           if (s) {
             const bedD = parseHealthDate(s.sleepStart);
-            if (bedD) ctx.bedHour = clamp(bedD.getHours() + bedD.getMinutes() / 60, 20, 23.9);
+            // A 00:30 bedtime is "24.5", not 0.5 — the old clamp to 20–23.9
+            // turned any after-midnight bedtime into 8 PM.
+            if (bedD) {
+              let bh = bedD.getHours() + bedD.getMinutes() / 60;
+              if (bh < 12) bh += 24;
+              ctx.bedHour = clamp(bh, 20, 27);
+            }
             const wakeD = parseHealthDate(s.sleepEnd);
             if (wakeD) { ctx.wakeHour = clamp(wakeD.getHours() + wakeD.getMinutes() / 60, 4, 11); ctx.syncDate = dateKey(wakeD); }
           }
         }
       } catch (e) {}
+    }
+    // Caffeine is automatic now: Apple Health "Dietary Caffeine" samples
+    // (fed in by applehealth.js) plus anything logged through E.F.I.
+    if (typeof window !== 'undefined' && window.EFI && window.EFI.data && window.EFI.data.caffeine) {
+      try { ctx.caffeineLogs = window.EFI.data.caffeine.logs().map((x) => ({ mg: x.mg, ts: x.ts })); } catch (e) {}
     }
     return ctx;
   }

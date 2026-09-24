@@ -1,14 +1,16 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<script src="lock.js"></script>
 <script src="/api/config"></script>
+<script src="efi-core.js"></script>
+<script src="efi-data.js"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#050506">
 <meta name="color-scheme" content="dark">
 <title>Daily Stack — Customizable Template</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="efi-auth.js"></script>
 <script src="sync.js" defer></script>
 <script src="topbar.js" defer></script>
 <style>
@@ -504,6 +506,7 @@ main {
 ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.08); border-radius: 999px; }
 ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.15); }
 </style>
+<link rel="stylesheet" id="efi-theme" href="efi-theme.css">
 </head>
 <body>
 
@@ -577,6 +580,8 @@ main {
     .wh-bio-label { display:block; font-size:9.5px; font-weight:700; letter-spacing:0.14em; text-transform:uppercase; color:var(--text-tertiary); margin-bottom:4px; }
     .wh-bio-val { display:block; font-size:14px; font-weight:700; color:var(--text-primary); font-variant-numeric:tabular-nums; }
     @media (max-width:380px) { .wh-bio { grid-template-columns:1fr; } }
+    .wh-bio.wh-bio-4 { grid-template-columns:repeat(4,1fr); }
+    @media (max-width:480px) { .wh-bio.wh-bio-4 { grid-template-columns:repeat(2,1fr); } }
     /* Zone dot */
     .wh-zone { position:absolute; top:9px; right:9px; width:7px; height:7px; border-radius:50%; background:rgba(255,255,255,0.12); }
     .wh-zone.z-good { background:#6BE3A4; box-shadow:0 0 7px rgba(107,227,164,0.55); }
@@ -618,7 +623,7 @@ main {
             <li>Install <b>Health Auto Export – JSON+CSV</b> from the App Store.</li>
             <li>Create a new <b>REST API</b> automation with URL: <code id="whSetupUrl">—</code></li>
             <li>Add header <code>Authorization: Bearer &lt;HEALTH_IMPORT_SECRET&gt;</code> — the value you set for that env var in Vercel.</li>
-            <li>Include Heart Rate Variability, Resting Heart Rate, Respiratory Rate, Blood Oxygen, Active Energy, Step Count, Exercise Time, and Sleep Analysis.</li>
+            <li>Include Heart Rate Variability, Resting Heart Rate, Respiratory Rate, Blood Oxygen, Active Energy, Step Count, Exercise Time, Sleep Analysis, <b>Dietary Caffeine</b>, and (for MyFitnessPal) Dietary Energy, Protein, Carbohydrates, Total Fat. Turn <b>off</b> "Aggregate data" for caffeine so each drink keeps its time.</li>
             <li>Turn the automation on (e.g. every morning). This card updates automatically after the first sync.</li>
           </ol>
         </div>
@@ -664,7 +669,8 @@ main {
           <div class="wh-stat"><span class="wh-zone" id="whZoneHrv"></span><div class="wh-stat-label">HRV</div><div class="wh-stat-val" id="whHrv">—</div><div class="wh-stat-sub">ms</div></div>
           <div class="wh-stat"><span class="wh-zone" id="whZoneRhr"></span><div class="wh-stat-label">RHR</div><div class="wh-stat-val" id="whRhr">—</div><div class="wh-stat-sub">bpm</div></div>
         </div>
-        <div id="whBio" class="wh-bio" style="display:none">
+        <div id="whBio" class="wh-bio wh-bio-4" style="display:none">
+          <div class="wh-bio-item"><span class="wh-zone" id="whZoneCaf"></span><span class="wh-bio-label">Caffeine</span><span class="wh-bio-val" id="whCaf">—</span></div>
           <div class="wh-bio-item"><span class="wh-zone" id="whZoneSkin"></span><span class="wh-bio-label">Exercise</span><span class="wh-bio-val" id="whSkin">—</span></div>
           <div class="wh-bio-item"><span class="wh-zone" id="whZoneSpo2"></span><span class="wh-bio-label">Blood O₂</span><span class="wh-bio-val" id="whSpo2">—</span></div>
           <div class="wh-bio-item"><span class="wh-zone" id="whZoneResp"></span><span class="wh-bio-label">Resp rate</span><span class="wh-bio-val" id="whResp">—</span></div>
@@ -778,7 +784,16 @@ main {
       if (latest.hrv != null) { $('whHrv').textContent = String(Math.round(latest.hrv)); zone($('whZoneHrv'), hrvZone(latest.hrv)); }
       if (latest.rhr != null) { $('whRhr').textContent = String(Math.round(latest.rhr)); zone($('whZoneRhr'), rhrZone(latest.rhr)); }
 
-      const anyBio = (latest.spo2 != null) || (latest.resp != null) || (latest.exerciseMin != null);
+      // Caffeine is automatic: Apple Health "Dietary Caffeine" samples
+      // (+ anything logged by telling E.F.I.). Replaces the old manual page.
+      const caf = window.EFI && window.EFI.data ? window.EFI.data.caffeine : null;
+      const cafToday = caf ? caf.todayTotal() : 0;
+      if (caf) {
+        $('whCaf').textContent = cafToday + ' mg';
+        $('whCaf').title = caf.activeNow() + ' mg still active';
+        zone($('whZoneCaf'), cafToday === 0 ? null : cafToday <= 300 ? 'good' : cafToday <= 400 ? 'warn' : 'bad');
+      }
+      const anyBio = (latest.spo2 != null) || (latest.resp != null) || (latest.exerciseMin != null) || cafToday > 0;
       if (anyBio) {
         $('whBio').style.display = '';
         if (latest.exerciseMin != null) { $('whSkin').textContent = Math.round(latest.exerciseMin) + ' min'; }
@@ -872,11 +887,6 @@ main {
       </div>
     </div>
   </div>
-
-  <section id="water" class="water-embed">
-    <div class="section-title">Water Tracker</div>
-    <iframe src="po-water.html" class="water-iframe" loading="lazy" title="Water Tracker"></iframe>
-  </section>
 
   <div class="attribution">// editable template · all data stays in your browser</div>
 </main>
@@ -1000,7 +1010,9 @@ main {
   function getItems() {
     const storedVersion = storeGet('stack:version');
     const stored = storeGet('stack:items');
-    if (!stored || !Array.isArray(stored) || !stored.length || storedVersion !== TEMPLATE_VERSION) {
+    // An empty list is a valid choice — only seed the template on first run
+    // (deleting every supplement used to bring the placeholders back).
+    if (!stored || !Array.isArray(stored) || storedVersion !== TEMPLATE_VERSION) {
       const fresh = JSON.parse(JSON.stringify(STACK_DEFAULTS));
       storeSet('stack:items', fresh);
       storeSet('stack:version', TEMPLATE_VERSION);
@@ -1392,22 +1404,39 @@ main {
     render();
   }, 60 * 1000);
 
+  // One `stack:taken:<date>` record per day used to accumulate forever in the
+  // synced row (slower sync every month). Keep ~3 months of history. Called
+  // after the cloud pull (see bottom script) so the removal propagates
+  // instead of being restored by the pull.
+  window.__pruneStackTaken = function () {
+    const cutoff = new Date(Date.now() - 90 * 86400000).toISOString().slice(0, 10);
+    const old = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.indexOf('stack:taken:') === 0 && k.slice(12) < cutoff) old.push(k);
+    }
+    old.forEach((k) => localStorage.removeItem(k));
+  };
+
   render();
   startTicker();
+  // Cloud sync (and other tabs) signal changes via 'storage' — without this
+  // the stack only updated on reload, and a stale screen could overwrite
+  // a newer change from another device.
+  window.addEventListener('storage', () => {
+    todayKey = `stack:taken:${getActiveDate()}`;
+    render();
+  });
 })();
 </script>
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-  if (typeof initCloudSync !== 'function') return;
-  initCloudSync({
-    appKey: 'health',
-    syncedKeys: ['stack:items', 'stack:version', 'stack:low', 'po_water_v1'],
-    syncedPrefixes: ['stack:taken:'],
-    onApplied: function () {
-      window.dispatchEvent(new Event('storage'));
-    }
-  });
+  const prune = function () { if (window.__pruneStackTaken) window.__pruneStackTaken(); };
+  if (!window.CloudSync) { prune(); return; }
+  const onApplied = function () { window.dispatchEvent(new Event('storage')); };
+  window.CloudSync.init('health', { onApplied }).then(prune);
+  window.CloudSync.init('efi', { onApplied }); // caffeine logged through E.F.I.
 });
 </script>
 

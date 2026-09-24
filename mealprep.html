@@ -1,14 +1,15 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<script src="lock.js"></script>
 <script src="/api/config"></script>
+<script src="efi-core.js"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#0a0a0b">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Meal Prep</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="efi-auth.js"></script>
 <script src="sync.js" defer></script>
 <script src="topbar.js" defer></script>
 <style>
@@ -495,6 +496,7 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
   .mp-macro-row { grid-template-columns: repeat(2, 1fr); }
 }
 </style>
+<link rel="stylesheet" id="efi-theme" href="efi-theme.css">
 </head>
 <body>
 <div class="shell">
@@ -699,6 +701,8 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
   const SUPABASE_KEY = (window.DASH_SUPABASE_KEY) || 'sb_publishable_5142ZwTLF_DkSVRzciNuRA_bHwRAu4c';
   let mpSupa = null;
   function getSupa() {
+    // Shared signed-in client (efi-auth.js) — uploads are owner-only.
+    if (!mpSupa && window.EFIAuth) mpSupa = window.EFIAuth.client();
     if (!mpSupa && window.supabase) mpSupa = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
     return mpSupa;
   }
@@ -766,38 +770,19 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
   }
 
   // ============================================================
-  // AI — reuses Nova's bring-your-own-key setup, same as main.html's
-  // AI scheduler and nova-lite.html itself.
+  // AI — Google Gemini through E.F.I., same as the planner and assistant.
   // ============================================================
-  const NOVA_KEY_LS = 'nova_lite_api_key';
-  function savedNovaKey() { try { return localStorage.getItem(NOVA_KEY_LS) || ''; } catch (e) { return ''; } }
+  // Runs on Google Gemini via efi-core.js (key from E.F.I. → Settings).
+  // The content blocks below are still written in the old text/image block
+  // shape — EFI.ai converts them to Gemini parts (images included).
   function requireKey() {
-    const k = savedNovaKey();
-    if (!k) alert('Paste your Anthropic API key on the Nova page first — the same key powers Meal Prep\'s AI features.');
-    return k;
+    const ok = !!(window.EFI && window.EFI.ai.hasKey());
+    if (!ok) alert('Add your Gemini API key in E.F.I. → Settings first — the same key powers Meal Prep\'s AI features.');
+    return ok;
   }
-  async function askClaude(contentBlocks, maxTokens) {
-    const key = requireKey();
-    if (!key) throw new Error('no key');
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'x-api-key': key,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true',
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-5',
-        max_tokens: maxTokens || 1500,
-        messages: [{ role: 'user', content: contentBlocks }],
-      }),
-    });
-    const json = await res.json();
-    if (json.error) throw new Error(json.error.message || 'Anthropic API error');
-    const text = (json.content && json.content[0] && json.content[0].text) || '';
-    const cleaned = text.trim().replace(/^```(?:json)?/i, '').replace(/```$/, '').trim();
-    return JSON.parse(cleaned);
+  async function askGemini(contentBlocks, maxTokens) {
+    if (!requireKey()) throw new Error('no key');
+    return window.EFI.ai.askJSON(contentBlocks, { maxTokens: Math.max(8192, maxTokens || 0) });
   }
 
   // ============================================================
@@ -883,7 +868,7 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
     btn.disabled = true;
     statusEl.textContent = 'Reading recipe…';
     try {
-      const result = await askClaude([
+      const result = await askGemini([
         { type: 'image', source: { type: 'base64', media_type: match[1], data: match[2] } },
         { type: 'text', text:
           'This image is a screenshot of a recipe (ingredients and/or instructions from a website). ' +
@@ -1222,7 +1207,7 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
     $('chefResults').innerHTML = '';
     try {
       const recipes = getRecipes().map((r) => ({ id: r.id, title: r.title, ingredients: r.ingredients }));
-      const result = await askClaude([{
+      const result = await askGemini([{
         type: 'text', text:
           'Act as a home chef assistant. Here is what\'s currently in the fridge: ' + JSON.stringify(fridgeItems) + '.\n' +
           'Here are the user\'s saved recipes (id, title, ingredients): ' + JSON.stringify(recipes) + '.\n' +
@@ -1273,7 +1258,7 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
     try {
       const recipes = getRecipes().map((r) => ({ id: r.id, title: r.title, servings: r.servings, ingredients: r.ingredients, macrosPerServing: r.macrosPerServing }));
       const fridgeItems = getFridge(fridge).map((i) => i.name);
-      const result = await askClaude([{
+      const result = await askGemini([{
         type: 'text', text:
           'Build a 7-day meal-prep plan (Monday through Sunday, one main meal per day unless variety clearly calls for more) ' +
           'for ' + servings + ' servings per meal' + (budget ? (', with a total grocery budget around €' + budget + ' for the week') : '') + '.\n' +

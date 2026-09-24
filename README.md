@@ -1,28 +1,33 @@
-# Personal Dashboard
+# E.F.I. — Enhanced Functional Intelligence
 
-A set of small, self-contained HTML apps that share a top bar.
+Jerome's second brain: a set of small, self-contained HTML apps with one AI assistant on top.
+E.F.I. runs on **Google Gemini**, syncs with **Google Calendar / Google Tasks**, and can change
+anything in the dashboard by chat or voice — calendar, plans, notes, finances, subscriptions.
 
-## Deploy your own copy
-
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FRowanThistlebrooke%2FYTdashh1)
-
-One click → Vercel signs you in, copies the repo to your GitHub, and deploys it. ~30 seconds to a live URL.
-
-## How to use
-
-Open any `.html` file directly in your browser — no build step, no install.
+Setup (Vercel, Supabase, Gemini key, Google OAuth, Apple Health): **[SETUP.md](SETUP.md)**.
 
 | File | What it is |
 |---|---|
-| [index.html](index.html) | Goals tracker (Day Ring, Goal Ticker, To Do list) — the home page |
-| [health.html](health.html) | Supplement / daily stack tracker |
-| [po-water.html](po-water.html) | Water intake tracker |
-| [finance.html](finance.html) | Finances |
-| [gym.html](gym.html) | Progressive overload gym tracker |
-| [topbar.js](topbar.js) | Shared top bar — auto-injected into pages that `<script src="topbar.js">` |
+| [index.html](index.html) | **E.F.I.** — the assistant (JARVIS-style home: chat, voice, daily briefing, notes, settings) |
+| [calendar.html](calendar.html) | Calendar — day timeline, week, month; merges Google Calendar, planner time-blocks, shift templates, bill renewals, orders |
+| [main.html](main.html) | Planner — goals, time-blocking grid, AI Auto-schedule, habits, shift templates |
+| [health.html](health.html) | Apple Health (sleep, vitals, caffeine) + supplement stack |
+| [gym.html](gym.html) | Progressive-overload gym tracker, bodyweight, calories (MyFitnessPal via Health) |
+| [finance.html](finance.html) | Net worth, subscriptions, wishlist, incoming orders (EUR) |
+| [mealprep.html](mealprep.html) | Recipes, fridge, AI chef, weekly meal plan |
 
-Each app stores its own state in browser `localStorage`. No accounts, no server.
+Shared code:
 
-## Building from scratch
-
-[BUILD_DASHBOARD.md](BUILD_DASHBOARD.md) is the prompt I gave Claude to generate `index.html` — paste it into Claude if you want to rebuild that page yourself.
+| File | Role |
+|---|---|
+| [efi-auth.js](efi-auth.js) | Sign-in gate + the one shared, signed-in Supabase client |
+| [efi-core.js](efi-core.js) | Storage/date helpers, profile, settings, icons, the **Gemini** client |
+| [efi-google.js](efi-google.js) | Google Calendar + Tasks client (tokens from `/api/google`) |
+| [efi-data.js](efi-data.js) | One data API over every module + the unified calendar |
+| [efi-agent.js](efi-agent.js) | E.F.I.'s Gemini function-calling tools and conversation loop |
+| [efi-theme.css](efi-theme.css) | The E.F.I. look, applied to every page |
+| [topbar.js](topbar.js) | App shell — theme injection, bottom navigation, toasts |
+| [sync.js](sync.js) | Supabase cross-device sync (multi-row) |
+| [energy.js](energy.js) | Circadian + sleep-pressure + caffeine energy model |
+| [applehealth.js](applehealth.js) | Reader for the Apple Health snapshot |
+| [api/](api) | Vercel functions: config, Apple Health import, Google OAuth |

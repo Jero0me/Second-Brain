@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#05090A">
+<title>Privacy · E.F.I.</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap">
+<!-- Public page on purpose (Google's OAuth consent screen links here) — no sign-in gate. -->
+<style>
+  body { margin: 0; background: #05090A; color: #A7B6B3; font: 15px/1.65 'Plus Jakarta Sans', -apple-system, 'Segoe UI', Roboto, sans-serif; }
+  main { max-width: 680px; margin: 0 auto; padding: max(40px, env(safe-area-inset-top)) 20px 60px; }
+  h1 { color: #F2F7F6; font-size: 28px; letter-spacing: -0.02em; margin: 0 0 4px; }
+  h2 { color: #F2F7F6; font-size: 17px; margin: 28px 0 6px; }
+  .sub { color: #6B7C79; font-size: 13px; margin: 0 0 24px; }
+  a { color: #34D8A0; }
+  ul { padding-left: 20px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>E.F.I. — Privacy</h1>
+  <p class="sub">Enhanced Functional Intelligence · a personal dashboard used by its owner only · updated September 2026</p>
+
+  <p>E.F.I. is a private, single-user productivity dashboard. It is not offered to the public, and no data is sold, shared, or used for advertising.</p>
+
+  <h2>Google data</h2>
+  <p>When the owner connects a Google account, E.F.I. requests access to:</p>
+  <ul>
+    <li><b>Google Calendar events</b> and the <b>calendar list</b> — to show, create, move and delete events at the owner's request.</li>
+    <li><b>Google Tasks</b> — to show and create tasks at the owner's request.</li>
+  </ul>
+  <p>Calendar and task data is read directly by the owner's browser and is not stored on any server. The Google sign-in is kept as an encrypted, HttpOnly cookie on the owner's device and can be revoked at any time from E.F.I. settings ("Disconnect") or at <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener">myaccount.google.com/permissions</a>.</p>
+  <p>E.F.I.'s use of information received from Google APIs adheres to the <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener">Google API Services User Data Policy</a>, including the Limited Use requirements.</p>
+
+  <h2>AI (Google Gemini)</h2>
+  <p>When the owner asks E.F.I. something, the request and relevant dashboard context are sent to the Google Gemini API using the owner's own API key, which is stored only on the owner's device.</p>
+
+  <h2>Dashboard data</h2>
+  <p>Planner, finance, health and other dashboard data is stored in the owner's browser and synced between the owner's devices through a private Supabase database protected by sign-in and row-level security, so only the owner's account can read or write it.</p>
+
+  <h2>Contact</h2>
+  <p>Questions about this page: contact the owner of this deployment.</p>
+</main>
+</body>
+</html>

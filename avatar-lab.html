@@ -3,11 +3,11 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Avatar Lab · Nova</title>
+<title>Avatar Lab · E.F.I.</title>
 <!-- ============================================================
- * AVATAR LAB — local playground for the Nova avatar.
+ * AVATAR LAB — local playground for the E.F.I. avatar.
  * Pick colors, try 5 designs, preview idle / thinking / happy,
- * then "Use in Nova" copies the exact CSS for that design.
+ * then "Use in E.F.I." copies the exact CSS for that design.
  * Pure HTML/CSS/JS, no build step. Serve locally and open.
  * ============================================================ -->
 <style>
@@ -72,7 +72,7 @@ header .role { font-family: ui-monospace, monospace; font-size: 10px; letter-spa
    ============================================================ */
 .av { --s: 64px; width: var(--s); height: var(--s); position: relative; flex-shrink: 0; }
 
-/* 1 · ORB — the original Nova orb */
+/* 1 · ORB — the original assistant orb */
 .av--orb { border-radius: 50%;
   background: radial-gradient(circle at 32% 28%, #ffffff, var(--c1) 42%, var(--c3) 100%);
   box-shadow: 0 0 26px -2px var(--c1), inset 0 -7px 16px rgba(0,0,0,.28);
@@ -155,9 +155,9 @@ header .role { font-family: ui-monospace, monospace; font-size: 10px; letter-spa
 <body data-state="idle">
   <div class="shell">
     <header>
-      <h1>Avatar Lab</h1><span class="role">Nova design playground</span>
+      <h1>Avatar Lab</h1><span class="role">E.F.I. design playground</span>
     </header>
-    <p class="sub">Tweak the colors, watch all five designs react. Toggle the state to preview thinking & happy. Hit <b>Use in Nova</b> to copy that design's CSS.</p>
+    <p class="sub">Tweak the colors, watch all five designs react. Toggle the state to preview thinking & happy. Hit <b>Use in E.F.I.</b> to copy that design's CSS.</p>
 
     <div class="controls">
       <div class="ctl">
@@ -200,7 +200,7 @@ header .role { font-family: ui-monospace, monospace; font-size: 10px; letter-spa
   const body = document.body;
 
   const DESIGNS = [
-    { id:'orb',     name:'Orb',     desc:'Glossy sphere with eyes — the original Nova.', html:'' },
+    { id:'orb',     name:'Orb',     desc:'Glossy sphere with eyes — the original assistant orb.', html:'' },
     { id:'reactor', name:'Reactor', desc:'Spinning energy rings around a bright core.',   html:'<i></i>' },
     { id:'blob',    name:'Blob',    desc:'Soft morphing droplet, playful and alive.',     html:'' },
     { id:'bot',     name:'Bot',     desc:'Friendly robot head with a blinking face.',     html:'<div class="face"><b></b><b></b></div>' },
@@ -227,7 +227,7 @@ header .role { font-family: ui-monospace, monospace; font-size: 10px; letter-spa
       '<div class="stage"><div class="av av--'+d.id+'">'+d.html+'</div></div>' +
       '<div class="name">'+d.name+'</div>' +
       '<div class="desc">'+d.desc+'</div>' +
-      '<button class="use" data-id="'+d.id+'">Use in Nova</button>';
+      '<button class="use" data-id="'+d.id+'">Use in E.F.I.</button>';
     grid.appendChild(card);
   });
 
@@ -260,7 +260,7 @@ header .role { font-family: ui-monospace, monospace; font-size: 10px; letter-spa
     document.querySelectorAll('#stateSeg button').forEach(b => b.classList.toggle('on', b === btn));
   });
 
-  // ---- "Use in Nova": copy the chosen design's CSS, ready to paste ----
+  // ---- "Use in E.F.I.": copy the chosen design's CSS, ready to paste ----
   const toast = document.getElementById('toast');
   function showToast(msg){ toast.textContent = msg; toast.classList.add('show'); setTimeout(()=>toast.classList.remove('show'), 1600); }
 
@@ -275,7 +275,7 @@ header .role { font-family: ui-monospace, monospace; font-size: 10px; letter-spa
       if (t.includes('.av--'+id)) { rules.push(t); continue; }
       if (t.startsWith('@keyframes')) { rules.push(t); continue; }
     }
-    return `/* Nova avatar · "${id}" design — paste into your stylesheet */\n${vars}\n\n` + rules.join('\n') +
+    return `/* E.F.I. avatar · "${id}" design — paste into your stylesheet */\n${vars}\n\n` + rules.join('\n') +
       `\n\n<!-- markup -->\n<div class="av av--${id}" data-state="idle">${DESIGNS.find(d=>d.id===id).html}</div>`;
   }
 
@@ -286,7 +286,7 @@ header .role { font-family: ui-monospace, monospace; font-size: 10px; letter-spa
       const ta = document.createElement('textarea'); ta.value = css; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove();
     }
     btn.classList.add('copied'); btn.textContent = '✓ Copied CSS';
-    setTimeout(()=>{ btn.classList.remove('copied'); btn.textContent = 'Use in Nova'; }, 1500);
+    setTimeout(()=>{ btn.classList.remove('copied'); btn.textContent = 'Use in E.F.I.'; }, 1500);
     showToast(btn.dataset.id + ' CSS copied');
   });
 })();

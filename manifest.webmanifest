@@ -1,0 +1,13 @@
+{
+  "name": "E.F.I. — Enhanced Functional Intelligence",
+  "short_name": "E.F.I.",
+  "start_url": "/index.html",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#05090A",
+  "theme_color": "#05090A",
+  "icons": [
+    { "src": "icons/efi-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/efi-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

@@ -1,13 +1,16 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<script src="lock.js"></script>
 <script src="/api/config"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#050506">
-<title>Jerome's Second Brain</title>
+<meta name="theme-color" content="#05090A">
+<title>Planner · E.F.I.</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="efi-auth.js"></script>
+<script src="efi-core.js"></script>
+<script src="efi-google.js"></script>
+<script src="efi-data.js"></script>
 <script src="energy.js"></script>
 <script src="sync.js" defer></script>
 <script src="topbar.js" defer></script>
@@ -726,11 +729,12 @@ body::after {
   .gm-progress-num { font-size: 36px; }
 }
 </style>
+<link rel="stylesheet" id="efi-theme" href="efi-theme.css">
 </head>
 <body>
 <div class="page">
 
-  <h1 class="dash-title">Jerome's Second Brain</h1>
+  <h1 class="dash-title">Planner</h1>
 
   <div class="ticker-row">
     <div class="goal-ticker" id="goalTicker" aria-live="polite" aria-atomic="true">
@@ -999,8 +1003,8 @@ body::after {
 (function () {
   'use strict';
 
-  // Paste your Anthropic key here to enable ✨ Polish. Empty = falls back to plain add.
-  const ANTHROPIC_API_KEY = '';
+  // All AI here (Polish + Auto-schedule) runs on Google Gemini via
+  // efi-core.js, using the key saved in E.F.I. settings.
 
   // Fallback window used only until EnergyModel.computeContext() resolves
   // with real Apple Health wake/bed times (or if AppleHealth isn't synced yet).
@@ -1338,27 +1342,41 @@ body::after {
   }
 
   // ---------- rollover: pull undone older goals into today ----------
+  // Undone one-off tasks move forward; the old day keeps what was actually
+  // done (so the calendar and E.F.I. still see history). Habit instances
+  // and template pseudo-tasks are regenerated daily, so they stay put.
+  // Must run AFTER processStreak(), which needs to see the undone items.
+  const HISTORY_DAYS = 60;
   function rollover() {
     const todayDateStr = getActiveDateString();
     const todayK = 'goals:' + todayDateStr;
     let today = getGoals(todayK);
     const texts = new Set(today.map(g => g.text));
+    const pruneBefore = dateToKey(new Date(Date.now() - HISTORY_DAYS * 86400000));
 
     storeListKeys('goals:').forEach(k => {
       const dateStr = k.slice('goals:'.length);
       if (dateStr >= todayDateStr) return;
+      if (dateStr < pruneBefore) { storeDelete(k); storeDelete('plan:' + dateStr); return; }
       const old = getGoals(k);
+      const kept = [];
+      let moved = false;
       old.forEach(g => {
-        if (!g.done && g.text && !texts.has(g.text)) {
-          // Carry the full item forward (importance/duration/type/etc.),
-          // not just its text — but placement/completion don't carry over.
-          const next = Object.assign({}, g, { id: genId(), done: false, scheduled: null, locked: false });
-          delete next.doneAt;
-          today.push(next);
-          texts.add(g.text);
-        }
+        const carry = !g.done && g.text && !g.sourceHabitId && !g.sourceTemplateBlockId;
+        if (carry) {
+          moved = true;
+          if (!texts.has(g.text)) {
+            // Carry the full item forward (importance/duration/type/etc.),
+            // not just its text — but placement/completion don't carry over.
+            const next = Object.assign({}, g, { id: genId(), done: false, scheduled: null, locked: false });
+            delete next.doneAt;
+            today.push(next);
+            texts.add(g.text);
+          }
+        } else kept.push(g);
       });
-      storeDelete(k);
+      if (!moved) return;
+      if (kept.length) setGoals(k, kept); else storeDelete(k);
     });
     setGoals(todayK, today);
   }
@@ -1818,6 +1836,8 @@ body::after {
       }));
     });
 
+    overlayCalendarEvents(dateStr, gridBodyId);
+
     if (plan.napSuggestion) {
       const nap = plan.napSuggestion;
       body.appendChild(buildGridBlock({
@@ -1830,12 +1850,37 @@ body::after {
     }
   }
 
-  // ---------- AI scheduler (Nova-powered) ----------
-  // Reuses Nova's own bring-your-own-key setup (localStorage['nova_lite_api_key'])
-  // rather than introducing a second key flow.
-  const NOVA_KEY_LS = 'nova_lite_api_key';
-  function savedNovaKey() { try { return localStorage.getItem(NOVA_KEY_LS) || ''; } catch (e) { return ''; } }
+  // ---------- Calendar events (Google + E.F.I.) on the grid ----------
+  // Appointments from the unified calendar are drawn as fixed blocks and
+  // treated as immovable by Auto-schedule, so it never books over them.
+  const calEventsByDate = {};
+  const calFetchSeq = {};
+  async function fetchCalendarEvents(dateStr) {
+    if (!window.EFI || !window.EFI.data) return [];
+    try {
+      const r = await window.EFI.data.calendar.range(dateStr, dateStr);
+      return r.items.filter((x) => (x.source === 'google' || x.source === 'local') && !x.allDay && x.start && x.end)
+        .map((x) => ({ label: x.title, start: x.start, end: x.end === '24:00' ? '23:59' : x.end, source: x.source }));
+    } catch (e) { return []; }
+  }
+  async function overlayCalendarEvents(dateStr, bodyId) {
+    const seq = (calFetchSeq[bodyId] || 0) + 1;
+    calFetchSeq[bodyId] = seq;
+    const events = await fetchCalendarEvents(dateStr);
+    if (calFetchSeq[bodyId] !== seq) return; // a newer render superseded this one
+    calEventsByDate[dateStr] = events;
+    const body = document.getElementById(bodyId);
+    if (!body) return;
+    body.querySelectorAll('.tb-block-gcal').forEach((el) => el.remove());
+    events.forEach((ev) => {
+      const s = Math.max(GRID_START_HOUR * 60, timeToMin(ev.start));
+      if (s >= GRID_END_HOUR * 60) return;
+      const el = buildGridBlock({ label: '📅 ' + ev.label, start: minToTime(s), end: ev.end, kind: 'gcal' });
+      body.appendChild(el);
+    });
+  }
 
+  // ---------- AI scheduler (Gemini via E.F.I.) ----------
   function buildSchedulerContext(dateStr) {
     const ctx = dayRingCtx;
     const plan = getPlan(dateStr);
@@ -1843,10 +1888,12 @@ body::after {
     const all = getGoals(key);
 
     // Immovable = anything the AI must schedule around, never move: template
-    // fixed blocks, plus any task the user has already manually locked in
-    // place (this is also how "jobs" — fixed real-world commitments — are
-    // represented, since they're just locked tasks with a real time).
+    // fixed blocks, calendar appointments, plus any task the user has already
+    // manually locked in place (this is also how "jobs" — fixed real-world
+    // commitments — are represented, since they're just locked tasks with a
+    // real time).
     const immovableBlocks = (plan.fixedBlocks || []).map((b) => ({ label: b.label, start: b.start, end: b.end }));
+    (calEventsByDate[dateStr] || []).forEach((ev) => immovableBlocks.push({ label: ev.label, start: ev.start, end: ev.end }));
     all.filter((g) => g.locked && g.scheduled).forEach((g) => {
       immovableBlocks.push({ label: g.text, start: g.scheduled.start, end: g.scheduled.end });
     });
@@ -1924,13 +1971,13 @@ body::after {
       updateAutoScheduleAvailability();
       return;
     }
-    const key = savedNovaKey();
-    if (!key) {
-      alert('Paste your Anthropic API key on the Nova page first — the same key powers Auto-schedule.');
+    if (!window.EFI || !window.EFI.ai.hasKey()) {
+      alert('Add your Gemini API key in E.F.I. → Settings first — the same key powers Auto-schedule.');
       return;
     }
     const btn = document.getElementById('todayAutoBtn');
     const statusEl = document.getElementById('todayAutoStatus');
+    calEventsByDate[dateStr] = await fetchCalendarEvents(dateStr); // fresh, so nothing gets double-booked
     const context = buildSchedulerContext(dateStr);
     if (context.tasks.length === 0) {
       statusEl.textContent = 'Nothing unscheduled to place.';
@@ -1939,20 +1986,7 @@ body::after {
     btn.disabled = true;
     statusEl.textContent = 'Scheduling…';
     try {
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-          'x-api-key': key,
-          'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-direct-browser-access': 'true',
-        },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-5',
-          max_tokens: 1500,
-          messages: [{
-            role: 'user',
-            content:
+      const result = await window.EFI.ai.askJSON(
               'Schedule one day\'s flexible tasks onto time slots.\n' +
               'Day window: ' + context.dayWindow.start + ' to ' + context.dayWindow.end + '.\n' +
               'These blocks are already fixed and immovable — nothing may overlap them: ' + JSON.stringify(context.immovableBlocks) + '\n' +
@@ -1963,16 +1997,10 @@ body::after {
               'Deterministic nap heuristic for reference (only include a nap if warranted and non-conflicting): ' + JSON.stringify(context.suggestedNapWindow) + '\n' +
               'Biometrics for context: ' + JSON.stringify(context.biometrics) + '\n' +
               'No two placements (including immovable blocks) may overlap. Not every task needs to be placed — list ones you skip in "unplaced".\n' +
-              'Return ONLY strict JSON, no prose, no markdown code fences, matching exactly this shape:\n' +
+              'Return ONLY strict JSON matching exactly this shape:\n' +
               '{"placements":[{"taskId":"...","start":"HH:MM","end":"HH:MM"}],"nap":{"start":"HH:MM","end":"HH:MM","reason":"..."}|null,"unplaced":["taskId",...]}',
-          }],
-        }),
-      });
-      const json = await res.json();
-      if (json.error) throw new Error(json.error.message || 'Anthropic API error');
-      const text = (json.content && json.content[0] && json.content[0].text) || '';
-      const cleaned = text.trim().replace(/^```(?:json)?/i, '').replace(/```$/, '').trim();
-      const result = JSON.parse(cleaned);
+        { maxTokens: 8192 }
+      );
       applyScheduleResult(dateStr, result, context);
     } catch (e) {
       statusEl.textContent = 'Failed — ' + (e && e.message ? e.message : 'try again');
@@ -2216,7 +2244,11 @@ body::after {
     const tomorrow = getGoals(tomorrowKey());
     const seen = new Set(tomorrow.map(g => g.text));
     remaining.forEach(g => {
-      if (!seen.has(g.text)) { tomorrow.push({ text: g.text, done: false }); seen.add(g.text); }
+      if (seen.has(g.text)) return;
+      // Keep importance/duration/etc. — only placement resets.
+      const next = Object.assign({}, g, { id: genId(), done: false, scheduled: null, locked: false });
+      delete next.doneAt;
+      tomorrow.push(next); seen.add(g.text);
     });
     setGoals(tomorrowKey(), tomorrow);
     setGoals(todayKey(), today.filter(g => g.done));
@@ -2232,34 +2264,20 @@ body::after {
   }
 
   async function polishOne(text) {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true'
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-5',
-        max_tokens: 1000,
-        messages: [{
-          role: 'user',
-          content:
-            'Rewrite this single goal so it is concrete, action-oriented, and under 60 characters. ' +
-            'Return ONLY a JSON array with exactly one string, no preamble, no code fences.\n\nGoal: ' + text
-        }]
-      })
-    });
-    const data = await res.json();
-    const content = (data && data.content && data.content[0] && data.content[0].text) || '';
-    const arr = JSON.parse(content);
+    const arr = await window.EFI.ai.askJSON(
+      'Rewrite this single goal so it is concrete, action-oriented, and under 60 characters. ' +
+      'Return ONLY a JSON array with exactly one string.\n\nGoal: ' + text,
+      { maxTokens: 8192 } // thinking models spend part of this budget before answering
+    );
     if (!Array.isArray(arr) || arr.length < 1 || typeof arr[0] !== 'string') throw new Error('bad response');
     return arr[0].trim();
   }
 
-  function makeAddHandlers(input, addBtn, polishBtn, key, statusEl, reload) {
+  // `keyFn` is evaluated on every add — a fixed key captured at page load
+  // kept adding to yesterday's list if the tab stayed open past 6 AM.
+  function makeAddHandlers(input, addBtn, polishBtn, keyFn, statusEl, reload) {
     function plainAdd(text) {
+      const key = keyFn();
       const list = getGoals(key);
       list.push({ text, done: false });
       setGoals(key, list);
@@ -2277,9 +2295,9 @@ body::after {
     polishBtn.addEventListener('click', async () => {
       const text = input.value.trim();
       if (!text) return;
-      if (!ANTHROPIC_API_KEY) {
+      if (!window.EFI || !window.EFI.ai.hasKey()) {
         plainAdd(text);
-        showStatus(statusEl, 'Polish needs an Anthropic API key — added as-typed.', false);
+        showStatus(statusEl, 'Polish needs your Gemini key (E.F.I. → Settings) — added as-typed.', false);
         return;
       }
       polishBtn.disabled = true;
@@ -2299,7 +2317,7 @@ body::after {
     document.getElementById('goalInput'),
     document.getElementById('goalAddBtn'),
     document.getElementById('goalPolishBtn'),
-    todayKey(),
+    todayKey,
     document.getElementById('polishStatus'),
     loadToday
   );
@@ -2307,7 +2325,7 @@ body::after {
     document.getElementById('tomorrowInput'),
     document.getElementById('tomorrowAddBtn'),
     document.getElementById('tomorrowPolishBtn'),
-    tomorrowKey(),
+    tomorrowKey,
     document.getElementById('tomorrowStatus'),
     loadTomorrow
   );
@@ -2498,14 +2516,28 @@ body::after {
   });
 
   // ---------- Boot ----------
-  rollover();
-  materializeHabits(getActiveDateString());
-  materializeHabits(getTomorrowDateString());
-  materializeRecurringTemplates(getActiveDateString());
-  materializeRecurringTemplates(getTomorrowDateString());
+  // Streak first: it has to judge past days before rollover moves their
+  // unfinished items forward (the old order deleted every past day before
+  // the streak ever saw it, so the streak could never grow).
+  // All steps are idempotent. They run once now for an instant first paint,
+  // and again after the initial cloud pull (see the sync script below) —
+  // running only now let the pull overwrite them, so on synced devices
+  // rolled-over tasks and today's habit instances silently disappeared.
+  function dailySetup() {
+    processStreak();
+    rollover();
+    materializeHabits(getActiveDateString());
+    materializeHabits(getTomorrowDateString());
+    materializeRecurringTemplates(getActiveDateString());
+    materializeRecurringTemplates(getTomorrowDateString());
+  }
+  window.__plannerDailySetup = function () {
+    dailySetup();
+    loadToday(); loadTomorrow(); renderStreak(); renderHabits(); renderTemplates();
+  };
+  dailySetup();
   renderHabits();
   renderTemplates();
-  processStreak();
   loadToday();
   loadTomorrow();
   renderStreak();
@@ -2515,8 +2547,20 @@ body::after {
 
   // Re-render when storage changes from another tab (or our bridged parent).
   window.addEventListener('storage', () => {
-    loadToday(); loadTomorrow(); renderStreak();
+    loadToday(); loadTomorrow(); renderStreak(); renderHabits(); renderTemplates();
   });
+
+  // The page can stay open across the 6 AM day boundary (phones keep tabs
+  // alive for days) — when the active date changes, redo the daily setup.
+  let bootedDate = getActiveDateString();
+  function checkDayChange() {
+    if (getActiveDateString() === bootedDate) return;
+    bootedDate = getActiveDateString();
+    window.__plannerDailySetup();
+    refreshDayRingContext();
+  }
+  setInterval(checkDayChange, 60 * 1000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) checkDayChange(); });
 
   // applehealth.js/energy.js context depends on `defer`red scripts that
   // haven't necessarily run yet at this point (this IIFE runs inline,
@@ -2531,16 +2575,15 @@ body::after {
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-  if (typeof initCloudSync !== 'function') return;
-  initCloudSync({
-    appKey: 'goals',
-    syncedPrefixes: ['goals:', 'habits:', 'templates:', 'plan:'],
-    syncedKeys: ['goal_streak_v1'],
-    onApplied: function () {
-      window.dispatchEvent(new CustomEvent('goals-changed'));
-      window.dispatchEvent(new Event('storage'));
-    }
+  if (!window.CloudSync) return;
+  const onApplied = function () {
+    window.dispatchEvent(new CustomEvent('goals-changed'));
+    window.dispatchEvent(new Event('storage'));
+  };
+  window.CloudSync.init('goals', { onApplied }).then(function () {
+    if (window.__plannerDailySetup) window.__plannerDailySetup();
   });
+  window.CloudSync.init('efi', { onApplied }); // E.F.I. calendar events shown on the grid
 });
 </script>
 </body>

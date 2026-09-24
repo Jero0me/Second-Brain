@@ -1,0 +1,137 @@
+/* =============================================================
+   E.F.I. theme — deep teal-black glass with a mint accent.
+   Injected on every page by topbar.js (after the page's own styles),
+   so the older modules pick up the new palette + type without being
+   rewritten. New pages (index.html, calendar.html) build on the same
+   tokens directly.
+   ============================================================= */
+:root {
+  --efi-bg: #05090A;
+  --efi-bg-2: #0A1315;
+  --efi-surface: rgba(255, 255, 255, 0.045);
+  --efi-surface-2: rgba(255, 255, 255, 0.075);
+  --efi-surface-solid: #0F1A1C;
+  --efi-border: rgba(255, 255, 255, 0.08);
+  --efi-border-strong: rgba(255, 255, 255, 0.14);
+  --efi-text: #F2F7F6;
+  --efi-text-2: #A7B6B3;
+  --efi-text-3: #6B7C79;
+  --efi-accent: #34D8A0;
+  --efi-accent-2: #1FB58A;
+  --efi-accent-ink: #03140E;
+  --efi-accent-soft: rgba(52, 216, 160, 0.14);
+  --efi-glow: rgba(52, 216, 160, 0.45);
+  --efi-danger: #FF7A70;
+  --efi-warn: #F5C065;
+  --efi-radius: 20px;
+  --efi-radius-sm: 14px;
+  --efi-font: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --efi-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --efi-nav-h: 64px;
+
+  /* legacy page tokens → E.F.I. palette */
+  --font: var(--efi-font);
+  --text-primary: var(--efi-text);
+  --text-secondary: var(--efi-text-2);
+  --text-tertiary: var(--efi-text-3);
+  --success: var(--efi-accent);
+}
+
+html, body { background-color: var(--efi-bg) !important; }
+/* The hidden attribute must win over component display rules (flex buttons etc.). */
+[hidden] { display: none !important; }
+body { font-family: var(--efi-font); }
+
+/* Replace the old warm-orange wash with E.F.I.'s green/teal glow. */
+body::before {
+  background:
+    radial-gradient(circle at 8% -4%, rgba(52, 216, 160, 0.22), transparent 42%),
+    radial-gradient(circle at 96% 8%, rgba(34, 195, 201, 0.12), transparent 46%),
+    radial-gradient(circle at 50% 110%, rgba(18, 90, 72, 0.22), transparent 55%) !important;
+}
+
+.dash-title {
+  background: linear-gradient(180deg, #FFFFFF 0%, #A9EFD6 150%) !important;
+  -webkit-background-clip: text !important; background-clip: text !important;
+}
+
+/* Primary buttons on the older pages pick up the mint accent. */
+.gm-add, .set-save, .quick-add-btn, .stack-add-btn {
+  background: linear-gradient(180deg, #5EF0BC 0%, #25C08C 100%) !important;
+  color: var(--efi-accent-ink) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.45), 0 6px 20px rgba(52,216,160,0.22) !important;
+}
+.tb-ai-btn:not(:disabled) {
+  background: linear-gradient(180deg, #5EF0BC 0%, #25C08C 100%) !important;
+  color: var(--efi-accent-ink) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.45), 0 4px 14px rgba(52,216,160,0.28) !important;
+}
+.gm-check:checked { background: var(--efi-accent) !important; border-color: var(--efi-accent) !important; }
+.tb-now-line, .tb-now-line::before { background: var(--efi-accent) !important; }
+.tb-block-gcal {
+  background: rgba(90, 184, 245, 0.13); border: 1px solid rgba(90, 184, 245, 0.38); color: #BFE3FB;
+}
+
+::selection { background: rgba(52, 216, 160, 0.35); }
+
+/* ---------- shared bottom navigation ---------- */
+.efi-nav {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 60;
+  display: flex; justify-content: center;
+  padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
+  pointer-events: none;
+}
+.efi-nav-inner {
+  pointer-events: auto;
+  width: 100%; max-width: 520px;
+  display: grid; grid-template-columns: repeat(5, 1fr); align-items: center;
+  height: var(--efi-nav-h);
+  background: rgba(10, 19, 21, 0.78);
+  border: 1px solid var(--efi-border);
+  border-radius: 24px;
+  backdrop-filter: blur(22px) saturate(1.4);
+  -webkit-backdrop-filter: blur(22px) saturate(1.4);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55);
+  font-family: var(--efi-font);
+}
+.efi-nav a {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  height: 100%;
+  color: var(--efi-text-3); text-decoration: none;
+  font-size: 10px; font-weight: 600; letter-spacing: 0.02em;
+  -webkit-tap-highlight-color: transparent;
+  transition: color 0.15s;
+}
+.efi-nav a .efi-ico { transition: transform 0.12s; }
+.efi-nav a:active .efi-ico { transform: scale(0.9); }
+.efi-nav a.active { color: var(--efi-text); }
+.efi-nav a.active .efi-ico { color: var(--efi-accent); filter: drop-shadow(0 0 8px var(--efi-glow)); }
+.efi-nav .efi-nav-orb { position: relative; }
+.efi-nav .efi-nav-orb span.orb {
+  width: 46px; height: 46px; border-radius: 50%; margin-top: -26px;
+  background:
+    radial-gradient(circle at 35% 28%, rgba(255,255,255,0.9), rgba(255,255,255,0) 32%),
+    radial-gradient(circle at 50% 60%, #6BF5C6 0%, #25C08C 55%, #0D6E52 100%);
+  box-shadow: 0 0 0 5px rgba(5, 9, 10, 0.9), 0 0 26px 2px var(--efi-glow);
+  animation: efi-orb-breathe 4s ease-in-out infinite;
+}
+.efi-nav .efi-nav-orb.active span.orb { box-shadow: 0 0 0 5px rgba(5, 9, 10, 0.9), 0 0 34px 6px var(--efi-glow); }
+@keyframes efi-orb-breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+body.has-efi-nav { padding-bottom: calc(var(--efi-nav-h) + 34px + env(safe-area-inset-bottom)) !important; }
+
+/* ---------- toast ---------- */
+.efi-toast {
+  position: fixed; left: 50%; bottom: calc(var(--efi-nav-h) + 30px + env(safe-area-inset-bottom)); z-index: 200;
+  transform: translate(-50%, 20px); opacity: 0;
+  padding: 10px 16px; border-radius: 14px;
+  background: rgba(15, 26, 28, 0.95); border: 1px solid var(--efi-border-strong);
+  color: var(--efi-text); font: 600 13px var(--efi-font);
+  box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+  transition: opacity 0.2s, transform 0.2s; pointer-events: none;
+  max-width: calc(100vw - 32px);
+}
+.efi-toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
+}

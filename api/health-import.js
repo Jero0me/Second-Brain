@@ -9,12 +9,33 @@
 // 'apple_health') — the same table/pattern the rest of the
 // dashboard already uses for cross-device sync.
 //
+// Also keeps:
+//   latest.caffeine — individual "Dietary Caffeine" samples from the
+//     last 48 h as [{mg, ts}] (any app that writes caffeine to Apple
+//     Health) so the energy model tracks caffeine with no manual logging.
+//   history — one summary per day for the last 30 days, so E.F.I. can
+//     answer "how did I sleep this week?".
+//
 // Env vars required on Vercel:
 //   HEALTH_IMPORT_SECRET  — shared secret, also set as a custom
 //                           header value in the Health Auto Export
 //                           REST API automation config.
-//   SUPABASE_URL / SUPABASE_ANON_KEY — already used by /api/config.
+//   SUPABASE_URL                — already used by /api/config.
+//   SUPABASE_SERVICE_ROLE_KEY   — server-only; needed once app_state is
+//                                 locked to the owner (SETUP.md §2).
 // ============================================================
+
+// "2026-09-24 08:15:00 +0200" → epoch ms (tolerates ISO too)
+function parseTs(str) {
+  if (typeof str !== 'string' || !str) return null;
+  const s = str.trim().replace(' ', 'T').replace(/\s*([+-]\d{2})(\d{2})$/, '$1:$2');
+  let t = Date.parse(s);
+  if (isNaN(t)) t = Date.parse(str);
+  return isNaN(t) ? null : t;
+}
+// The phone's own local calendar day for a sample (first 10 chars of its date).
+function localDay(v) { return v && typeof v.date === 'string' ? v.date.slice(0, 10) : null; }
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -30,31 +51,53 @@ export default async function handler(req, res) {
   if (given !== secret) return res.status(401).json({ error: 'unauthorized' });
 
   const supabaseUrl = process.env.SUPABASE_URL;
-  const supabaseKey = process.env.SUPABASE_ANON_KEY;
-  if (!supabaseUrl || !supabaseKey) return res.status(500).json({ error: 'server not configured (missing SUPABASE_URL / SUPABASE_ANON_KEY)' });
+  // The database only lets the signed-in owner read/write app_state, and this
+  // webhook has no user — so it writes with the service-role key. That key
+  // lives only in Vercel's server env; it is never sent to the browser.
+  // (Falls back to the anon key for setups that haven't locked the table yet.)
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+  if (!supabaseUrl || !supabaseKey) return res.status(500).json({ error: 'server not configured (missing SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY)' });
+  const sbHeaders = { apikey: supabaseKey, Authorization: 'Bearer ' + supabaseKey, 'Content-Type': 'application/json' };
 
   let body = req.body;
   if (typeof body === 'string') { try { body = JSON.parse(body); } catch { body = {}; } }
   const metrics = (body && body.data && body.data.metrics) || [];
   if (!Array.isArray(metrics)) return res.status(400).json({ error: 'no metrics in payload' });
 
-  function byName(name) {
-    return metrics.find((m) => m && typeof m.name === 'string' && m.name.toLowerCase() === name);
+  function byName(...names) {
+    for (const name of names) {
+      const m = metrics.find((x) => x && typeof x.name === 'string' && x.name.toLowerCase() === name);
+      if (m) return m;
+    }
+    return null;
   }
-  function lastQty(name) {
-    const m = byName(name);
-    const data = m && Array.isArray(m.data) ? m.data : [];
+  function samples(...names) { const m = byName(...names); return m && Array.isArray(m.data) ? m.data : []; }
+
+  // The newest calendar day present in the payload. Automations often send
+  // several days at once — summing every sample used to report e.g. a whole
+  // week of steps/calories as "today".
+  let newestDay = null;
+  metrics.forEach((m) => (Array.isArray(m && m.data) ? m.data : []).forEach((v) => {
+    const d = localDay(v);
+    if (d && /^\d{4}-\d{2}-\d{2}$/.test(d) && (!newestDay || d > newestDay) && (m.name || '').toLowerCase() !== 'sleep_analysis') newestDay = d;
+  }));
+
+  function lastQty(...names) {
+    const data = samples(...names);
     if (!data.length) return null;
     const v = data[data.length - 1];
     const n = v && (v.qty != null ? v.qty : v.avg);
     return typeof n === 'number' ? n : null;
   }
-  function sumQty(name) {
-    const m = byName(name);
-    const data = m && Array.isArray(m.data) ? m.data : [];
-    if (!data.length) return null;
+  function sumDay(day, ...names) {
+    const data = samples(...names);
     let total = 0, any = false;
-    for (const v of data) { if (typeof v.qty === 'number') { total += v.qty; any = true; } }
+    for (const v of data) {
+      if (typeof v.qty !== 'number') continue;
+      const d = localDay(v);
+      if (day && d && d !== day) continue;
+      total += v.qty; any = true;
+    }
     return any ? total : null;
   }
 
@@ -70,18 +113,13 @@ export default async function handler(req, res) {
     const unitsLc = ((sleepMetric && sleepMetric.units) || '').toLowerCase();
     const mult = (unitsLc.indexOf('hr') === 0 || unitsLc.indexOf('hour') === 0) ? 60 : 1;
     const num = (v) => (typeof v === 'number' ? v * mult : null);
-
-    const coreMin = num(s.core);
-    const deepMin = num(s.deep);
-    const remMin = num(s.rem);
-    const inBedMin = num(s.inBed);
+    const coreMin = num(s.core), deepMin = num(s.deep), remMin = num(s.rem), inBedMin = num(s.inBed);
     // Prefer the explicit total; fall back to summing the stages (some exports omit/zero the total).
     let asleepMin = num(s.asleep != null ? s.asleep : s.totalSleep);
     if (!asleepMin) {
       const stageSum = (coreMin || 0) + (deepMin || 0) + (remMin || 0);
       if (stageSum > 0) asleepMin = stageSum;
     }
-
     sleep = {
       asleepMin: asleepMin != null ? asleepMin : null,
       coreMin, deepMin, remMin, inBedMin,
@@ -91,28 +129,70 @@ export default async function handler(req, res) {
     };
   }
 
+  // ---- caffeine samples (mg, timestamped) ----
+  const cafMetric = byName('dietary_caffeine', 'caffeine');
+  const cafMult = cafMetric && /^g$/i.test(String(cafMetric.units || '').trim()) ? 1000 : 1;
+  const incomingCaf = (cafMetric && Array.isArray(cafMetric.data) ? cafMetric.data : [])
+    .map((v) => ({ mg: typeof v.qty === 'number' ? Math.round(v.qty * cafMult) : 0, ts: parseTs(v.date) }))
+    .filter((x) => x.mg > 0 && x.ts);
+
+  // Read the existing row so caffeine samples and daily history accumulate
+  // across syncs instead of being replaced by whatever this payload holds.
+  let previous = {};
+  try {
+    const r = await fetch(supabaseUrl + '/rest/v1/app_state?key=eq.apple_health&select=data', { headers: sbHeaders });
+    if (r.ok) { const rows = await r.json(); previous = (rows && rows[0] && rows[0].data) || {}; }
+  } catch (e) { /* first sync or transient — fine */ }
+
+  const newestTs = Math.max(Date.now(), ...incomingCaf.map((x) => x.ts));
+  const cafMap = new Map();
+  [...((previous.latest && previous.latest.caffeine) || []), ...incomingCaf].forEach((x) => {
+    if (x && x.ts && newestTs - x.ts <= 48 * 3600 * 1000) cafMap.set(x.ts + ':' + x.mg, x);
+  });
+  const caffeine = Array.from(cafMap.values()).sort((a, b) => a.ts - b.ts);
+
   const latest = {
+    day: newestDay,
     hrv: lastQty('heart_rate_variability'),
     rhr: lastQty('resting_heart_rate'),
     resp: lastQty('respiratory_rate'),
     spo2,
-    activeKcal: sumQty('active_energy'),
-    steps: sumQty('step_count'),
-    exerciseMin: sumQty('apple_exercise_time'),
+    activeKcal: sumDay(newestDay, 'active_energy'),
+    steps: sumDay(newestDay, 'step_count'),
+    exerciseMin: sumDay(newestDay, 'apple_exercise_time'),
     sleep,
     // Written to Apple Health by MyFitnessPal (HealthKit sharing) when you
     // log food there — field names are best-effort HealthKit identifiers;
     // check the `debug` fingerprint below on first sync to confirm/adjust.
     nutrition: {
-      calories: sumQty('dietary_energy'),
-      proteinG: sumQty('protein'),
-      carbsG: sumQty('carbohydrates'),
-      fatG: sumQty('total_fat'),
-      fiberG: sumQty('fiber'),
-      sugarG: sumQty('sugar'),
-      sodiumMg: sumQty('sodium'),
+      calories: sumDay(newestDay, 'dietary_energy'),
+      proteinG: sumDay(newestDay, 'protein'),
+      carbsG: sumDay(newestDay, 'carbohydrates'),
+      fatG: sumDay(newestDay, 'total_fat'),
+      fiberG: sumDay(newestDay, 'fiber'),
+      sugarG: sumDay(newestDay, 'dietary_sugar', 'sugar'),
+      sodiumMg: sumDay(newestDay, 'sodium'),
     },
+    caffeine,
   };
+
+  // ---- 30-day history (one row per day, newest data wins) ----
+  const hist = new Map((Array.isArray(previous.history) ? previous.history : []).map((h) => [h.date, h]));
+  if (newestDay) {
+    const cafToday = sumDay(newestDay, 'dietary_caffeine', 'caffeine');
+    const prevDay = hist.get(newestDay) || {};
+    hist.set(newestDay, Object.assign({}, prevDay, {
+      date: newestDay,
+      sleepMin: sleep && sleep.asleepMin != null ? Math.round(sleep.asleepMin) : (prevDay.sleepMin != null ? prevDay.sleepMin : null),
+      hrv: latest.hrv != null ? Math.round(latest.hrv) : null,
+      rhr: latest.rhr != null ? Math.round(latest.rhr) : null,
+      steps: latest.steps != null ? Math.round(latest.steps) : null,
+      activeKcal: latest.activeKcal != null ? Math.round(latest.activeKcal) : null,
+      calories: latest.nutrition.calories != null ? Math.round(latest.nutrition.calories) : null,
+      caffeineMg: cafToday != null ? Math.round(cafToday * cafMult) : null,
+    }));
+  }
+  const history = Array.from(hist.values()).filter((h) => h && h.date).sort((a, b) => (a.date < b.date ? -1 : 1)).slice(-30);
 
   const debug = metrics.map((m) => ({
     name: m && m.name,
@@ -123,23 +203,20 @@ export default async function handler(req, res) {
   try {
     const r = await fetch(supabaseUrl + '/rest/v1/app_state?on_conflict=key', {
       method: 'POST',
-      headers: {
-        apikey: supabaseKey,
-        Authorization: 'Bearer ' + supabaseKey,
-        'Content-Type': 'application/json',
-        Prefer: 'resolution=merge-duplicates',
-      },
+      headers: Object.assign({ Prefer: 'resolution=merge-duplicates' }, sbHeaders),
       body: JSON.stringify({
         key: 'apple_health',
-        data: { latest, debug },
+        data: { latest, history, debug },
         updated_at: new Date().toISOString(),
       }),
     });
     if (!r.ok) {
       const text = await r.text();
-      return res.status(500).json({ error: 'supabase write failed: ' + text });
+      const hint = /row-level security|42501/i.test(text) && !process.env.SUPABASE_SERVICE_ROLE_KEY
+        ? ' — the table is locked to the owner; set SUPABASE_SERVICE_ROLE_KEY in Vercel (SETUP.md §2).' : '';
+      return res.status(500).json({ error: 'supabase write failed: ' + text + hint });
     }
-    return res.status(200).json({ ok: true, latest });
+    return res.status(200).json({ ok: true, day: newestDay, caffeineSamples: caffeine.length, latest });
   } catch (e) {
     return res.status(500).json({ error: 'unexpected error: ' + (e && e.message ? e.message : String(e)) });
   }

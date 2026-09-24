@@ -1,408 +1,427 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<script src="lock.js"></script>
 <script src="/api/config"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#050506">
-<title>Dashboard</title>
-
+<meta name="theme-color" content="#05090A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="E.F.I.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/efi-180.png">
+<link rel="icon" type="image/png" href="icons/efi-192.png">
+<title>E.F.I.</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" id="efi-theme" href="efi-theme.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="efi-auth.js"></script>
+<script src="efi-core.js"></script>
+<script src="efi-google.js"></script>
+<script src="efi-data.js"></script>
+<script src="efi-agent.js"></script>
+<script src="energy.js"></script>
 <script src="sync.js" defer></script>
 <script src="topbar.js" defer></script>
 <script src="applehealth.js" defer></script>
-
 <style>
-/* ===== Shared design tokens (same as the rest of the dashboard) ===== */
-:root {
-  --text-primary: #FAFAFA;
-  --text-secondary: #B8B6B0;
-  --text-tertiary: #76746E;
-  --font: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-}
 * { box-sizing: border-box; }
-html, body {
-  margin: 0; padding: 0;
-  background: #050506;
-  color: var(--text-secondary);
-  font-family: var(--font);
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
+html, body { margin: 0; padding: 0; }
 body {
-  min-height: 100vh; position: relative; overflow-x: hidden;
-  padding: max(28px, env(safe-area-inset-top)) 20px 60px;
-}
-/* Soft drifting glow + dot texture (matches the other pages). */
-body::before {
-  content: ''; position: fixed; inset: 0;
+  min-height: 100vh; min-height: 100dvh;
+  color: var(--efi-text-2); font-family: var(--efi-font);
+  -webkit-font-smoothing: antialiased;
   background:
-    radial-gradient(circle at 82% 14%, rgba(224,118,88,0.16), transparent 45%),
-    radial-gradient(circle at 18% 90%, rgba(180,180,200,0.06), transparent 50%);
-  filter: blur(40px); pointer-events: none; z-index: -2;
-  animation: drift 36s ease-in-out infinite alternate;
+    radial-gradient(120% 60% at 0% 0%, rgba(40, 170, 120, 0.30), transparent 55%),
+    radial-gradient(90% 50% at 100% 0%, rgba(24, 110, 120, 0.22), transparent 60%),
+    linear-gradient(180deg, #071112 0%, #05090A 55%) fixed;
+  overflow-x: hidden;
 }
-body::after {
-  content: ''; position: fixed; inset: 0;
-  background-image: radial-gradient(rgba(255,255,255,0.014) 1px, transparent 1px);
-  background-size: 3px 3px; pointer-events: none; z-index: -1;
-}
-@keyframes drift { 0%{transform:translate3d(0,0,0)} 100%{transform:translate3d(-22px,14px,0)} }
+body::before { display: none; }
+button { font-family: inherit; }
+.app { max-width: 620px; margin: 0 auto; padding: max(14px, env(safe-area-inset-top)) 18px calc(var(--efi-nav-h) + 110px + env(safe-area-inset-bottom)); }
 
-.page { max-width: 1100px; margin: 0 auto; }
-.dash-title {
-  margin: 0 0 18px; font-size: 28px; font-weight: 700; letter-spacing: -0.025em;
-  background: linear-gradient(180deg, #FFFFFF 0%, #C7C4BC 120%);
-  -webkit-background-clip: text; background-clip: text;
-  -webkit-text-fill-color: transparent; color: transparent;
+/* ---------- header ---------- */
+.hd { display: flex; align-items: center; justify-content: space-between; gap: 12px; height: 48px; }
+.brand { display: flex; flex-direction: column; gap: 1px; color: var(--efi-text); min-width: 0; }
+.brand b { font-size: 17px; font-weight: 800; letter-spacing: 0.14em; }
+.brand small { font-size: 9px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--efi-text-3); white-space: nowrap; }
+.hd-actions { display: flex; gap: 8px; }
+.icon-btn {
+  width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--efi-border);
+  background: var(--efi-surface); color: var(--efi-text-2);
+  display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
+  -webkit-tap-highlight-color: transparent; transition: background 0.15s, color 0.15s, transform 0.1s;
 }
-@media (max-width: 480px) { .dash-title { font-size: 22px; } }
+.icon-btn:hover { background: var(--efi-surface-2); color: var(--efi-text); }
+.icon-btn:active { transform: scale(0.93); }
+.icon-btn.on { color: var(--efi-accent); border-color: rgba(52,216,160,0.4); background: var(--efi-accent-soft); }
 
-/* ===== BENTO GRID ===== */
-.bento {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  grid-auto-rows: 168px;
-  grid-auto-flow: dense;
-  gap: 14px;
+/* ---------- hero / orb ---------- */
+.hero { text-align: center; padding: 22px 0 8px; transition: padding 0.3s; }
+.orb-wrap { display: flex; justify-content: center; }
+.orb {
+  position: relative; width: 132px; height: 132px; border-radius: 50%; overflow: hidden;
+  background: radial-gradient(circle at 50% 38%, #B9FFE6 0%, #5FF0BF 30%, #22C08D 62%, #0B5E47 100%);
+  box-shadow: 0 0 60px 6px rgba(52,216,160,0.35), inset 0 -10px 30px rgba(3,40,30,0.55);
+  animation: orb-breathe 5s ease-in-out infinite;
+  transition: width 0.35s, height 0.35s, box-shadow 0.3s;
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
 }
-.tile {
-  --accent: #6BE3A4;                 /* each tile overrides this */
-  position: relative; overflow: hidden;
-  display: flex; flex-direction: column;
-  padding: 20px;
-  border-radius: 18px;
-  text-decoration: none;
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.06);
-  backdrop-filter: blur(24px) saturate(1.2);
-  -webkit-backdrop-filter: blur(24px) saturate(1.2);
-  box-shadow: 0 12px 40px rgba(0,0,0,0.45);
-  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+.orb::after {
+  content: ''; position: absolute; inset: 0; border-radius: 50%;
+  background: radial-gradient(circle at 34% 24%, rgba(255,255,255,0.85), rgba(255,255,255,0) 30%);
+  pointer-events: none;
 }
-/* The "its own style" bit — a faint accent glow per tile. */
-.tile::before {
-  content: ''; position: absolute; inset: 0; pointer-events: none;
-  background: radial-gradient(circle at 78% 18%,
-              color-mix(in srgb, var(--accent) 22%, transparent), transparent 55%);
-  opacity: 0.7; transition: opacity 0.18s ease;
-}
-.tile:hover {
-  transform: translateY(-3px);
-  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
-  box-shadow: 0 16px 48px rgba(0,0,0,0.55);
-}
-.tile:hover::before { opacity: 1; }
+.orb svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.orb .wave { animation: wave 7s linear infinite; }
+.orb .wave.w2 { animation-duration: 10s; animation-direction: reverse; }
+.orb .wave.w3 { animation-duration: 5s; }
+@keyframes wave { from { transform: translateX(0); } to { transform: translateX(-100px); } }
+@keyframes orb-breathe { 0%,100% { transform: scale(1); } 50% { transform: scale(1.035); } }
+.orb-ring { position: absolute; border-radius: 50%; border: 1.5px solid rgba(52,216,160,0.5); opacity: 0; pointer-events: none; }
+.orb-stage { position: relative; display: inline-flex; align-items: center; justify-content: center; }
+body.listening .orb-ring { animation: ring 1.8s ease-out infinite; }
+body.listening .orb-ring.r2 { animation-delay: 0.6s; }
+body.listening .orb-ring.r3 { animation-delay: 1.2s; }
+@keyframes ring { 0% { inset: 0; opacity: 0.8; } 100% { inset: -46px; opacity: 0; } }
+body.thinking .orb { animation: orb-think 1.1s ease-in-out infinite; }
+body.thinking .orb .wave { animation-duration: 1.8s; }
+@keyframes orb-think { 0%,100% { box-shadow: 0 0 50px 4px rgba(52,216,160,0.30), inset 0 -10px 30px rgba(3,40,30,0.55); } 50% { box-shadow: 0 0 80px 16px rgba(52,216,160,0.55), inset 0 -10px 30px rgba(3,40,30,0.55); } }
+.orb-status { margin-top: 16px; font-size: 13px; font-weight: 600; color: var(--efi-text-2); min-height: 18px; }
+.orb-status .dim { color: var(--efi-text-3); }
 
-/* Tile sizes */
-.tile.big  { grid-column: span 2; grid-row: span 2; }
-.tile.wide { grid-column: span 2; }
+.greet { margin: 20px 0 6px; color: var(--efi-text); font-size: 27px; line-height: 1.22; font-weight: 700; letter-spacing: -0.02em; }
+.sub { margin: 0; font-size: 13.5px; color: var(--efi-text-3); }
+.chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 20px auto 0; max-width: 460px; }
+.chip {
+  display: inline-flex; align-items: center; gap: 7px; padding: 9px 13px; border-radius: 999px;
+  border: 1px solid var(--efi-border); background: rgba(255,255,255,0.055); color: var(--efi-text);
+  font-size: 12.5px; font-weight: 600; cursor: pointer; -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s, border-color 0.15s, transform 0.1s;
+}
+.chip .efi-ico { color: var(--efi-accent); }
+.chip:hover { background: rgba(255,255,255,0.09); border-color: var(--efi-border-strong); }
+.chip:active { transform: scale(0.96); }
 
-/* Tile contents */
-.tile-top { display: flex; align-items: flex-start; justify-content: space-between; }
-.tile-num {
-  font-family: var(--font-mono); font-size: 12px; font-weight: 600;
-  letter-spacing: 0.08em; color: var(--text-tertiary);
-}
-.tile-emoji {
-  font-size: 26px; line-height: 1;
-  filter: drop-shadow(0 0 10px color-mix(in srgb, var(--accent) 60%, transparent));
-}
-.tile-spacer { flex: 1; }
-.tile-title {
-  font-size: 22px; font-weight: 700; letter-spacing: -0.02em;
-  color: var(--text-primary); margin: 0 0 4px;
-}
-.tile.big .tile-title { font-size: 28px; }
-.tile-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.tile-sub {
-  font-size: 13px; color: var(--text-tertiary);
-}
-.tile-arrow {
-  font-size: 18px; color: var(--accent);
-  transition: transform 0.18s ease; flex-shrink: 0;
-}
-.tile:hover .tile-arrow { transform: translateX(4px); }
+/* ---------- sections ---------- */
+.sec-head { display: flex; align-items: center; justify-content: space-between; margin: 30px 2px 12px; }
+.sec-head h2 { margin: 0; font-size: 15px; font-weight: 700; color: var(--efi-text); letter-spacing: -0.01em; }
+.sec-head a, .sec-head button { font-size: 12px; font-weight: 600; color: var(--efi-text-3); text-decoration: none; background: none; border: 0; cursor: pointer; padding: 0; }
+.sec-head a:hover, .sec-head button:hover { color: var(--efi-accent); }
 
-/* ===== Responsive: collapse the bento on small screens ===== */
-@media (max-width: 720px) {
-  .bento { grid-template-columns: repeat(2, 1fr); grid-auto-rows: 150px; }
-  .tile.big { grid-column: span 2; grid-row: span 1; }
-  .tile.big .tile-title { font-size: 22px; }
+.card {
+  position: relative; border-radius: var(--efi-radius); padding: 16px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.03));
+  border: 1px solid var(--efi-border);
+  backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
 }
-@media (max-width: 440px) {
-  body { padding: max(20px, env(safe-area-inset-top)) 14px 50px; }
-  .bento { grid-template-columns: 1fr; grid-auto-rows: 132px; }
-  .tile.big, .tile.wide { grid-column: span 1; }
-}
+.brief { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.brief .card.wide { grid-column: span 2; }
+.b-eyebrow { display: flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--efi-text-3); }
+.b-eyebrow .ic { width: 26px; height: 26px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: var(--efi-accent-soft); color: var(--efi-accent); }
+.b-big { margin-top: 12px; font-size: 26px; font-weight: 800; color: var(--efi-text); letter-spacing: -0.03em; line-height: 1; font-variant-numeric: tabular-nums; }
+.b-big small { font-size: 13px; font-weight: 600; color: var(--efi-text-3); letter-spacing: 0; }
+.b-line { margin-top: 7px; font-size: 12.5px; color: var(--efi-text-2); line-height: 1.45; }
+.b-line.dim { color: var(--efi-text-3); }
+.next-list { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+.next-item { display: flex; align-items: center; gap: 11px; }
+.next-dot { width: 34px; height: 34px; flex-shrink: 0; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; color: #fff; }
+.next-meta { min-width: 0; flex: 1; }
+.next-title { font-size: 14px; font-weight: 600; color: var(--efi-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.next-time { font-size: 11.5px; color: var(--efi-text-3); margin-top: 2px; font-variant-numeric: tabular-nums; }
+.bar { height: 6px; border-radius: 3px; background: rgba(255,255,255,0.07); margin-top: 12px; overflow: hidden; }
+.bar > i { display: block; height: 100%; border-radius: 3px; background: linear-gradient(90deg, #25C08C, #6BF5C6); box-shadow: 0 0 10px var(--efi-glow); }
 
-/* ===== Header row + gear ===== */
-.hub-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
-.hub-head .dash-title { margin: 0; }
-.gear-btn {
-  width: 42px; height: 42px; flex-shrink: 0;
+/* modules — horizontally scrolling cards like "Popular topics" */
+.modules { display: flex; gap: 12px; overflow-x: auto; margin: 0 -18px; padding: 2px 18px 6px; scroll-snap-type: x mandatory; scrollbar-width: none; }
+.modules::-webkit-scrollbar { display: none; }
+.mod {
+  flex: 0 0 146px; height: 132px; scroll-snap-align: start; display: flex; flex-direction: column; justify-content: space-between;
+  padding: 14px; border-radius: var(--efi-radius); text-decoration: none; color: var(--efi-text);
+  background: linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.03)); border: 1px solid var(--efi-border);
+  transition: transform 0.15s, border-color 0.15s;
+}
+.mod:hover { transform: translateY(-2px); border-color: var(--efi-border-strong); }
+.mod .ic { width: 40px; height: 40px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.08); color: var(--mc, var(--efi-accent)); }
+.mod b { display: block; font-size: 14px; font-weight: 700; }
+.mod span { display: block; font-size: 11.5px; color: var(--efi-text-3); margin-top: 3px; line-height: 1.35; }
+
+/* notes */
+.notes { display: flex; flex-direction: column; gap: 8px; }
+.note { display: flex; gap: 12px; align-items: flex-start; padding: 13px 14px; }
+.note .ic { color: var(--efi-accent); margin-top: 1px; }
+.note-body { flex: 1; min-width: 0; }
+.note-title { font-size: 13.5px; font-weight: 700; color: var(--efi-text); }
+.note-text { font-size: 12.5px; color: var(--efi-text-2); margin-top: 3px; line-height: 1.45; white-space: pre-wrap; word-break: break-word; }
+.note-meta { font-size: 10.5px; color: var(--efi-text-3); margin-top: 6px; }
+.note-del { border: 0; background: none; color: var(--efi-text-3); cursor: pointer; padding: 2px; opacity: 0.7; }
+.note-del:hover { color: var(--efi-danger); opacity: 1; }
+.empty { font-size: 12.5px; color: var(--efi-text-3); padding: 14px; text-align: center; }
+
+/* ---------- chat mode ---------- */
+.thread { display: none; flex-direction: column; gap: 14px; margin-top: 18px; }
+body.chatting .thread { display: flex; }
+body.chatting #home { display: none; }
+body.chatting .hero { padding: 6px 0 0; }
+body.chatting .orb { width: 64px; height: 64px; }
+body.chatting .greet, body.chatting .sub, body.chatting .chips { display: none; }
+body.chatting .orb-status { margin-top: 10px; }
+.msg { max-width: 88%; font-size: 14.5px; line-height: 1.55; color: var(--efi-text); }
+.msg.user { align-self: flex-end; padding: 11px 15px; border-radius: 20px 20px 6px 20px; background: linear-gradient(180deg, rgba(52,216,160,0.22), rgba(52,216,160,0.14)); border: 1px solid rgba(52,216,160,0.28); }
+.msg.efi { align-self: flex-start; display: flex; gap: 10px; max-width: 94%; }
+.msg.efi .av { width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0; margin-top: 2px; background: radial-gradient(circle at 36% 28%, #E8FFF6 0%, #5FF0BF 35%, #178E69 100%); box-shadow: 0 0 14px rgba(52,216,160,0.4); }
+.msg.efi .bubble { min-width: 0; padding: 11px 15px; border-radius: 6px 20px 20px 20px; background: rgba(255,255,255,0.055); border: 1px solid var(--efi-border); }
+.bubble p { margin: 0 0 6px; } .bubble p:last-child { margin-bottom: 0; }
+.bubble ul { margin: 4px 0; padding-left: 18px; } .bubble li { margin: 3px 0; }
+.bubble b { color: #9FF3D2; font-weight: 700; }
+.bubble.err { border-color: rgba(255,122,112,0.4); color: #FFC2BC; }
+.actions { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+.act { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; color: var(--efi-text-2); padding: 7px 10px; border-radius: 10px; background: rgba(52,216,160,0.08); border: 1px solid rgba(52,216,160,0.18); }
+.act .efi-ico { color: var(--efi-accent); flex-shrink: 0; }
+.act.fail { background: rgba(255,122,112,0.08); border-color: rgba(255,122,112,0.25); }
+.act.fail .efi-ico { color: var(--efi-danger); }
+.confirm { margin-top: 10px; padding: 12px; border-radius: 14px; background: rgba(245,192,101,0.08); border: 1px solid rgba(245,192,101,0.3); }
+.confirm-h { font-size: 10.5px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: var(--efi-warn); }
+.confirm-t { font-size: 14px; font-weight: 600; color: var(--efi-text); margin: 6px 0 10px; }
+.confirm-row { display: flex; gap: 8px; }
+.btn { border: 0; border-radius: 12px; padding: 10px 16px; font-size: 13px; font-weight: 700; cursor: pointer; transition: filter 0.15s, transform 0.1s; }
+.btn:active { transform: scale(0.97); }
+.btn.primary { background: linear-gradient(180deg, #5EF0BC, #25C08C); color: var(--efi-accent-ink); }
+.btn.ghost { background: rgba(255,255,255,0.06); color: var(--efi-text); border: 1px solid var(--efi-border); }
+.btn.danger { background: rgba(255,122,112,0.14); color: #FFB3AC; border: 1px solid rgba(255,122,112,0.3); }
+.btn:disabled { opacity: 0.45; cursor: default; }
+.dots { display: inline-flex; gap: 5px; padding: 4px 0; } .dots i { width: 7px; height: 7px; border-radius: 50%; background: var(--efi-accent); opacity: 0.35; animation: dot 1.1s ease-in-out infinite; }
+.dots i:nth-child(2) { animation-delay: 0.15s; } .dots i:nth-child(3) { animation-delay: 0.3s; }
+@keyframes dot { 0%,100% { opacity: 0.3; transform: translateY(0); } 50% { opacity: 1; transform: translateY(-3px); } }
+.thread-tools { display: flex; justify-content: center; gap: 8px; margin-top: 4px; }
+
+/* ---------- composer ---------- */
+.composer {
+  position: fixed; left: 0; right: 0; z-index: 55;
+  bottom: calc(var(--efi-nav-h) + 22px + env(safe-area-inset-bottom));
+  display: flex; justify-content: center; padding: 0 12px; pointer-events: none;
+}
+.composer-inner {
+  pointer-events: auto; width: 100%; max-width: 520px; display: flex; align-items: center; gap: 8px;
+  padding: 6px 6px 6px 18px; border-radius: 26px;
+  background: rgba(14, 26, 28, 0.86); border: 1px solid var(--efi-border-strong);
+  backdrop-filter: blur(22px); -webkit-backdrop-filter: blur(22px);
+  box-shadow: 0 14px 44px rgba(0,0,0,0.55);
+}
+.composer textarea {
+  flex: 1; min-width: 0; resize: none; border: 0; outline: none; background: transparent;
+  color: var(--efi-text); font: 500 15px/1.4 var(--efi-font); padding: 9px 0; max-height: 120px;
+}
+.composer textarea::placeholder { color: var(--efi-text-3); }
+.mic { color: var(--efi-text-2); border: 0; background: transparent; width: 40px; height: 40px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
+.mic.rec { color: var(--efi-danger); background: rgba(255,122,112,0.12); }
+.send {
+  width: 44px; height: 44px; border-radius: 50%; border: 0; cursor: pointer; flex-shrink: 0;
   display: inline-flex; align-items: center; justify-content: center;
-  border-radius: 12px; border: 1px solid rgba(255,255,255,0.10);
-  background: rgba(255,255,255,0.04); color: var(--text-secondary);
-  cursor: pointer; transition: background 0.15s, color 0.15s, transform 0.1s;
-  -webkit-tap-highlight-color: transparent;
+  background: linear-gradient(180deg, #5EF0BC, #1FB58A); color: var(--efi-accent-ink);
+  box-shadow: 0 0 18px rgba(52,216,160,0.4); transition: transform 0.1s, filter 0.15s;
 }
-.gear-btn:hover { background: rgba(255,255,255,0.08); color: var(--text-primary); }
-.gear-btn:active { transform: scale(0.94) rotate(35deg); }
-.gear-btn svg { width: 22px; height: 22px; }
+.send:active { transform: scale(0.92); }
+.send:disabled { filter: grayscale(0.6) brightness(0.7); box-shadow: none; }
 
-/* ===== Settings modal ===== */
-.modal-bg {
-  position: fixed; inset: 0; z-index: 120; display: none;
-  align-items: center; justify-content: center; padding: 20px;
-  background: rgba(0,0,0,0.6); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+/* ---------- settings sheet ---------- */
+.efi-sheet-bg { position: fixed; inset: 0; z-index: 150; display: none; background: rgba(0,0,0,0.55); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+.efi-sheet-bg.show { display: block; }
+.efi-sheet {
+  position: absolute; left: 0; right: 0; bottom: 0; margin: 0 auto; max-width: 620px; max-height: 92vh; overflow-y: auto;
+  background: #0B1517; border: 1px solid var(--efi-border-strong); border-bottom: 0;
+  border-radius: 26px 26px 0 0; padding: 10px 20px calc(28px + env(safe-area-inset-bottom));
+  animation: sheet-in 0.25s cubic-bezier(0.2, 0.9, 0.3, 1);
 }
-.modal-bg.show { display: flex; }
-.modal {
-  width: 100%; max-width: 460px; max-height: 88vh; overflow-y: auto;
-  background: #0e0e10; border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 18px; padding: 22px; box-shadow: 0 24px 70px rgba(0,0,0,0.6);
+@keyframes sheet-in { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+.grabber { width: 40px; height: 5px; border-radius: 3px; background: rgba(255,255,255,0.18); margin: 0 auto 14px; }
+.sheet-h { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.sheet-h h3 { margin: 0; font-size: 19px; color: var(--efi-text); }
+.grp { margin-top: 20px; padding: 16px; border-radius: 18px; background: rgba(255,255,255,0.035); border: 1px solid var(--efi-border); }
+.grp h4 { margin: 0 0 4px; font-size: 13px; color: var(--efi-text); display: flex; align-items: center; gap: 8px; }
+.grp p { margin: 0 0 12px; font-size: 12px; color: var(--efi-text-3); line-height: 1.5; }
+.grp p a { color: var(--efi-accent); }
+.row { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
+.lbl { display: block; font-size: 10.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--efi-text-3); margin: 12px 0 6px; }
+.inp, .sel {
+  flex: 1; min-width: 0; width: 100%; padding: 11px 13px; border-radius: 12px; border: 1px solid var(--efi-border);
+  background: rgba(0,0,0,0.3); color: var(--efi-text); font: 500 14px var(--efi-font); outline: none;
 }
-.modal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
-.modal-title { font-size: 18px; font-weight: 700; color: var(--text-primary); letter-spacing: -0.01em; }
-.modal-close { border: 0; background: transparent; color: var(--text-tertiary); font-size: 26px; line-height: 1; cursor: pointer; padding: 0 4px; }
-.modal-close:hover { color: var(--text-primary); }
-.field { margin-bottom: 14px; }
-.field-label { font-size: 11px; font-weight: 700; letter-spacing: 0.10em; text-transform: uppercase; color: var(--text-tertiary); margin-bottom: 7px; display: block; }
-.field-row { display: flex; gap: 8px; align-items: center; }
-.set-input {
-  flex: 1; min-width: 0; padding: 11px 13px;
-  border: 1px solid rgba(255,255,255,0.08); border-radius: 11px;
-  background: rgba(0,0,0,0.3); color: var(--text-primary);
-  font-family: inherit; font-size: 14px; outline: none; transition: border-color 0.2s;
-}
-.set-input:focus { border-color: rgba(255,255,255,0.28); }
-.seg { display: inline-flex; border: 1px solid rgba(255,255,255,0.10); border-radius: 11px; overflow: hidden; flex-shrink: 0; }
-.seg button { border: 0; background: transparent; color: var(--text-tertiary); font-family: inherit; font-size: 13px; font-weight: 600; padding: 11px 14px; cursor: pointer; transition: background 0.15s, color 0.15s; }
-.seg button.on { background: rgba(255,255,255,0.12); color: var(--text-primary); }
-.set-save {
-  width: 100%; margin-top: 6px; padding: 13px; border: 0; border-radius: 12px;
-  background: linear-gradient(180deg,#FFFFFF,#E8E5DD); color: #0A0A0B;
-  font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.9), 0 8px 22px rgba(0,0,0,0.25);
-  transition: filter 0.15s, transform 0.1s;
-}
-.set-save:hover { filter: brightness(1.05); }
-.set-save:active { transform: translateY(1px); }
-.set-status { text-align: center; font-size: 12px; color: var(--success); min-height: 16px; margin-top: 8px; }
-.section-divider { height: 1px; background: rgba(255,255,255,0.07); margin: 20px 0 14px; }
-.whoop-box { margin-top: 8px; padding: 16px; border-radius: 14px; background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.06); }
-.whoop-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.whoop-status { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; color: var(--text-primary); }
-.whoop-status .dot { width: 8px; height: 8px; border-radius: 50%; background: #76746E; }
-.whoop-status.on .dot { background: #6BE3A4; box-shadow: 0 0 8px rgba(107,227,164,0.7); }
-.whoop-sync { font-family: var(--font-mono); font-size: 11px; color: var(--text-tertiary); text-align: right; }
-.whoop-stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-top: 14px; }
-.whoop-stat { text-align: center; }
-.whoop-stat .v { font-size: 20px; font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; line-height: 1; }
-.whoop-stat .l { font-size: 9.5px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-tertiary); margin-top: 5px; }
-.whoop-btn { width: 100%; margin-top: 14px; padding: 11px; border: 1px solid rgba(255,255,255,0.12); border-radius: 11px; background: transparent; color: var(--text-secondary); font-family: inherit; font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; cursor: pointer; transition: background 0.15s, color 0.15s; }
-.whoop-btn:hover { background: rgba(255,255,255,0.05); color: var(--text-primary); }
+.inp:focus, .sel:focus { border-color: rgba(52,216,160,0.5); }
+.sel option { background: #0B1517; }
+.seg { display: inline-flex; border: 1px solid var(--efi-border); border-radius: 12px; overflow: hidden; flex-shrink: 0; }
+.seg button { border: 0; background: transparent; color: var(--efi-text-3); font-size: 13px; font-weight: 600; padding: 10px 13px; cursor: pointer; }
+.seg button.on { background: var(--efi-accent-soft); color: var(--efi-accent); }
+.pill { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; padding: 5px 10px; border-radius: 999px; background: rgba(255,255,255,0.06); color: var(--efi-text-3); }
+.pill i { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.pill.ok { color: var(--efi-accent); background: var(--efi-accent-soft); }
+.pill.warn { color: var(--efi-warn); background: rgba(245,192,101,0.1); }
+.cal-list { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.cal-list label { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--efi-text); }
+.cal-list input { accent-color: var(--efi-accent); width: 16px; height: 16px; }
+.cal-sw { width: 10px; height: 10px; border-radius: 3px; }
+.hint { font-size: 11.5px; color: var(--efi-text-3); margin-top: 8px; min-height: 14px; }
+.hint.ok { color: var(--efi-accent); } .hint.err { color: var(--efi-danger); }
+.stats3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px; text-align: center; }
+.stats3 b { display: block; font-size: 18px; color: var(--efi-text); }
+.stats3 span { font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--efi-text-3); }
+
+@media (max-width: 380px) { .greet { font-size: 23px; } .brief { grid-template-columns: 1fr; } .brief .card.wide { grid-column: span 1; } }
+@media (min-width: 900px) { .app { padding-top: 28px; } .greet { font-size: 32px; } }
 </style>
 </head>
 <body>
-<div class="page">
+<div class="app">
+  <header class="hd">
+    <div class="brand"><b>E.F.I.</b><small>Enhanced Functional Intelligence</small></div>
+    <div class="hd-actions">
+      <button class="icon-btn" id="newChatBtn" type="button" aria-label="Back to overview" title="Overview" hidden></button>
+      <button class="icon-btn" id="voiceBtn" type="button" aria-label="Spoken replies" title="Spoken replies"></button>
+      <button class="icon-btn" id="settingsBtn" type="button" aria-label="Settings" title="Settings"></button>
+    </div>
+  </header>
 
-  <div class="hub-head">
-    <h1 class="dash-title">Jerome's Second Brain</h1>
-    <button class="gear-btn" id="settingsOpen" type="button" aria-label="Settings">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="12" cy="12" r="3"/>
-        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-      </svg>
-    </button>
-  </div>
+  <section class="hero">
+    <div class="orb-wrap">
+      <div class="orb-stage">
+        <span class="orb-ring"></span><span class="orb-ring r2"></span><span class="orb-ring r3"></span>
+        <div class="orb" id="orb" role="button" tabindex="0" aria-label="Talk to E.F.I.">
+          <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+            <g class="wave w1" opacity="0.35"><path fill="#E6FFF5" d="M0 58 Q12.5 50 25 58 T50 58 T75 58 T100 58 T125 58 T150 58 T175 58 T200 58 V100 H0 Z"/></g>
+            <g class="wave w2" opacity="0.28"><path fill="#C9FFEA" d="M0 64 Q12.5 72 25 64 T50 64 T75 64 T100 64 T125 64 T150 64 T175 64 T200 64 V100 H0 Z"/></g>
+            <g class="wave w3" opacity="0.22"><path fill="#0B6B50" d="M0 74 Q12.5 68 25 74 T50 74 T75 74 T100 74 T125 74 T150 74 T175 74 T200 74 V100 H0 Z"/></g>
+          </svg>
+        </div>
+      </div>
+    </div>
+    <div class="orb-status" id="orbStatus">&nbsp;</div>
+    <h1 class="greet" id="greet">Hello.<br>How can I help you?</h1>
+    <p class="sub" id="sub">Your enhanced functional intelligence is ready.</p>
+    <div class="chips" id="chips"></div>
+  </section>
 
-  <div class="bento">
+  <main id="home">
+    <div class="sec-head"><h2>Today</h2><a href="calendar.html">Open calendar →</a></div>
+    <div class="brief">
+      <div class="card wide" id="bNext">
+        <div class="b-eyebrow"><span class="ic" data-icon="calendar"></span>Up next</div>
+        <div class="next-list" id="bNextList"><div class="b-line dim">Loading your day…</div></div>
+      </div>
+      <div class="card" id="bTasks">
+        <div class="b-eyebrow"><span class="ic" data-icon="check"></span>Tasks</div>
+        <div class="b-big" id="bTasksBig">—</div>
+        <div class="bar"><i id="bTasksBar" style="width:0%"></i></div>
+        <div class="b-line dim" id="bTasksLine">&nbsp;</div>
+      </div>
+      <div class="card" id="bEnergy">
+        <div class="b-eyebrow"><span class="ic" data-icon="bolt"></span>Energy</div>
+        <div class="b-big" id="bEnergyBig">—</div>
+        <div class="b-line dim" id="bEnergyLine">&nbsp;</div>
+      </div>
+      <div class="card" id="bMoney">
+        <div class="b-eyebrow"><span class="ic" data-icon="wallet"></span>Money</div>
+        <div class="b-big" id="bMoneyBig">—</div>
+        <div class="b-line dim" id="bMoneyLine">&nbsp;</div>
+      </div>
+      <div class="card" id="bHealth">
+        <div class="b-eyebrow"><span class="ic" data-icon="heart"></span>Body</div>
+        <div class="b-big" id="bHealthBig">—</div>
+        <div class="b-line dim" id="bHealthLine">&nbsp;</div>
+      </div>
+    </div>
 
-    <!-- Big tile -->
-    <a class="tile big" href="main.html" style="--accent:#6BE3A4">
-      <div class="tile-top">
-        <span class="tile-num">·01</span>
-        <span class="tile-emoji">🏠</span>
-      </div>
-      <div class="tile-spacer"></div>
-      <h2 class="tile-title">Main</h2>
-      <div class="tile-foot">
-        <span class="tile-sub">Goals & daily plan</span>
-        <span class="tile-arrow">→</span>
-      </div>
-    </a>
+    <div class="sec-head"><h2>Modules</h2></div>
+    <div class="modules" id="modules"></div>
 
-    <!-- Wide tile -->
-    <a class="tile wide" href="gym.html" style="--accent:#7DD3FC">
-      <div class="tile-top">
-        <span class="tile-num">·02</span>
-        <span class="tile-emoji">💪</span>
-      </div>
-      <div class="tile-spacer"></div>
-      <h2 class="tile-title">Fitness</h2>
-      <div class="tile-foot">
-        <span class="tile-sub">Workouts, splits, sessions</span>
-        <span class="tile-arrow">→</span>
-      </div>
-    </a>
+    <div class="sec-head"><h2>Notes &amp; ideas</h2><button type="button" id="notesAsk">+ New idea</button></div>
+    <div class="notes" id="notes"></div>
+  </main>
 
-    <!-- Small tile -->
-    <a class="tile" href="health.html" style="--accent:#A7F3D0">
-      <div class="tile-top">
-        <span class="tile-num">·03</span>
-        <span class="tile-emoji">💊</span>
-      </div>
-      <div class="tile-spacer"></div>
-      <h2 class="tile-title">Health</h2>
-      <div class="tile-foot">
-        <span class="tile-sub">Supplements & vitals</span>
-        <span class="tile-arrow">→</span>
-      </div>
-    </a>
+  <section class="thread" id="thread" aria-live="polite"></section>
+</div>
 
-    <!-- Small tile -->
-    <a class="tile" href="po-water.html" style="--accent:#60A5FA">
-      <div class="tile-top">
-        <span class="tile-num">·04</span>
-        <span class="tile-emoji">💧</span>
-      </div>
-      <div class="tile-spacer"></div>
-      <h2 class="tile-title">Water</h2>
-      <div class="tile-foot">
-        <span class="tile-sub">Hydration</span>
-        <span class="tile-arrow">→</span>
-      </div>
-    </a>
-
-    <!-- Wide tile -->
-    <a class="tile wide" href="finance.html" style="--accent:#F2C063">
-      <div class="tile-top">
-        <span class="tile-num">·05</span>
-        <span class="tile-emoji">📊</span>
-      </div>
-      <div class="tile-spacer"></div>
-      <h2 class="tile-title">Finance</h2>
-      <div class="tile-foot">
-        <span class="tile-sub">Net worth & spending</span>
-        <span class="tile-arrow">→</span>
-      </div>
-    </a>
-
-    <!-- Small tile -->
-    <a class="tile" href="caffeine.html" style="--accent:#C9A36B">
-      <div class="tile-top">
-        <span class="tile-num">·06</span>
-        <span class="tile-emoji">☕</span>
-      </div>
-      <div class="tile-spacer"></div>
-      <h2 class="tile-title">Caffeine</h2>
-      <div class="tile-foot">
-        <span class="tile-sub">Intake & timing</span>
-        <span class="tile-arrow">→</span>
-      </div>
-    </a>
-
-    <!-- Wide tile -->
-    <a class="tile wide" href="nova-lite.html" style="--accent:#A78BFA">
-      <div class="tile-top">
-        <span class="tile-num">·07</span>
-        <span class="tile-emoji">🧠</span>
-      </div>
-      <div class="tile-spacer"></div>
-      <h2 class="tile-title">Nova</h2>
-      <div class="tile-foot">
-        <span class="tile-sub">Your AI mentor</span>
-        <span class="tile-arrow">→</span>
-      </div>
-    </a>
-
-    <!-- Small tile -->
-    <a class="tile" href="mealprep.html" style="--accent:#6BE3A4">
-      <div class="tile-top">
-        <span class="tile-num">·08</span>
-        <span class="tile-emoji">🍱</span>
-      </div>
-      <div class="tile-spacer"></div>
-      <h2 class="tile-title">Meal Prep</h2>
-      <div class="tile-foot">
-        <span class="tile-sub">Recipes, fridge & weekly plan</span>
-        <span class="tile-arrow">→</span>
-      </div>
-    </a>
-
+<div class="composer">
+  <div class="composer-inner">
+    <textarea id="input" rows="1" placeholder="Ask E.F.I. anything…" autocomplete="off" enterkeyhint="send"></textarea>
+    <button class="mic" id="micBtn" type="button" aria-label="Speak" hidden></button>
+    <button class="send" id="sendBtn" type="button" aria-label="Send"></button>
   </div>
 </div>
 
-<!-- ===== Settings / Your Data ===== -->
-<div class="modal-bg" id="settingsBg">
-  <div class="modal" role="dialog" aria-label="Your data">
-    <div class="modal-head">
-      <span class="modal-title">Your Data</span>
-      <button class="modal-close" id="settingsClose" type="button" aria-label="Close">×</button>
+<!-- ===== Settings ===== -->
+<div class="efi-sheet-bg" id="settingsBg">
+  <div class="efi-sheet" role="dialog" aria-label="E.F.I. settings">
+    <div class="grabber"></div>
+    <div class="sheet-h"><h3>Settings</h3><button class="icon-btn" id="settingsClose" type="button" aria-label="Close"></button></div>
+
+    <div class="grp" id="acctGrp" hidden>
+      <h4><span data-icon="users"></span> Account <span class="pill ok" style="margin-left:auto"><i></i>Signed in</span></h4>
+      <p id="acctEmail">—</p>
+      <div class="row" style="margin-top:0"><button class="btn ghost" id="signOutBtn" type="button">Sign out of this device</button></div>
     </div>
 
-    <div class="field">
-      <label class="field-label">Height</label>
-      <div class="field-row">
-        <input class="set-input" id="heightA" type="number" min="0" inputmode="decimal" placeholder="cm">
-        <input class="set-input" id="heightB" type="number" min="0" inputmode="decimal" placeholder="in" style="display:none">
-        <div class="seg" id="heightUnitSeg">
-          <button type="button" data-u="cm" class="on">cm</button>
-          <button type="button" data-u="ft">ft/in</button>
-        </div>
+    <div class="grp">
+      <h4><span data-icon="sparkle"></span> Google Gemini</h4>
+      <p>E.F.I. thinks with Gemini. Create a free API key at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a> (sign in with the Google account you use for Gemini). The key stays on this device only — paste it once per device.</p>
+      <label class="lbl" for="gKey">API key</label>
+      <div class="row" style="margin-top:0"><input class="inp" id="gKey" type="password" placeholder="AIza…" autocomplete="off"><button class="btn primary" id="gKeySave" type="button">Save</button></div>
+      <label class="lbl" for="gModel">Model</label>
+      <select class="sel" id="gModel"><option value="">Automatic (newest Flash)</option></select>
+      <div class="hint" id="gHint"></div>
+    </div>
+
+    <div class="grp">
+      <h4><span data-icon="calendar"></span> Google Calendar &amp; Tasks <span class="pill" id="gcPill" style="margin-left:auto"><i></i>Checking…</span></h4>
+      <p id="gcText">Connect once per device — E.F.I. can then read and edit your calendar and Google Tasks. Your login stays in a secure cookie on this device, never in the synced database.</p>
+      <div class="row" style="margin-top:0">
+        <button class="btn primary" id="gcConnect" type="button">Connect Google</button>
+        <button class="btn ghost" id="gcDisconnect" type="button" hidden>Disconnect</button>
       </div>
+      <div class="cal-list" id="gcCals"></div>
     </div>
 
-    <div class="field">
-      <label class="field-label">Weight</label>
-      <div class="field-row">
-        <input class="set-input" id="weight" type="number" min="0" inputmode="decimal" placeholder="weight">
-        <div class="seg" id="weightUnitSeg">
-          <button type="button" data-u="kg" class="on">kg</button>
-          <button type="button" data-u="lb">lb</button>
-        </div>
+    <div class="grp">
+      <h4><span data-icon="volume"></span> Assistant</h4>
+      <label class="lbl" for="userName">Your name</label>
+      <input class="inp" id="userName" type="text" autocomplete="off">
+      <div class="row" style="justify-content:space-between">
+        <span style="font-size:13px;color:var(--efi-text)">Speak replies aloud</span>
+        <div class="seg" id="voiceSeg"><button type="button" data-v="0">Off</button><button type="button" data-v="1">On</button></div>
       </div>
+      <div class="row"><button class="btn ghost" id="clearChat" type="button">Clear conversation memory</button></div>
     </div>
 
-    <div class="field">
-      <label class="field-label">Age</label>
-      <input class="set-input" id="age" type="number" min="0" inputmode="numeric" placeholder="years">
-    </div>
-
-    <div class="field">
-      <label class="field-label">Sex</label>
-      <div class="seg" id="sexSeg" style="width:100%;display:flex">
-        <button type="button" data-s="m" style="flex:1">Male</button>
-        <button type="button" data-s="f" style="flex:1">Female</button>
+    <div class="grp">
+      <h4><span data-icon="activity"></span> Your data</h4>
+      <p>Used for nutrition, training and energy estimates.</p>
+      <label class="lbl">Height</label>
+      <div class="row" style="margin-top:0">
+        <input class="inp" id="heightA" type="number" min="0" inputmode="decimal" placeholder="cm">
+        <input class="inp" id="heightB" type="number" min="0" inputmode="decimal" placeholder="in" style="display:none">
+        <div class="seg" id="heightUnitSeg"><button type="button" data-u="cm" class="on">cm</button><button type="button" data-u="ft">ft/in</button></div>
       </div>
+      <label class="lbl">Weight</label>
+      <div class="row" style="margin-top:0">
+        <input class="inp" id="weight" type="number" min="0" inputmode="decimal" placeholder="weight">
+        <div class="seg" id="weightUnitSeg"><button type="button" data-u="kg" class="on">kg</button><button type="button" data-u="lb">lb</button></div>
+      </div>
+      <div class="row">
+        <div style="flex:1"><label class="lbl" for="age" style="margin-top:0">Age</label><input class="inp" id="age" type="number" min="0" inputmode="numeric"></div>
+        <div style="flex:1"><label class="lbl" for="activity" style="margin-top:0">Active h / week</label><input class="inp" id="activity" type="number" min="0" inputmode="decimal"></div>
+      </div>
+      <label class="lbl">Sex</label>
+      <div class="seg" id="sexSeg" style="display:flex"><button type="button" data-s="m" style="flex:1">Male</button><button type="button" data-s="f" style="flex:1">Female</button></div>
+      <div class="row"><button class="btn primary" id="profileSave" type="button" style="flex:1">Save</button></div>
+      <div class="hint" id="profileHint"></div>
     </div>
 
-    <div class="field">
-      <label class="field-label">Active hours / week</label>
-      <input class="set-input" id="activity" type="number" min="0" inputmode="decimal" placeholder="e.g. 5">
-    </div>
-
-    <button class="set-save" id="settingsSave" type="button">Save</button>
-    <div class="set-status" id="settingsStatus"></div>
-
-    <div class="section-divider"></div>
-
-    <label class="field-label">Apple Health</label>
-    <div class="whoop-box">
-      <div class="whoop-row">
-        <span class="whoop-status" id="whStatus"><span class="dot"></span><span id="whStatusText">Not synced</span></span>
-        <span class="whoop-sync" id="whSync"></span>
-      </div>
-      <div class="whoop-stats" id="whStats" style="display:none">
-        <div class="whoop-stat"><div class="v" id="whMiniSleep">—</div><div class="l">Sleep</div></div>
-        <div class="whoop-stat"><div class="v" id="whMiniHrv">—</div><div class="l">HRV</div></div>
-        <div class="whoop-stat"><div class="v" id="whMiniRhr">—</div><div class="l">Rest HR</div></div>
-      </div>
-      <button class="whoop-btn" id="whAction" type="button">Refresh</button>
+    <div class="grp">
+      <h4><span data-icon="heart"></span> Apple Health <span class="pill" id="ahPill" style="margin-left:auto"><i></i>—</span></h4>
+      <p>Sleep, HRV, steps, nutrition (MyFitnessPal via Health) and caffeine arrive automatically from the Health Auto Export app — see the Health page for setup.</p>
+      <div class="stats3" id="ahStats"></div>
     </div>
   </div>
 </div>
@@ -410,137 +429,475 @@ body::after {
 <script>
 (function () {
   'use strict';
+  const EFI = window.EFI, D = EFI.date, I = EFI.icon, esc = EFI.escape;
   const $ = (id) => document.getElementById(id);
-  const WATER_KEY = 'po_water_v1';
+  const CHATLOG_LS = 'efi_local:chatlog';
 
-  function loadJSON(k, f) { try { return JSON.parse(localStorage.getItem(k)) || f; } catch (e) { return f; } }
-  function saveJSON(k, v) { localStorage.setItem(k, JSON.stringify(v)); }
+  // ---------- static icons ----------
+  document.querySelectorAll('[data-icon]').forEach((el) => { el.innerHTML = I(el.dataset.icon, el.classList.contains('ic') ? 15 : 16); });
+  $('settingsBtn').innerHTML = I('settings', 19);
+  $('settingsClose').innerHTML = I('x', 18);
+  $('newChatBtn').innerHTML = I('grid', 18);
+  $('sendBtn').innerHTML = I('send', 20);
+  $('micBtn').innerHTML = I('mic', 21);
 
-  // Mirror of topbar.js defaultWaterState so we never clobber the water tracker.
-  function defaultWater() {
-    return { unit:'bottle', bottleMl:500, glassMl:250, weightUnit:'kg',
-      profile:{ weightKg:75, age:25, sex:'m', activityHrsPerWeek:5 },
-      caffeineMgPerDay:200, substances:[], logs:{} };
+  // ---------- greeting ----------
+  function greeting() {
+    const h = new Date().getHours();
+    const name = EFI.settings.get().userName || '';
+    const part = h < 5 ? 'Still up' : h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
+    $('greet').innerHTML = esc(part + (name ? ', ' + name : '') + (h < 5 ? '?' : '!')) + '<br>How can I help you?';
   }
 
-  /* ---------- unit state ---------- */
-  let heightUnit = 'cm';   // 'cm' | 'ft'
-  let weightUnit = 'kg';   // 'kg' | 'lb'
-  let sex = 'm';
+  const CHIPS = [
+    { icon: 'calendar', text: 'Plan my day', q: 'Plan the rest of my day: time-block my open tasks around my calendar and energy.' },
+    { icon: 'list', text: 'This week', q: 'What does my week look like? Flag anything that clashes or needs prep.' },
+    { icon: 'pen', text: 'Note an idea', fill: 'Note this idea: ' },
+    { icon: 'card', text: 'Subscriptions', q: 'Which subscriptions renew in the next 30 days and what am I paying per month in total?' },
+    { icon: 'coffee', text: 'Log a coffee', fill: 'I just had a ' },
+    { icon: 'moon', text: 'How did I sleep?', q: 'How did I sleep last night and what should today look like because of it?' },
+  ];
+  $('chips').innerHTML = CHIPS.map((c, i) => '<button class="chip" type="button" data-i="' + i + '">' + I(c.icon, 15) + esc(c.text) + '</button>').join('');
+  $('chips').addEventListener('click', (e) => {
+    const b = e.target.closest('.chip'); if (!b) return;
+    const c = CHIPS[+b.dataset.i];
+    if (c.q) send(c.q);
+    else { $('input').value = c.fill; autosize(); $('input').focus(); }
+  });
 
-  function setHeightUnit(u) {
-    heightUnit = u;
-    $('heightUnitSeg').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.u === u));
-    const a = $('heightA'), b = $('heightB');
-    if (u === 'cm') { a.placeholder = 'cm'; b.style.display = 'none'; }
-    else { a.placeholder = 'ft'; b.placeholder = 'in'; b.style.display = ''; }
+  const MODULES = [
+    { href: 'calendar.html', icon: 'calendar', t: 'Calendar', s: 'Day, week & month', c: '#34D8A0' },
+    { href: 'main.html', icon: 'list', t: 'Planner', s: 'Goals, time-blocks, habits', c: '#22C3C9' },
+    { href: 'finance.html', icon: 'wallet', t: 'Finance', s: 'Net worth & subscriptions', c: '#F5C065' },
+    { href: 'health.html', icon: 'heart', t: 'Health', s: 'Sleep, vitals, supplements', c: '#FF8A7A' },
+    { href: 'gym.html', icon: 'dumbbell', t: 'Fitness', s: 'Workouts & calories', c: '#5AB8F5' },
+    { href: 'mealprep.html', icon: 'chef', t: 'Meal Prep', s: 'Recipes & weekly plan', c: '#A3E36B' },
+  ];
+  $('modules').innerHTML = MODULES.map((m) => '<a class="mod" href="' + m.href + '" style="--mc:' + m.c + '"><span class="ic">' + I(m.icon, 19) + '</span><span><b>' + m.t + '</b><span>' + m.s + '</span></span></a>').join('');
+
+  // ---------- briefing ----------
+  function relDay(k) {
+    if (k === D.dateKey()) return 'Today';
+    if (k === D.dateKey(D.addDays(new Date(), 1))) return 'Tomorrow';
+    return D.parseKey(k).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
   }
-  function setWeightUnit(u) {
-    weightUnit = u;
-    $('weightUnitSeg').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.u === u));
+  function fmtRange(it) { return it.allDay ? 'All day' : EFI.date.fmtTime(it.start) + (it.end ? ' – ' + EFI.date.fmtTime(it.end) : ''); }
+
+  let briefTimer = null;
+  async function renderBriefing(opts) {
+    const today = D.dateKey();
+    const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
+    let r;
+    try { r = await EFI.data.calendar.range(today, D.dateKey(D.addDays(new Date(), 2)), opts); }
+    catch (e) { r = { items: [], inbox: {}, google: {} }; }
+
+    // Up next: remaining timed items today, then tomorrow
+    const upcoming = r.items.filter((x) => x.source !== 'renewal' && x.source !== 'order' && !x.done && (x.dateKey > today || x.allDay || D.timeToMin(x.end || x.start) > nowMin)).slice(0, 4);
+    $('bNextList').innerHTML = upcoming.length ? upcoming.map((x) => (
+      '<div class="next-item"><span class="next-dot" style="background:' + x.color + '">' + I(x.icon, 17) + '</span>' +
+      '<div class="next-meta"><div class="next-title">' + esc(x.title) + '</div><div class="next-time">' + relDay(x.dateKey) + ' · ' + fmtRange(x) + '</div></div></div>'
+    )).join('') : '<div class="b-line dim">Nothing else scheduled — a clear runway. Ask me to plan something.</div>';
+
+    // Tasks
+    const aKey = D.activeDateKey();
+    const goals = EFI.data.tasks.list(aKey);
+    const done = goals.filter((g) => g.done).length;
+    $('bTasksBig').innerHTML = done + '<small> / ' + goals.length + '</small>';
+    $('bTasksBar').style.width = (goals.length ? Math.round(done / goals.length * 100) : 0) + '%';
+    const nextOpen = goals.find((g) => !g.done);
+    $('bTasksLine').textContent = goals.length ? (nextOpen ? 'Next: ' + nextOpen.text : 'All done — solid day.') : 'No tasks yet';
+
+    // Energy
+    try {
+      const ctx = await window.EnergyModel.computeContext();
+      const h = window.EnergyModel.nowHour();
+      const v = Math.round(window.EnergyModel.energyAt(h, ctx, true));
+      $('bEnergyBig').innerHTML = v + '<small>%</small>';
+      $('bEnergyBig').style.color = window.EnergyModel.energyColor(v);
+      const later = Math.round(window.EnergyModel.energyAt(h + 2, ctx, true));
+      $('bEnergyLine').textContent = window.EnergyModel.stateWord(v) + ' · ' + (later > v + 4 ? 'rising' : later < v - 4 ? 'dipping' : 'steady') + ' next 2h';
+    } catch (e) {}
+
+    // Money
+    const f = EFI.data.finance;
+    const monthly = f.subs().reduce((s, x) => s + f.monthlyEquivalent(x), 0);
+    const soon = f.subs().map((s) => ({ s, d: f.nextRenewal(s.renewal, s.period) })).filter((x) => x.d && (x.d - D.parseKey(today)) / 86400000 <= 7).sort((a, b) => a.d - b.d);
+    $('bMoneyBig').innerHTML = '€' + Math.round(f.netWorth()).toLocaleString('en-US') + '<small> net</small>';
+    $('bMoneyLine').textContent = soon.length ? soon[0].s.name + ' renews ' + relDay(D.dateKey(soon[0].d)).toLowerCase() + (soon.length > 1 ? ' +' + (soon.length - 1) : '') : '€' + monthly.toFixed(0) + '/mo in subscriptions';
+
+    // Body
+    try {
+      const ah = window.AppleHealth ? await window.AppleHealth.get() : null;
+      const L = ah && ah.latest;
+      const caf = EFI.data.caffeine.todayTotal();
+      if (L && L.sleep && L.sleep.asleepMin != null) {
+        const m = Math.round(L.sleep.asleepMin);
+        $('bHealthBig').innerHTML = Math.floor(m / 60) + '<small>h</small> ' + (m % 60) + '<small>m</small>';
+        $('bHealthLine').textContent = [L.hrv != null ? 'HRV ' + Math.round(L.hrv) : null, caf ? caf + ' mg caffeine' : null, L.steps != null ? Math.round(L.steps).toLocaleString() + ' steps' : null].filter(Boolean).join(' · ') || 'Last night\'s sleep';
+      } else {
+        $('bHealthBig').innerHTML = caf ? caf + '<small> mg</small>' : '—';
+        $('bHealthLine').textContent = caf ? 'caffeine today' : 'Apple Health not synced yet';
+      }
+    } catch (e) {}
+
+    // Status line
+    const todayItems = r.items.filter((x) => x.dateKey === today && x.source !== 'renewal' && x.source !== 'order');
+    const nxt = upcoming.find((x) => x.dateKey === today && !x.allDay);
+    const g = r.google || {};
+    const parts = [g.connected ? 'Google synced' : (g.configured ? 'Google not connected' : null), todayItems.length + ' on today', nxt ? 'next: ' + nxt.title + ' ' + EFI.date.fmtTime(nxt.start) : null].filter(Boolean);
+    $('sub').textContent = EFI.ai.hasKey() ? parts.join(' · ') : 'Add your Gemini key in settings to wake me up.';
   }
-  function setSex(s) {
-    sex = s;
-    $('sexSeg').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.s === s));
+  function scheduleBriefing() { clearTimeout(briefTimer); briefTimer = setTimeout(() => renderBriefing(), 300); }
+
+  // ---------- notes ----------
+  function renderNotes() {
+    const list = EFI.data.notes.list().slice(0, 8);
+    $('notes').innerHTML = list.length ? list.map((n) => (
+      '<div class="card note"><span class="ic">' + I('pen', 16) + '</span><div class="note-body">' +
+      (n.title ? '<div class="note-title">' + esc(n.title) + '</div>' : '') +
+      '<div class="note-text">' + esc(n.text) + '</div>' +
+      '<div class="note-meta">' + new Date(n.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ((n.tags || []).length ? ' · #' + n.tags.map(esc).join(' #') : '') + '</div>' +
+      '</div><button class="note-del" type="button" data-id="' + esc(n.id) + '" aria-label="Delete note">' + I('trash', 15) + '</button></div>'
+    )).join('') : '<div class="card empty">No notes yet. Tell me “note: …” and I\'ll keep it here.</div>';
+  }
+  $('notes').addEventListener('click', (e) => {
+    const b = e.target.closest('.note-del'); if (!b) return;
+    if (!confirm('Delete this note?')) return;
+    EFI.data.notes.remove(b.dataset.id); renderNotes();
+  });
+  $('notesAsk').addEventListener('click', () => { $('input').value = 'Note this idea: '; autosize(); $('input').focus(); });
+
+  // ---------- chat rendering ----------
+  function md(text) {
+    const lines = esc(text).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<i>$2</i>').split(/\r?\n/);
+    let out = '', inList = false;
+    lines.forEach((l) => {
+      const m = l.match(/^\s*(?:[-•*]|\d+\.)\s+(.*)$/);
+      if (m) { if (!inList) { out += '<ul>'; inList = true; } out += '<li>' + m[1] + '</li>'; }
+      else { if (inList) { out += '</ul>'; inList = false; } if (l.trim()) out += '<p>' + l + '</p>'; }
+    });
+    if (inList) out += '</ul>';
+    return out;
+  }
+  function scrollDown() { requestAnimationFrame(() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })); }
+  function addUser(text) {
+    const el = document.createElement('div'); el.className = 'msg user'; el.textContent = text;
+    $('thread').appendChild(el); scrollDown(); return el;
+  }
+  function addEfi(html) {
+    const el = document.createElement('div'); el.className = 'msg efi';
+    el.innerHTML = '<span class="av"></span><div class="bubble">' + html + '</div>';
+    $('thread').appendChild(el); scrollDown();
+    return el.querySelector('.bubble');
+  }
+  function actionHtml(a) { return '<div class="act' + (a.ok ? '' : ' fail') + '">' + I(a.ok ? 'check' : 'x', 14) + '<span>' + esc(a.label) + (a.ok ? '' : ' — ' + esc(a.error || 'failed')) + '</span></div>'; }
+
+  function loadLog() { const l = EFI.store.get(CHATLOG_LS, []); return Array.isArray(l) ? l : []; }
+  function saveLog(entry) { const l = loadLog(); l.push(entry); EFI.store.set(CHATLOG_LS, l.slice(-40)); }
+  function restoreLog() {
+    $('thread').innerHTML = '';
+    loadLog().forEach((m) => {
+      if (m.role === 'user') addUser(m.text);
+      else { const b = addEfi(md(m.text)); if (m.actions && m.actions.length) b.insertAdjacentHTML('beforeend', '<div class="actions">' + m.actions.map(actionHtml).join('') + '</div>'); }
+    });
   }
 
+  function setChatting(on) {
+    document.body.classList.toggle('chatting', on);
+    $('newChatBtn').hidden = !on;
+    if (!on) { window.scrollTo({ top: 0 }); scheduleBriefing(); renderNotes(); }
+  }
+  $('newChatBtn').addEventListener('click', () => setChatting(false));
+
+  // ---------- orb states ----------
+  function setState(s, label) {
+    document.body.classList.toggle('thinking', s === 'thinking');
+    document.body.classList.toggle('listening', s === 'listening');
+    $('orbStatus').innerHTML = label ? esc(label) : '&nbsp;';
+  }
+
+  // ---------- voice out ----------
+  function voiceOn() { return !!EFI.settings.get().voice; }
+  function renderVoiceBtn() { $('voiceBtn').innerHTML = I(voiceOn() ? 'volume' : 'volume', 18); $('voiceBtn').classList.toggle('on', voiceOn()); }
+  let voice = null;
+  function pickVoice() {
+    if (!('speechSynthesis' in window)) return null;
+    const vs = speechSynthesis.getVoices();
+    return vs.find((v) => /Daniel|Arthur|Oliver|Google UK English Male/i.test(v.name)) || vs.find((v) => /en-GB/i.test(v.lang)) || vs.find((v) => /^en/i.test(v.lang)) || null;
+  }
+  if ('speechSynthesis' in window) speechSynthesis.onvoiceschanged = () => { voice = pickVoice(); };
+  function speak(text) {
+    if (!voiceOn() || !('speechSynthesis' in window)) return;
+    const plain = String(text).replace(/\*\*/g, '').replace(/^\s*[-•*]\s+/gm, '').replace(/€/g, ' euro ').slice(0, 600);
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(plain);
+    u.voice = voice || pickVoice(); u.rate = 1.03; u.pitch = 0.95;
+    speechSynthesis.speak(u);
+  }
+  $('voiceBtn').addEventListener('click', () => {
+    EFI.settings.set({ voice: !voiceOn() }); renderVoiceBtn(); syncSettingsForm();
+    EFI.toast && EFI.toast(voiceOn() ? 'Spoken replies on' : 'Spoken replies off');
+    if (!voiceOn() && 'speechSynthesis' in window) speechSynthesis.cancel();
+  });
+
+  // ---------- voice in ----------
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let rec = null, recActive = false;
+  if (SR) {
+    $('micBtn').hidden = false;
+    $('micBtn').addEventListener('click', toggleMic);
+    $('orb').addEventListener('click', toggleMic);
+  } else {
+    $('orb').addEventListener('click', () => $('input').focus());
+  }
+  function toggleMic() {
+    if (recActive) { rec && rec.stop(); return; }
+    if ('speechSynthesis' in window) speechSynthesis.cancel();
+    rec = new SR();
+    rec.lang = navigator.language || 'en-US';
+    rec.interimResults = true; rec.continuous = false;
+    let finalText = '';
+    rec.onstart = () => { recActive = true; $('micBtn').classList.add('rec'); setState('listening', 'Listening…'); };
+    rec.onresult = (e) => {
+      let interim = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        if (e.results[i].isFinal) finalText += e.results[i][0].transcript; else interim += e.results[i][0].transcript;
+      }
+      $('input').value = (finalText + interim).trim(); autosize();
+    };
+    rec.onerror = (e) => { if (e.error === 'not-allowed') EFI.toast && EFI.toast('Microphone access was blocked.'); };
+    rec.onend = () => {
+      recActive = false; $('micBtn').classList.remove('rec'); setState('', '');
+      const t = $('input').value.trim();
+      if (finalText.trim() && t) send(t);
+    };
+    try { rec.start(); } catch (e) {}
+  }
+
+  // ---------- send ----------
+  const input = $('input');
+  function autosize() { input.style.height = 'auto'; input.style.height = Math.min(120, input.scrollHeight) + 'px'; }
+  input.addEventListener('input', autosize);
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); send(input.value); }
+  });
+  $('sendBtn').addEventListener('click', () => send(input.value));
+
+  let busy = false;
+  async function send(text) {
+    text = String(text || '').trim();
+    if (!text || busy) return;
+    if (!EFI.ai.hasKey()) { openSettings(); $('gHint').className = 'hint err'; $('gHint').textContent = 'Add your Gemini API key first — then ask again.'; return; }
+    busy = true; $('sendBtn').disabled = true;
+    input.value = ''; autosize();
+    if (!document.body.classList.contains('chatting')) { restoreLog(); setChatting(true); }
+    addUser(text); saveLog({ role: 'user', text });
+    const bubble = addEfi('<span class="dots"><i></i><i></i><i></i></span>');
+    const actionsEl = document.createElement('div'); actionsEl.className = 'actions';
+    setState('thinking', 'Thinking…');
+    try {
+      if (window.CloudSync) await window.CloudSync.ready();
+      const res = await EFI.agent.send(text, {
+        onAction(a) { actionsEl.insertAdjacentHTML('beforeend', actionHtml(a)); if (!actionsEl.parentNode) bubble.appendChild(actionsEl); scrollDown(); },
+        confirm(label) { return askConfirm(bubble, label); },
+      });
+      bubble.innerHTML = md(res.text);
+      if (res.actions.length) bubble.appendChild(actionsEl);
+      saveLog({ role: 'efi', text: res.text, actions: res.actions });
+      speak(res.text);
+      if (res.actions.length) { renderNotes(); scheduleBriefing(); }
+      if (res.navigate) setTimeout(() => { location.href = res.navigate; }, 900);
+    } catch (e) {
+      bubble.classList.add('err');
+      bubble.innerHTML = md(EFI.ai.explain(e));
+      if (e && (e.code === 'no-key' || e.code === 'bad-key')) openSettings();
+    } finally {
+      busy = false; $('sendBtn').disabled = false; setState('', '');
+      scrollDown();
+    }
+  }
+
+  function askConfirm(bubble, label) {
+    return new Promise((resolve) => {
+      setState('', 'Waiting for your OK');
+      const box = document.createElement('div');
+      box.className = 'confirm';
+      box.innerHTML = '<div class="confirm-h">Needs your OK</div><div class="confirm-t">' + esc(label) + '</div><div class="confirm-row"><button class="btn primary" type="button">Confirm</button><button class="btn ghost" type="button">Cancel</button></div>';
+      bubble.parentNode.parentNode.insertBefore(wrapEfi(box), bubble.parentNode.nextSibling);
+      scrollDown();
+      const [ok, no] = box.querySelectorAll('button');
+      function done(v) {
+        ok.disabled = no.disabled = true;
+        box.querySelector('.confirm-row').remove();
+        box.querySelector('.confirm-t').style.marginBottom = '0';
+        box.querySelector('.confirm-h').textContent = v ? 'Approved' : 'Cancelled';
+        setState('thinking', 'Thinking…');
+        resolve(v);
+      }
+      ok.addEventListener('click', () => done(true));
+      no.addEventListener('click', () => done(false));
+    });
+  }
+  function wrapEfi(node) {
+    const el = document.createElement('div'); el.className = 'msg efi';
+    el.innerHTML = '<span class="av" style="visibility:hidden"></span>';
+    const b = document.createElement('div'); b.className = 'bubble'; b.style.background = 'transparent'; b.style.border = '0'; b.style.padding = '0';
+    b.appendChild(node); el.appendChild(b); return el;
+  }
+
+  // ---------- settings ----------
+  function openSettings() { syncSettingsForm(); $('settingsBg').classList.add('show'); refreshGoogle(); loadModels(); renderAppleHealth(); }
+  function closeSettings() { $('settingsBg').classList.remove('show'); }
+  $('settingsBtn').addEventListener('click', openSettings);
+  $('settingsClose').addEventListener('click', closeSettings);
+  $('settingsBg').addEventListener('click', (e) => { if (e.target === $('settingsBg')) closeSettings(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeSettings(); });
+
+  function syncSettingsForm() {
+    const s = EFI.settings.get();
+    const u = window.EFIAuth && window.EFIAuth.user();
+    $('acctGrp').hidden = !u;
+    if (u) $('acctEmail').textContent = 'Your data is private to ' + (u.email || 'this account') + '. Sign-in is per device.';
+    $('userName').value = s.userName || '';
+    $('voiceSeg').querySelectorAll('button').forEach((b) => b.classList.toggle('on', (b.dataset.v === '1') === !!s.voice));
+    $('gKey').placeholder = EFI.ai.hasKey() ? '•••• key saved on this device ••••' : 'AIza…';
+    populateProfile();
+  }
+  $('userName').addEventListener('change', () => { EFI.settings.set({ userName: $('userName').value.trim() }); greeting(); });
+  $('voiceSeg').querySelectorAll('button').forEach((b) => b.addEventListener('click', () => { EFI.settings.set({ voice: b.dataset.v === '1' }); syncSettingsForm(); renderVoiceBtn(); }));
+  $('signOutBtn').addEventListener('click', async () => {
+    if (!confirm('Sign out of E.F.I. on this device? Your data stays in your account.')) return;
+    closeSettings();
+    await window.EFIAuth.signOut();
+  });
+  $('clearChat').addEventListener('click', () => { EFI.agent.clearHistory(); EFI.store.del(CHATLOG_LS); $('thread').innerHTML = ''; EFI.toast && EFI.toast('Conversation memory cleared'); });
+
+  // Gemini key + model
+  $('gKeySave').addEventListener('click', async () => {
+    const k = $('gKey').value.trim();
+    const hint = $('gHint');
+    if (!k) { EFI.ai.setKey(''); hint.className = 'hint'; hint.textContent = 'Key removed from this device.'; syncSettingsForm(); return; }
+    hint.className = 'hint'; hint.textContent = 'Checking key…';
+    try {
+      const models = await EFI.ai.listModels(k);
+      EFI.ai.setKey(k);
+      $('gKey').value = '';
+      hint.className = 'hint ok'; hint.textContent = '✓ Key works — ' + models.length + ' models available.';
+      syncSettingsForm(); loadModels(true); renderBriefing();
+    } catch (e) { hint.className = 'hint err'; hint.textContent = 'That key didn\'t work: ' + EFI.ai.explain(e); }
+  });
+  let modelsLoaded = false;
+  async function loadModels(force) {
+    if (!EFI.ai.hasKey() || (modelsLoaded && !force)) { $('gModel').value = EFI.settings.get().geminiModel || ''; return; }
+    try {
+      const names = await EFI.ai.listModels();
+      const auto = await EFI.ai.resolveModel().catch(() => '');
+      const cur = EFI.settings.get().geminiModel || '';
+      $('gModel').innerHTML = '<option value="">Automatic' + (auto && !cur ? ' (' + esc(auto) + ')' : '') + '</option>' + names.map((n) => '<option value="' + esc(n) + '">' + esc(n) + '</option>').join('');
+      $('gModel').value = cur;
+      modelsLoaded = true;
+    } catch (e) {}
+  }
+  $('gModel').addEventListener('change', () => { EFI.settings.set({ geminiModel: $('gModel').value }); $('gHint').className = 'hint ok'; $('gHint').textContent = 'Model saved.'; });
+
+  // Google
+  async function refreshGoogle() {
+    const pill = $('gcPill');
+    const st = await EFI.google.status(true);
+    $('gcConnect').hidden = !!st.connected;
+    $('gcDisconnect').hidden = !st.connected;
+    if (!st.configured) {
+      pill.className = 'pill warn'; pill.innerHTML = '<i></i>Not set up';
+      $('gcText').innerHTML = 'The server needs a Google OAuth client first — add <code>GOOGLE_CLIENT_ID</code> and <code>GOOGLE_CLIENT_SECRET</code> in Vercel (see SETUP.md §4), then redeploy.';
+      $('gcConnect').disabled = true; $('gcCals').innerHTML = '';
+      return;
+    }
+    $('gcConnect').disabled = false;
+    if (!st.connected) { pill.className = 'pill'; pill.innerHTML = '<i></i>Not connected'; $('gcCals').innerHTML = ''; return; }
+    pill.className = 'pill ok'; pill.innerHTML = '<i></i>Connected';
+    try {
+      const cals = await EFI.google.calendars(true);
+      const chosen = EFI.settings.get().googleCalendars;
+      $('gcCals').innerHTML = '<span class="lbl" style="margin:4px 0 0">Show these calendars</span>' + cals.map((c) => '<label><input type="checkbox" value="' + esc(c.id) + '"' + ((chosen ? chosen.indexOf(c.id) !== -1 : c.selected) ? ' checked' : '') + '><span class="cal-sw" style="background:' + esc(c.color || '#34D8A0') + '"></span>' + esc(c.name) + '</label>').join('');
+    } catch (e) { $('gcCals').innerHTML = '<div class="hint err">' + esc(e.message) + '</div>'; }
+  }
+  $('gcCals').addEventListener('change', () => {
+    const ids = Array.from($('gcCals').querySelectorAll('input:checked')).map((i) => i.value);
+    EFI.settings.set({ googleCalendars: ids }); scheduleBriefing();
+  });
+  $('gcConnect').addEventListener('click', () => EFI.google.connect());
+  $('gcDisconnect').addEventListener('click', async () => { await EFI.google.disconnect(); refreshGoogle(); scheduleBriefing(); });
+
+  // Profile (moved from the old home-page modal; now its own synced key)
+  let heightUnit = 'cm', weightUnit = 'kg', sex = 'm';
+  function setSeg(id, attr, v) { $(id).querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset[attr] === v)); }
+  function setHeightUnit(u) { heightUnit = u; setSeg('heightUnitSeg', 'u', u); $('heightA').placeholder = u === 'cm' ? 'cm' : 'ft'; $('heightB').style.display = u === 'cm' ? 'none' : ''; }
+  function setWeightUnit(u) { weightUnit = u; setSeg('weightUnitSeg', 'u', u); }
+  function setSex(s) { sex = s; setSeg('sexSeg', 's', s); }
   function getHeightCm() {
     if (heightUnit === 'cm') { const v = parseFloat($('heightA').value); return v > 0 ? v : null; }
-    const ft = parseFloat($('heightA').value) || 0;
-    const inch = parseFloat($('heightB').value) || 0;
-    const cm = ft * 30.48 + inch * 2.54;
+    const cm = (parseFloat($('heightA').value) || 0) * 30.48 + (parseFloat($('heightB').value) || 0) * 2.54;
     return cm > 0 ? Math.round(cm) : null;
   }
   function fillHeight(cm) {
     if (!cm) { $('heightA').value = ''; $('heightB').value = ''; return; }
-    if (heightUnit === 'cm') { $('heightA').value = Math.round(cm); }
-    else { const totalIn = cm / 2.54; $('heightA').value = Math.floor(totalIn / 12); $('heightB').value = Math.round(totalIn % 12); }
+    if (heightUnit === 'cm') $('heightA').value = Math.round(cm);
+    else { const t = cm / 2.54; $('heightA').value = Math.floor(t / 12); $('heightB').value = Math.round(t % 12); }
   }
-
-  /* ---------- load existing profile into the form ---------- */
-  function populate() {
-    const w = loadJSON(WATER_KEY, defaultWater());
-    const p = w.profile || {};
-    setWeightUnit(w.weightUnit === 'lb' ? 'lb' : 'kg');
-    setHeightUnit(p.heightUnit === 'ft' ? 'ft' : 'cm');
-    setSex(p.sex === 'f' ? 'f' : 'm');
+  function populateProfile() {
+    const p = EFI.profile.get();
+    setWeightUnit(p.weightUnit === 'lb' ? 'lb' : 'kg'); setHeightUnit(p.heightUnit === 'ft' ? 'ft' : 'cm'); setSex(p.sex === 'f' ? 'f' : 'm');
     fillHeight(p.heightCm || null);
-    if (p.weightKg) $('weight').value = weightUnit === 'lb' ? Math.round(p.weightKg * 2.20462) : Math.round(p.weightKg);
-    else $('weight').value = '';
+    $('weight').value = p.weightKg ? (weightUnit === 'lb' ? Math.round(p.weightKg * 2.20462) : Math.round(p.weightKg * 10) / 10) : '';
     $('age').value = p.age || '';
-    $('activity').value = (p.activityHrsPerWeek != null ? p.activityHrsPerWeek : '');
+    $('activity').value = p.activityHrsPerWeek != null ? p.activityHrsPerWeek : '';
   }
-
-  /* ---------- save back into po_water_v1 (merge, never overwrite logs) ---------- */
-  function save() {
-    const w = loadJSON(WATER_KEY, defaultWater());
-    w.profile = w.profile || {};
-    const cm = getHeightCm();
-    if (cm) { w.profile.heightCm = cm; w.profile.heightUnit = heightUnit; }
-    const wv = parseFloat($('weight').value);
-    if (wv > 0) { w.profile.weightKg = weightUnit === 'lb' ? +(wv / 2.20462).toFixed(1) : wv; w.weightUnit = weightUnit; }
-    const age = parseInt($('age').value, 10); if (age > 0) w.profile.age = age;
-    w.profile.sex = sex;
-    const act = parseFloat($('activity').value); if (act >= 0 && !isNaN(act)) w.profile.activityHrsPerWeek = act;
-    saveJSON(WATER_KEY, w);
-    const s = $('settingsStatus'); s.textContent = 'Saved ✓';
-    setTimeout(() => { s.textContent = ''; }, 1800);
-  }
-
-  /* ---------- open / close ---------- */
-  function open() { populate(); syncHealth(); $('settingsBg').classList.add('show'); }
-  function close() { $('settingsBg').classList.remove('show'); }
-  $('settingsOpen').addEventListener('click', open);
-  $('settingsClose').addEventListener('click', close);
-  $('settingsBg').addEventListener('click', (e) => { if (e.target === $('settingsBg')) close(); });
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
-  $('settingsSave').addEventListener('click', save);
-  $('heightUnitSeg').querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
-    const cm = getHeightCm(); setHeightUnit(b.dataset.u); fillHeight(cm);
+  $('heightUnitSeg').querySelectorAll('button').forEach((b) => b.addEventListener('click', () => { const cm = getHeightCm(); setHeightUnit(b.dataset.u); fillHeight(cm); }));
+  $('weightUnitSeg').querySelectorAll('button').forEach((b) => b.addEventListener('click', () => {
+    const v = parseFloat($('weight').value); const kg = v > 0 ? (weightUnit === 'lb' ? v / 2.20462 : v) : null;
+    setWeightUnit(b.dataset.u); if (kg) $('weight').value = weightUnit === 'lb' ? Math.round(kg * 2.20462) : Math.round(kg * 10) / 10;
   }));
-  $('weightUnitSeg').querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
-    const v = parseFloat($('weight').value);
-    const kg = v > 0 ? (weightUnit === 'lb' ? v / 2.20462 : v) : null;
-    setWeightUnit(b.dataset.u);
-    if (kg) $('weight').value = weightUnit === 'lb' ? Math.round(kg * 2.20462) : Math.round(kg);
-  }));
-  $('sexSeg').querySelectorAll('button').forEach(b => b.addEventListener('click', () => setSex(b.dataset.s)));
+  $('sexSeg').querySelectorAll('button').forEach((b) => b.addEventListener('click', () => setSex(b.dataset.s)));
+  $('profileSave').addEventListener('click', () => {
+    const patch = { sex, weightUnit, heightUnit };
+    const cm = getHeightCm(); if (cm) patch.heightCm = cm;
+    const w = parseFloat($('weight').value); if (w > 0) patch.weightKg = weightUnit === 'lb' ? +(w / 2.20462).toFixed(1) : w;
+    const age = parseInt($('age').value, 10); if (age > 0) patch.age = age;
+    const act = parseFloat($('activity').value); if (act >= 0 && !isNaN(act)) patch.activityHrsPerWeek = act;
+    EFI.profile.set(patch);
+    $('profileHint').className = 'hint ok'; $('profileHint').textContent = 'Saved ✓';
+    setTimeout(() => { $('profileHint').textContent = ''; }, 1800);
+  });
 
-  /* ---------- Apple Health ---------- */
-  function relTime(ts) {
-    if (!ts) return 'never';
-    const s = Math.floor((Date.now() - ts) / 1000);
-    if (s < 60) return 'just now';
-    if (s < 3600) return Math.floor(s/60) + ' min ago';
-    if (s < 86400) return Math.floor(s/3600) + ' h ago';
-    return Math.floor(s/86400) + ' d ago';
+  async function renderAppleHealth() {
+    const pill = $('ahPill');
+    const res = window.AppleHealth ? await window.AppleHealth.get() : null;
+    const L = res && res.latest;
+    if (!L) { pill.className = 'pill'; pill.innerHTML = '<i></i>Not synced'; $('ahStats').innerHTML = ''; return; }
+    const ago = res.updatedAt ? Math.round((Date.now() - new Date(res.updatedAt).getTime()) / 3600000) : null;
+    pill.className = 'pill ok'; pill.innerHTML = '<i></i>' + (ago == null ? 'Synced' : ago < 1 ? 'Synced <1h ago' : 'Synced ' + ago + 'h ago');
+    const sleepH = L.sleep && L.sleep.asleepMin != null ? (L.sleep.asleepMin / 60).toFixed(1) + 'h' : '—';
+    $('ahStats').innerHTML = '<div><b>' + sleepH + '</b><span>Sleep</span></div><div><b>' + (L.hrv != null ? Math.round(L.hrv) : '—') + '</b><span>HRV</span></div><div><b>' + EFI.data.caffeine.todayTotal() + '</b><span>mg caffeine</span></div>';
   }
-  function renderHealth(res) {
-    const latest = res && res.latest;
-    const statusEl = $('whStatus'), txt = $('whStatusText'), syncEl = $('whSync'), action = $('whAction');
-    const hasData = latest && (latest.hrv != null || latest.rhr != null || latest.sleep);
-    if (!hasData) {
-      statusEl.classList.remove('on'); txt.textContent = 'Not synced';
-      syncEl.textContent = ''; $('whStats').style.display = 'none';
-      action.textContent = 'Set up on Health page';
-      return;
-    }
-    statusEl.classList.add('on'); txt.textContent = 'Synced';
-    syncEl.textContent = res.updatedAt ? 'Last synced ' + relTime(new Date(res.updatedAt).getTime()) : '';
-    action.textContent = 'Refresh';
-    $('whStats').style.display = '';
-    const sleepPct = latest.sleep && latest.sleep.asleepMin != null ? Math.min(100, Math.round(latest.sleep.asleepMin/480*100)) : null;
-    $('whMiniSleep').textContent = sleepPct != null ? sleepPct + '%' : '—';
-    $('whMiniHrv').textContent   = latest.hrv != null ? String(Math.round(latest.hrv)) : '—';
-    $('whMiniRhr').textContent   = latest.rhr != null ? String(Math.round(latest.rhr)) : '—';
+
+  // ---------- boot ----------
+  greeting(); renderVoiceBtn(); renderNotes();
+  renderBriefing({ cachedOnly: true }).then(() => renderBriefing());
+  setInterval(() => { greeting(); if (!document.hidden) renderBriefing({ cachedOnly: true }); }, 5 * 60 * 1000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) scheduleBriefing(); });
+
+  const params = new URLSearchParams(location.search);
+  const gParam = params.get('google');
+  if (gParam) {
+    const msg = { connected: 'Google connected ✓', denied: 'Google access was declined', 'not-configured': 'Google isn\'t configured on the server yet', 'bad-state': 'Google sign-in expired — try again', failed: 'Google sign-in failed — try again' }[gParam] || '';
+    setTimeout(() => { if (msg && EFI.toast) EFI.toast(msg, 3200); }, 400);
   }
-  async function syncHealth() {
-    if (!window.AppleHealth) return;
-    try { renderHealth(await window.AppleHealth.get()); } catch (e) {}
-  }
-  $('whAction').addEventListener('click', async () => {
-    if (!$('whStatus').classList.contains('on')) { window.location.href = 'health.html'; return; }
-    $('whAction').textContent = 'Refreshing…'; await syncHealth();
+  const q = params.get('q');
+  if (gParam || q) history.replaceState(null, '', location.pathname);
+  document.addEventListener('DOMContentLoaded', () => {
+    if (window.CloudSync) window.CloudSync.initAll({ onApplied: () => { scheduleBriefing(); renderNotes(); } });
+    if (window.AppleHealth) window.AppleHealth.subscribe(() => scheduleBriefing());
+    if (q) send(q);
   });
 })();
 </script>
