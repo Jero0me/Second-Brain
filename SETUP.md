@@ -14,75 +14,114 @@ optional add-on.
 3. Framework Preset: **Other**. Root Directory: **`./`**. Build/output: leave blank (static).
 4. **Deploy.** You'll get a URL like `https://your-app.vercel.app`.
 
-> ⚠️ There is **no login** on the site, and the Supabase table is readable/writable with the public
-> key (see §2). Anyone who finds your URL can see your data — keep the URL private, and see
-> "Security" at the bottom for the proper fix.
+E.F.I. asks you to **sign in** (email code or Google). Your data is locked in the database to your
+account only — the public key that ships in the page source can't read or write anything by itself.
 
 ---
 
-## 2. Supabase (cross-device sync) — required for sync
+## 2. Supabase (sync + sign-in) — required
 
 Create a free project at **supabase.com**, then run these SQL blocks in
-**SQL Editor → New query → Run**.
+**SQL Editor → New query → Run**. They're safe to re-run, and they **also upgrade an existing
+setup** (they remove the old "anyone with the public key" policies). No data is deleted.
 
-### SQL #1 — `app_state` (all dashboard sync)
+### SQL #1 — `app_state`, locked to the owner
 ```sql
 create table if not exists public.app_state (
   key        text primary key,
   data       jsonb not null default '{}'::jsonb,
   updated_at timestamptz not null default now()
 );
-
--- The browser uses the ANON key, so allow it to read/write:
 alter table public.app_state enable row level security;
-create policy "anon full access app_state"
-  on public.app_state for all
-  to anon using (true) with check (true);
 
--- Instant cross-device updates:
+-- Who owns this E.F.I. No policies on purpose: invisible to the browser.
+create table if not exists public.app_owners (
+  user_id    uuid primary key references auth.users(id) on delete cascade,
+  created_at timestamptz not null default now()
+);
+alter table public.app_owners enable row level security;
+
+create or replace function public.is_app_owner() returns boolean
+language sql stable security definer set search_path = public
+as $$ select exists (select 1 from public.app_owners where user_id = auth.uid()) $$;
+
+-- The FIRST account that signs in after this runs becomes the owner.
+-- After that it only answers "is this the owner?".
+create or replace function public.claim_app_ownership() returns boolean
+language plpgsql security definer set search_path = public
+as $$
+begin
+  if auth.uid() is null then return false; end if;
+  lock table public.app_owners in exclusive mode;
+  if not exists (select 1 from public.app_owners) then
+    insert into public.app_owners (user_id) values (auth.uid());
+  end if;
+  return exists (select 1 from public.app_owners where user_id = auth.uid());
+end $$;
+revoke all on function public.claim_app_ownership() from public, anon;
+grant execute on function public.claim_app_ownership() to authenticated;
+grant execute on function public.is_app_owner() to authenticated;
+
+-- Replace the old open policy with an owner-only one.
+drop policy if exists "anon full access app_state" on public.app_state;
+drop policy if exists "owner full access app_state" on public.app_state;
+create policy "owner full access app_state" on public.app_state
+  for all to authenticated
+  using (public.is_app_owner()) with check (public.is_app_owner());
+
+-- Instant cross-device updates (skip this line if it says "already member of publication"):
 alter publication supabase_realtime add table public.app_state;
 ```
+
+### SQL #2 — photo buckets (progress photos + meal-prep dishes)
+```sql
+insert into storage.buckets (id, name, public) values
+  ('progress-photos', 'progress-photos', true),
+  ('meal-photos', 'meal-photos', true)
+on conflict (id) do nothing;
+
+drop policy if exists "anon manage progress-photos" on storage.objects;
+drop policy if exists "anon manage meal-photos" on storage.objects;
+drop policy if exists "owner manage photos" on storage.objects;
+create policy "owner manage photos" on storage.objects
+  for all to authenticated
+  using (bucket_id in ('progress-photos', 'meal-photos') and public.is_app_owner())
+  with check (bucket_id in ('progress-photos', 'meal-photos') and public.is_app_owner());
+```
+(Only you can upload or delete photos. The buckets stay "public" so images load from their long
+random URLs without extra requests.)
 
 Rows used: `goals` (planner), `finance`, `health` (supplements), `mealprep`, `efi` (profile, notes,
 E.F.I. calendar events, manually logged caffeine, settings), `po-coach` (fitness), `apple_health`
 (written by the server). API keys and Google logins are **never** stored here.
 
-### SQL #2 — progress-photo sync (Storage bucket)
-```sql
-insert into storage.buckets (id, name, public)
-values ('progress-photos', 'progress-photos', true)
-on conflict (id) do nothing;
+### Sign-in settings (Supabase → Authentication)
+1. **URL Configuration** → *Site URL*: `https://your-app.vercel.app`, and add
+   `https://your-app.vercel.app/**` under *Redirect URLs*.
+2. **Emails → Magic Link** template → make sure the email contains the code, e.g.
+   `<p>Your E.F.I. sign-in code: <b>{{ .Token }}</b></p><p>or <a href="{{ .ConfirmationURL }}">sign in</a></p>`.
+   The code matters on iPhone: the home-screen app can't receive a tapped email link, so you type
+   the 6-digit code instead.
+3. *(Optional)* **Providers → Google** → enable it and paste your Google OAuth client ID + secret
+   (the same Google Cloud client as §4 works). Add
+   `https://<your-project-ref>.supabase.co/auth/v1/callback` to that client's *Authorized redirect URIs*.
 
-create policy "anon manage progress-photos"
-  on storage.objects for all
-  to anon
-  using (bucket_id = 'progress-photos')
-  with check (bucket_id = 'progress-photos');
-```
+**Claim ownership:** right after running SQL #1, open your site and sign in — that account becomes
+the owner. Then (recommended) **Authentication → Sign In / Providers → turn off "Allow new users to
+sign up"**. Anyone else who signs in would see nothing anyway, but this keeps it tidy.
 
-### SQL #3 — meal-prep recipe photos (Storage bucket)
-```sql
-insert into storage.buckets (id, name, public)
-values ('meal-photos', 'meal-photos', true)
-on conflict (id) do nothing;
-
-create policy "anon manage meal-photos"
-  on storage.objects for all
-  to anon
-  using (bucket_id = 'meal-photos')
-  with check (bucket_id = 'meal-photos');
-```
-
-### Connect YOUR Supabase
-Supabase → **Project Settings → API**. Copy the **Project URL** and the **anon / publishable** key and add
-them in Vercel → **Settings → Environment Variables**, then redeploy:
+### Connect YOUR Supabase (Vercel env vars)
+Supabase → **Project Settings → API**. Add these in Vercel → **Settings → Environment Variables**,
+then redeploy:
 
 | Variable | Value |
 |---|---|
 | `SUPABASE_URL` | your Project URL |
-| `SUPABASE_ANON_KEY` | your anon / publishable key |
+| `SUPABASE_ANON_KEY` | the anon / publishable key (public — shipped to the browser) |
+| `SUPABASE_SERVICE_ROLE_KEY` | the **service_role / secret** key — server only, used by the Apple Health import (it has no user to sign in as) |
 
-> Only the **anon** key (public) is used. **Never** put the `service_role` key in code or env vars.
+> The service-role key bypasses the owner lock, so it must **only** live in Vercel's environment
+> variables — never in any `.html`/`.js` file.
 
 ---
 
@@ -186,17 +225,18 @@ E.F.I. assistant (tap the mic to talk, or type), with Calendar, Planner, Health 
 
 ---
 
-## Security (read this)
+## Security
 
-- The dashboard has **no login**, and the Supabase policy above lets anyone holding the public anon key
-  (which ships in the page source) read and write every row — including finances and health data.
-  Keep the URL private. The proper fix is **Supabase Auth + per-user RLS** (e.g. "Sign in with Google"
-  via Supabase, then `using (auth.uid() = owner)` policies) — worth doing before sharing the URL.
-- Gemini keys and Google logins are deliberately kept **out** of Supabase for this reason.
+- Every database row and photo upload is locked to the owner account by row-level security; the
+  public key in the page source gets nothing on its own. Sign-in lasts per device until you sign out
+  (E.F.I. → Settings → Account).
+- The Gemini key and Google login stay on each device and are never stored in Supabase.
+- Data already on a device (localStorage) is visible to whoever uses that device — use a device passcode.
 
 ## TL;DR
 1. Fork → import to Vercel → deploy.
-2. Supabase: run the SQL → set `SUPABASE_URL` + `SUPABASE_ANON_KEY`.
+2. Supabase: run SQL #1 + #2, set the Auth URLs + email code template, set `SUPABASE_URL`,
+   `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` → open the site and sign in (you become the owner).
 3. Gemini key from AI Studio → paste in E.F.I. settings.
 4. Google OAuth client → `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` → Connect Google.
 5. (Optional) Apple Health: `HEALTH_IMPORT_SECRET` + Health Auto Export automation.

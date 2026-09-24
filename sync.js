@@ -53,6 +53,11 @@
   }
   function parseMaybe(s) { try { return JSON.parse(s); } catch (e) { return s; } }
 
+  // One signed-in client shared with the rest of the app (efi-auth.js).
+  function sharedClient() {
+    return (window.EFIAuth && window.EFIAuth.client()) || window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  }
+
   const rows = {};      // appKey -> row state
   let supa = null;
   let suppress = 0;
@@ -91,6 +96,7 @@
     const syncedPrefixes = cfg.syncedPrefixes || [];
     const listeners = [];
     let pushTimer = null;
+    let pulled = false;      // initial cloud pull succeeded
     let lastSynced = null;   // stable() of last state pushed or received
     let resolveReady;
     const ready = new Promise((r) => { resolveReady = r; });
@@ -136,7 +142,9 @@
       return changed;
     }
     async function pushNow() {
-      if (!supa) return;
+      // Never push before this device has seen the cloud copy — pushing
+      // stale local data first would overwrite newer edits from elsewhere.
+      if (!supa || !pulled) return;
       const state = collect();
       const sig = stable(state);
       if (sig === lastSynced) return;
@@ -153,7 +161,7 @@
       pushTimer = setTimeout(pushNow, 250);
     }
     function flushOnUnload() {
-      if (!supa) return;
+      if (!supa || !pulled) return;
       const state = collect();
       const sig = stable(state);
       if (sig === lastSynced) return;
@@ -162,7 +170,7 @@
           method: 'POST',
           headers: {
             'apikey': SUPABASE_KEY,
-            'Authorization': 'Bearer ' + SUPABASE_KEY,
+            'Authorization': 'Bearer ' + (window.EFIAuth ? window.EFIAuth.accessToken() : SUPABASE_KEY),
             'Content-Type': 'application/json',
             'Prefer': 'resolution=merge-duplicates',
           },
@@ -173,16 +181,37 @@
       } catch (e) {}
     }
     async function start() {
-      try {
-        const { data, error } = await supa.from('app_state').select('data').eq('key', appKey).maybeSingle();
-        if (!error && data && data.data && Object.keys(data.data).length > 0) {
-          lastSynced = stable(data.data);
-          applyRemote(data.data);
-        } else if (Object.keys(collect()).length > 0) {
-          schedulePush();
+      // Signed-in session first — the database only answers the owner.
+      if (window.EFIAuth) await window.EFIAuth.whenReady();
+      async function pull() {
+        for (let attempt = 0; attempt < 4 && !pulled; attempt++) {
+          if (attempt) await new Promise((r) => setTimeout(r, 1500 * attempt));
+          try {
+            const { data, error } = await supa.from('app_state').select('data').eq('key', appKey).maybeSingle();
+            if (error) continue;
+            pulled = true;
+            if (data && data.data && Object.keys(data.data).length > 0) {
+              lastSynced = stable(data.data);
+              applyRemote(data.data);
+            } else if (Object.keys(collect()).length > 0) {
+              schedulePush();
+            }
+          } catch (e) {}
         }
-      } catch (e) {}
+      }
+      await pull();
       resolveReady();
+      // Opened offline: keep trying when the connection returns (and every
+      // minute) instead of staying unsynced until the next reload.
+      if (!pulled) {
+        const retry = async () => {
+          if (pulled) return;
+          await pull();
+          if (pulled) { window.removeEventListener('online', retry); clearInterval(timer); }
+        };
+        window.addEventListener('online', retry);
+        const timer = setInterval(retry, 60000);
+      }
       supa.channel('app_state_' + appKey)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'app_state', filter: 'key=eq.' + appKey }, (payload) => {
           if (!payload.new || !payload.new.data) return;
@@ -207,7 +236,7 @@
       if (!enabled) { row.resolveReady(); }
       else {
         patchStorage();
-        if (!supa) supa = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        if (!supa) supa = sharedClient();
         row.start();
       }
     }
@@ -228,7 +257,8 @@
   // the 'apple_health' row) without subscribing to it.
   async function fetchRow(appKey) {
     if (!enabled) return null;
-    if (!supa) supa = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    if (!supa) supa = sharedClient();
+    if (window.EFIAuth) await window.EFIAuth.whenReady();
     try {
       const { data, error } = await supa.from('app_state').select('data, updated_at').eq('key', appKey).maybeSingle();
       if (error || !data) return null;

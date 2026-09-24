@@ -17,6 +17,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
 <link rel="stylesheet" id="efi-theme" href="efi-theme.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="efi-auth.js"></script>
 <script src="efi-core.js"></script>
 <script src="efi-google.js"></script>
 <script src="efi-data.js"></script>
@@ -355,6 +356,12 @@ body.chatting .orb-status { margin-top: 10px; }
   <div class="efi-sheet" role="dialog" aria-label="E.F.I. settings">
     <div class="grabber"></div>
     <div class="sheet-h"><h3>Settings</h3><button class="icon-btn" id="settingsClose" type="button" aria-label="Close"></button></div>
+
+    <div class="grp" id="acctGrp" hidden>
+      <h4><span data-icon="users"></span> Account <span class="pill ok" style="margin-left:auto"><i></i>Signed in</span></h4>
+      <p id="acctEmail">—</p>
+      <div class="row" style="margin-top:0"><button class="btn ghost" id="signOutBtn" type="button">Sign out of this device</button></div>
+    </div>
 
     <div class="grp">
       <h4><span data-icon="sparkle"></span> Google Gemini</h4>
@@ -748,6 +755,9 @@ body.chatting .orb-status { margin-top: 10px; }
 
   function syncSettingsForm() {
     const s = EFI.settings.get();
+    const u = window.EFIAuth && window.EFIAuth.user();
+    $('acctGrp').hidden = !u;
+    if (u) $('acctEmail').textContent = 'Your data is private to ' + (u.email || 'this account') + '. Sign-in is per device.';
     $('userName').value = s.userName || '';
     $('voiceSeg').querySelectorAll('button').forEach((b) => b.classList.toggle('on', (b.dataset.v === '1') === !!s.voice));
     $('gKey').placeholder = EFI.ai.hasKey() ? '•••• key saved on this device ••••' : 'AIza…';
@@ -755,6 +765,11 @@ body.chatting .orb-status { margin-top: 10px; }
   }
   $('userName').addEventListener('change', () => { EFI.settings.set({ userName: $('userName').value.trim() }); greeting(); });
   $('voiceSeg').querySelectorAll('button').forEach((b) => b.addEventListener('click', () => { EFI.settings.set({ voice: b.dataset.v === '1' }); syncSettingsForm(); renderVoiceBtn(); }));
+  $('signOutBtn').addEventListener('click', async () => {
+    if (!confirm('Sign out of E.F.I. on this device? Your data stays in your account.')) return;
+    closeSettings();
+    await window.EFIAuth.signOut();
+  });
   $('clearChat').addEventListener('click', () => { EFI.agent.clearHistory(); EFI.store.del(CHATLOG_LS); $('thread').innerHTML = ''; EFI.toast && EFI.toast('Conversation memory cleared'); });
 
   // Gemini key + model

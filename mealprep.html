@@ -9,6 +9,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Meal Prep</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="efi-auth.js"></script>
 <script src="sync.js" defer></script>
 <script src="topbar.js" defer></script>
 <style>
@@ -700,6 +701,8 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
   const SUPABASE_KEY = (window.DASH_SUPABASE_KEY) || 'sb_publishable_5142ZwTLF_DkSVRzciNuRA_bHwRAu4c';
   let mpSupa = null;
   function getSupa() {
+    // Shared signed-in client (efi-auth.js) — uploads are owner-only.
+    if (!mpSupa && window.EFIAuth) mpSupa = window.EFIAuth.client();
     if (!mpSupa && window.supabase) mpSupa = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
     return mpSupa;
   }

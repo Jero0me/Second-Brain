@@ -20,7 +20,9 @@
 //   HEALTH_IMPORT_SECRET  — shared secret, also set as a custom
 //                           header value in the Health Auto Export
 //                           REST API automation config.
-//   SUPABASE_URL / SUPABASE_ANON_KEY — already used by /api/config.
+//   SUPABASE_URL                — already used by /api/config.
+//   SUPABASE_SERVICE_ROLE_KEY   — server-only; needed once app_state is
+//                                 locked to the owner (SETUP.md §2).
 // ============================================================
 
 // "2026-09-24 08:15:00 +0200" → epoch ms (tolerates ISO too)
@@ -49,8 +51,12 @@ export default async function handler(req, res) {
   if (given !== secret) return res.status(401).json({ error: 'unauthorized' });
 
   const supabaseUrl = process.env.SUPABASE_URL;
-  const supabaseKey = process.env.SUPABASE_ANON_KEY;
-  if (!supabaseUrl || !supabaseKey) return res.status(500).json({ error: 'server not configured (missing SUPABASE_URL / SUPABASE_ANON_KEY)' });
+  // The database only lets the signed-in owner read/write app_state, and this
+  // webhook has no user — so it writes with the service-role key. That key
+  // lives only in Vercel's server env; it is never sent to the browser.
+  // (Falls back to the anon key for setups that haven't locked the table yet.)
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+  if (!supabaseUrl || !supabaseKey) return res.status(500).json({ error: 'server not configured (missing SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY)' });
   const sbHeaders = { apikey: supabaseKey, Authorization: 'Bearer ' + supabaseKey, 'Content-Type': 'application/json' };
 
   let body = req.body;
@@ -206,7 +212,9 @@ export default async function handler(req, res) {
     });
     if (!r.ok) {
       const text = await r.text();
-      return res.status(500).json({ error: 'supabase write failed: ' + text });
+      const hint = /row-level security|42501/i.test(text) && !process.env.SUPABASE_SERVICE_ROLE_KEY
+        ? ' — the table is locked to the owner; set SUPABASE_SERVICE_ROLE_KEY in Vercel (SETUP.md §2).' : '';
+      return res.status(500).json({ error: 'supabase write failed: ' + text + hint });
     }
     return res.status(200).json({ ok: true, day: newestDay, caffeineSamples: caffeine.length, latest });
   } catch (e) {

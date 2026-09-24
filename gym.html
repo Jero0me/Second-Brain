@@ -1284,6 +1284,7 @@ img, video, canvas, svg { max-width: 100%; }
 .hidden { display: none !important; }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="efi-auth.js"></script>
 <script src="applehealth.js" defer></script>
 <link rel="stylesheet" id="efi-theme" href="efi-theme.css">
 </head>
@@ -3397,6 +3398,7 @@ img, video, canvas, svg { max-width: 100%; }
   const PC_SYNCED_KEYS = ['po_coach_v1', 'po_coach_workout_done', 'po_coach_weights', 'po_coach_photos'];
 
   let pcSupa = null;
+  let pcPulled = false;
   let pcPushTimer = null;
   let pcSuppressSync = false;
   let pcPendingRemote = null;
@@ -3514,7 +3516,8 @@ img, video, canvas, svg { max-width: 100%; }
   }
 
   async function pcPushNow() {
-    if (!pcSupa) return;
+    // Never push before the cloud copy has been pulled (would overwrite newer edits).
+    if (!pcSupa || !pcPulled) return;
     const state = pcCollectState();
     const json = JSON.stringify(state);
     if (json === pcLastSyncedJson) return;
@@ -3538,7 +3541,7 @@ img, video, canvas, svg { max-width: 100%; }
   // Backup push on unload via fetch keepalive so a fast refresh
   // doesn't lose the latest change before the debounced push fires.
   function pcFlushPushOnUnload() {
-    if (!pcSupa) return;
+    if (!pcSupa || !pcPulled) return;
     const state = pcCollectState();
     const json = JSON.stringify(state);
     if (json === pcLastSyncedJson) return;
@@ -3547,7 +3550,7 @@ img, video, canvas, svg { max-width: 100%; }
         method: 'POST',
         headers: {
           'apikey': SUPABASE_KEY,
-          'Authorization': 'Bearer ' + SUPABASE_KEY,
+          'Authorization': 'Bearer ' + (window.EFIAuth ? window.EFIAuth.accessToken() : SUPABASE_KEY),
           'Content-Type': 'application/json',
           'Prefer': 'resolution=merge-duplicates',
         },
@@ -3564,14 +3567,17 @@ img, video, canvas, svg { max-width: 100%; }
     if (!window.supabase || !SUPABASE_URL || !SUPABASE_KEY) return;
     // Skip if the placeholder values are still in place (local-only mode)
     if (SUPABASE_URL.indexOf('PASTE-') === 0 || SUPABASE_KEY.indexOf('PASTE-') === 0) return;
-    pcSupa = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    // Shared signed-in client (efi-auth.js); the database only answers the owner.
+    pcSupa = (window.EFIAuth && window.EFIAuth.client()) || window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    if (window.EFIAuth) await window.EFIAuth.whenReady();
     try {
       const { data, error } = await pcSupa
         .from('app_state').select('data').eq('key', APP_KEY).maybeSingle();
+      if (!error) pcPulled = true;
       if (!error && data && data.data && Object.keys(data.data).length > 0) {
         pcLastSyncedJson = JSON.stringify(data.data);
         pcMaybeApplyRemote(data.data);
-      } else if (Object.keys(pcCollectState()).length > 0) {
+      } else if (!error && Object.keys(pcCollectState()).length > 0) {
         pcSchedulePush();
       }
     } catch (_) {}

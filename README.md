@@ -20,6 +20,7 @@ Shared code:
 
 | File | Role |
 |---|---|
+| [efi-auth.js](efi-auth.js) | Sign-in gate + the one shared, signed-in Supabase client |
 | [efi-core.js](efi-core.js) | Storage/date helpers, profile, settings, icons, the **Gemini** client |
 | [efi-google.js](efi-google.js) | Google Calendar + Tasks client (tokens from `/api/google`) |
 | [efi-data.js](efi-data.js) | One data API over every module + the unified calendar |
