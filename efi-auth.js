@@ -117,15 +117,18 @@ body.efi-gated { overflow: hidden; }`;
         '<div class="efi-gate-card"><div class="efi-gate-orb"></div>' +
         '<h1>Sign in to E.F.I.</h1><p>Your data is private to your account.</p>' +
         '<div data-step="start">' +
-          '<button type="button" class="g-btn" data-a="google"><svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>Continue with Google</button>' +
+          '<input type="email" data-f="email" placeholder="you@email.com" autocomplete="username" inputmode="email">' +
+          '<input type="password" data-f="password" placeholder="Password" autocomplete="current-password">' +
+          '<button type="button" class="p-btn" data-a="password">Sign in</button>' +
           '<div class="or">or</div>' +
-          '<input type="email" data-f="email" placeholder="you@email.com" autocomplete="email" inputmode="email">' +
-          '<button type="button" class="p-btn" data-a="send">Email me a sign-in code</button>' +
+          '<button type="button" class="g-btn" data-a="google"><svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>Continue with Google</button>' +
+          '<button type="button" class="link" data-a="send">Email me a sign-in link instead</button>' +
         '</div>' +
         '<div data-step="code" hidden>' +
+          '<p style="margin:0 0 14px">Open the email on <b>this device</b> and tap the link. If the email shows a code instead, enter it here:</p>' +
           '<input type="text" class="code" data-f="code" placeholder="••••••" inputmode="numeric" autocomplete="one-time-code" maxlength="10">' +
-          '<button type="button" class="p-btn" data-a="verify">Sign in</button>' +
-          '<button type="button" class="link" data-a="back">Use a different email</button>' +
+          '<button type="button" class="p-btn" data-a="verify">Sign in with code</button>' +
+          '<button type="button" class="link" data-a="back">Back</button>' +
         '</div>' +
         '<div class="msg" data-f="msg"></div></div>';
       document.body.appendChild(el);
@@ -141,19 +144,38 @@ body.efi-gated { overflow: hidden; }`;
       el.addEventListener('click', async (e) => {
         const b = e.target.closest('[data-a]'); if (!b) return;
         const c = getClient();
+        // Email + password: no email or redirect involved, so it works the same
+        // in Safari and in the iPhone home-screen app.
+        if (b.dataset.a === 'password') {
+          email = $('[data-f=email]').value.trim();
+          const password = $('[data-f=password]').value;
+          if (!/^\S+@\S+\.\S+$/.test(email)) { msg('Enter your email address.', 'err'); return; }
+          if (!password) { msg('Enter your password.', 'err'); $('[data-f=password]').focus(); return; }
+          b.disabled = true; msg('Signing in…');
+          const { data, error } = await c.auth.signInWithPassword({ email, password });
+          b.disabled = false;
+          if (error) {
+            msg(/invalid login credentials/i.test(error.message) ? 'Wrong email or password.'
+              : /not confirmed/i.test(error.message) ? 'This account isn\'t confirmed yet — in Supabase → Authentication → Users, create it with "Auto Confirm User" ticked.'
+              : error.message, 'err');
+            return;
+          }
+          msg('');
+          if (data && data.session) afterSignIn(data.session);
+        }
         if (b.dataset.a === 'google') {
           msg('Opening Google…');
           const { error } = await c.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: location.origin + location.pathname } });
-          if (error) msg(/provider is not enabled/i.test(error.message) ? 'Google sign-in isn\'t enabled in Supabase yet — use the email code.' : error.message, 'err');
+          if (error) msg(/provider is not enabled/i.test(error.message) ? 'Google sign-in isn\'t enabled in Supabase — use your email and password.' : error.message, 'err');
         }
         if (b.dataset.a === 'send') {
           email = $('[data-f=email]').value.trim();
-          if (!/^\S+@\S+\.\S+$/.test(email)) { msg('Enter your email address.', 'err'); return; }
+          if (!/^\S+@\S+\.\S+$/.test(email)) { msg('Enter your email address first.', 'err'); $('[data-f=email]').focus(); return; }
           b.disabled = true; msg('Sending…');
           const { error } = await c.auth.signInWithOtp({ email, options: { shouldCreateUser: true, emailRedirectTo: location.origin + location.pathname } });
           b.disabled = false;
           if (error) { msg(error.message, 'err'); return; }
-          step('code'); msg('Check ' + email + ' — enter the code, or tap the link in the email.', 'ok');
+          step('code'); msg('Sent to ' + email + '.', 'ok');
           setTimeout(() => $('[data-f=code]').focus(), 50);
         }
         if (b.dataset.a === 'verify') {
@@ -170,7 +192,8 @@ body.efi-gated { overflow: hidden; }`;
       });
       el.addEventListener('keydown', (e) => {
         if (e.key !== 'Enter') return;
-        if (e.target.matches('[data-f=email]')) $('[data-a=send]').click();
+        if (e.target.matches('[data-f=email]')) $('[data-f=password]').focus();
+        if (e.target.matches('[data-f=password]')) $('[data-a=password]').click();
         if (e.target.matches('[data-f=code]')) $('[data-a=verify]').click();
       });
       return el;
@@ -200,11 +223,16 @@ body.efi-gated { overflow: hidden; }`;
       if (event === 'SIGNED_IN' && s && (!readyDone || document.body.classList.contains('efi-gated'))) afterSignIn(s);
       if (event === 'SIGNED_OUT') { session = null; try { sessionStorage.removeItem(OWNER_CACHE); } catch (e) {} gate.show(); }
     });
+    // A failed email link / Google redirect lands here with the reason in the
+    // URL (e.g. "Email link is invalid or has expired") — show it, don't swallow it.
+    const urlParams = new URLSearchParams(location.hash.replace(/^#/, '') + '&' + location.search.replace(/^\?/, ''));
+    const linkError = urlParams.get('error_description');
     let s = null;
     try { s = (await c.auth.getSession()).data.session; } catch (e) {}
-    if (s) afterSignIn(s); else gate.show();
+    if (s) afterSignIn(s);
+    else gate.show(linkError ? 'Sign-in link failed: ' + linkError.replace(/\+/g, ' ') + '. Use your email and password instead.' : null);
     // Clean the OAuth/magic-link tokens out of the address bar.
-    if (/access_token=|error_description=/.test(location.hash)) history.replaceState(null, '', location.pathname + location.search);
+    if (/access_token=|error_description=|error=/.test(location.hash + location.search)) history.replaceState(null, '', location.pathname);
   })();
 
   window.EFIAuth = {
