@@ -14,7 +14,7 @@ optional add-on.
 3. Framework Preset: **Other**. Root Directory: **`./`**. Build/output: leave blank (static).
 4. **Deploy.** You'll get a URL like `https://your-app.vercel.app`.
 
-E.F.I. asks you to **sign in** (email code or Google). Your data is locked in the database to your
+E.F.I. asks you to **sign in** (email + password, or Google). Your data is locked in the database to your
 account only — the public key that ships in the page source can't read or write anything by itself.
 
 ---
@@ -98,17 +98,22 @@ E.F.I. calendar events, manually logged caffeine, settings), `po-coach` (fitness
 ### Sign-in settings (Supabase → Authentication)
 1. **URL Configuration** → *Site URL*: `https://your-app.vercel.app`, and add
    `https://your-app.vercel.app/**` under *Redirect URLs*.
-2. **Emails → Magic Link** template → make sure the email contains the code, e.g.
-   `<p>Your E.F.I. sign-in code: <b>{{ .Token }}</b></p><p>or <a href="{{ .ConfirmationURL }}">sign in</a></p>`.
-   The code matters on iPhone: the home-screen app can't receive a tapped email link, so you type
-   the 6-digit code instead.
+2. **Create your account (no email needed):** **Users → Add user → Create new user** → your email +
+   a strong password → tick **Auto Confirm User** → Create. You sign in to E.F.I. with this email and
+   password — it works the same in Safari and in the iPhone home-screen app. (The "Email me a sign-in
+   link" option on the sign-in screen is only a fallback: emailed links must be opened on the same
+   device, and they can't sign in the home-screen app.)
 3. *(Optional)* **Providers → Google** → enable it and paste your Google OAuth client ID + secret
    (the same Google Cloud client as §4 works). Add
    `https://<your-project-ref>.supabase.co/auth/v1/callback` to that client's *Authorized redirect URIs*.
 
 **Claim ownership:** right after running SQL #1, open your site and sign in — that account becomes
-the owner. Then (recommended) **Authentication → Sign In / Providers → turn off "Allow new users to
-sign up"**. Anyone else who signs in would see nothing anyway, but this keeps it tidy.
+the owner. Because you created your account in the dashboard, you can (recommended) **turn off
+"Allow new users to sign up"** in **Authentication → Sign In / Providers** right away. Anyone else
+who signs in would see nothing anyway, but this keeps it tidy.
+
+Forgot the password? **Authentication → Users → your user → ⋯ → change / reset password** (or
+delete and recreate the user — ownership is re-claimed by the next sign-in).
 
 ### Connect YOUR Supabase (Vercel env vars)
 Supabase → **Project Settings → API**. Add these in Vercel → **Settings → Environment Variables**,
@@ -235,7 +240,7 @@ E.F.I. assistant (tap the mic to talk, or type), with Calendar, Planner, Health 
 
 ## TL;DR
 1. Fork → import to Vercel → deploy.
-2. Supabase: run SQL #1 + #2, set the Auth URLs + email code template, set `SUPABASE_URL`,
+2. Supabase: create your user (Auto Confirm), run SQL #1 + #2, set the Auth URLs, set `SUPABASE_URL`,
    `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` → open the site and sign in (you become the owner).
 3. Gemini key from AI Studio → paste in E.F.I. settings.
 4. Google OAuth client → `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` → Connect Google.
