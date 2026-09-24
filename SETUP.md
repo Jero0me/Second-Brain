@@ -69,8 +69,13 @@ create policy "owner full access app_state" on public.app_state
   for all to authenticated
   using (public.is_app_owner()) with check (public.is_app_owner());
 
--- Instant cross-device updates (skip this line if it says "already member of publication"):
-alter publication supabase_realtime add table public.app_state;
+-- Instant cross-device updates (only added if it isn't already).
+do $$ begin
+  if not exists (select 1 from pg_publication_tables
+                 where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'app_state') then
+    alter publication supabase_realtime add table public.app_state;
+  end if;
+end $$;
 ```
 
 ### SQL #2 — photo buckets (progress photos + meal-prep dishes)
