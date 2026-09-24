@@ -3,7 +3,7 @@
 <head>
 <script src="/api/config"></script>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#05090A">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -241,6 +241,7 @@ textarea.inp { resize: vertical; min-height: 60px; }
       <button type="button" data-v="month">Month</button>
     </div>
     <span class="g-status" id="gStatus"></span>
+    <a class="g-status" href="main.html" title="Habits, shift templates and the time-block planner">Routines →</a>
   </div>
 
   <form class="ask" id="askForm" autocomplete="off">
@@ -695,12 +696,15 @@ textarea.inp { resize: vertical; min-height: 60px; }
   }
 
   // ---------- boot ----------
+  try { data.daily.run(); } catch (e) {} // habits, shift blocks, rollover (idempotent)
   load();
   setInterval(() => { if (!document.hidden && view === 'day' && cache.res) render(cache.res); }, 60 * 1000); // keep "now" moving
   document.addEventListener('visibilitychange', () => { if (!document.hidden) { invalidate(); load(); } });
   document.addEventListener('DOMContentLoaded', () => {
     if (!window.CloudSync) return;
     ['goals', 'finance', 'efi'].forEach((k) => window.CloudSync.init(k, { onApplied: () => { invalidate(); load(); } }));
+    // Re-run the daily setup after the cloud pull, which would otherwise overwrite it.
+    window.CloudSync.ready(['goals']).then(() => { try { data.daily.run(); } catch (e) {} invalidate(); load(); });
   });
   window.addEventListener('goals-changed', () => { invalidate(); });
   const gp = new URLSearchParams(location.search).get('google');

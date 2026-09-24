@@ -404,6 +404,107 @@
     });
   }
 
+  // ---------- daily setup ----------
+  // Runs once per day on whichever page opens first (E.F.I., Calendar or
+  // Routines): judge yesterday's streak, roll unfinished tasks forward,
+  // create today's/tomorrow's habit instances and recurring shift blocks.
+  // Every step is idempotent. Moved here from the old Planner page so it
+  // still happens now that the Planner isn't in the main navigation.
+  const HISTORY_DAYS = 60;
+  function emptyPlan(dateKey) { return { date: dateKey, appliedTemplateIds: [], fixedBlocks: [], napSuggestion: null, generatedAt: null }; }
+  function getPlan(dateKey) {
+    const p = S.get('plan:' + dateKey, null);
+    if (!p || typeof p !== 'object') return emptyPlan(dateKey);
+    if (!Array.isArray(p.appliedTemplateIds)) p.appliedTemplateIds = p.templateId ? [p.templateId] : [];
+    if (!Array.isArray(p.fixedBlocks)) p.fixedBlocks = [];
+    return p;
+  }
+  const daily = {
+    // Streak first: it must judge past days before rollover moves their
+    // unfinished items forward.
+    processStreak() {
+      const s = S.get('goal_streak_v1', null) || { count: 0, lastProcessedDate: '' };
+      if (typeof s.count !== 'number') { s.count = 0; s.lastProcessedDate = ''; }
+      const today = D.activeDateKey();
+      tasks.datesWithGoals().filter((k) => k < today).forEach((k) => {
+        if (s.lastProcessedDate && k <= s.lastProcessedDate) return;
+        const list = tasks.list(k);
+        if (list.length === 0) { /* empty days don't break the streak */ }
+        else if (list.every((g) => g.done)) s.count += 1;
+        else s.count = 0;
+        s.lastProcessedDate = k;
+      });
+      S.set('goal_streak_v1', s);
+    },
+    // Undone one-off tasks move to today; done items stay as history. Habit
+    // instances and template pseudo-tasks are regenerated daily, so they stay.
+    rollover() {
+      const today = D.activeDateKey();
+      const todayList = tasks.list(today);
+      const texts = new Set(todayList.map((g) => g.text));
+      const pruneBefore = D.dateKey(D.addDays(new Date(), -HISTORY_DAYS));
+      let changedToday = false;
+      tasks.datesWithGoals().forEach((k) => {
+        if (k >= today) return;
+        if (k < pruneBefore) { S.del('goals:' + k); S.del('plan:' + k); return; }
+        const old = tasks.list(k);
+        const kept = [];
+        let moved = false;
+        old.forEach((g) => {
+          const carry = !g.done && g.text && !g.sourceHabitId && !g.sourceTemplateBlockId;
+          if (!carry) { kept.push(g); return; }
+          moved = true;
+          if (texts.has(g.text)) return;
+          const next = Object.assign({}, g, { id: D.uid('g'), done: false, scheduled: null, locked: false });
+          delete next.doneAt;
+          todayList.push(next); texts.add(g.text); changedToday = true;
+        });
+        if (!moved) return;
+        if (kept.length) S.set('goals:' + k, kept); else S.del('goals:' + k);
+      });
+      if (changedToday) tasks.save(today, todayList);
+    },
+    materializeHabits(dateKey) {
+      const list = tasks.list(dateKey);
+      const have = new Set(list.filter((g) => g.sourceHabitId).map((g) => g.sourceHabitId));
+      const dow = D.parseKey(dateKey).getDay();
+      let changed = false;
+      habits.list().filter((h) => h.active).forEach((h) => {
+        if (have.has(h.id)) return;
+        if (h.days && h.days.length && h.days.indexOf(dow) === -1) return;
+        list.push({ id: D.uid('g'), text: h.text, done: false, type: 'habit', importance: h.importance, durationMin: h.durationMin, preferredWindow: h.preferredWindow, sourceHabitId: h.id, locked: false, scheduled: null });
+        changed = true;
+      });
+      if (changed) tasks.save(dateKey, list);
+    },
+    // Same as the Planner's silent "apply template": fixed blocks go into the
+    // day's plan, energy-zone blocks become flexible tasks. No-op if applied.
+    materializeTemplates(dateKey) {
+      templatesDueOn(dateKey).forEach((tpl) => {
+        const plan = getPlan(dateKey);
+        if (plan.appliedTemplateIds.indexOf(tpl.id) !== -1) return;
+        const fixed = plan.fixedBlocks.filter((b) => b.sourceTemplateId !== tpl.id)
+          .concat((tpl.blocks || []).filter((b) => b.kind === 'fixed').map((b) => ({ id: D.uid('g'), label: b.label, start: b.start, end: b.end, sourceTemplateId: tpl.id })));
+        S.set('plan:' + dateKey, Object.assign({}, plan, { appliedTemplateIds: plan.appliedTemplateIds.concat([tpl.id]), fixedBlocks: fixed }));
+        const list = tasks.list(dateKey);
+        const have = new Set(list.filter((g) => g.sourceTemplateBlockId).map((g) => g.sourceTemplateBlockId));
+        let changed = false;
+        (tpl.blocks || []).filter((b) => b.kind === 'zone').forEach((b) => {
+          const src = tpl.id + ':' + b.id;
+          if (have.has(src)) return;
+          list.push({ id: D.uid('g'), text: b.label, done: false, type: 'task', importance: 2, durationMin: b.durationMin, preferredZone: b.energyZone, locked: false, scheduled: null, sourceTemplateBlockId: src });
+          changed = true;
+        });
+        if (changed) tasks.save(dateKey, list);
+      });
+    },
+    run() {
+      this.processStreak();
+      this.rollover();
+      [D.activeDateKey(), D.tomorrowDateKey()].forEach((k) => { this.materializeHabits(k); this.materializeTemplates(k); });
+    },
+  };
+
   // ---------- calendar aggregator ----------
   // Normalized item:
   // { id, source, title, dateKey, start:'HH:MM'|null, end, allDay, color, icon,
@@ -555,7 +656,7 @@
   }
 
   EFI.data = {
-    COLORS, iconFor, tasks, events, notes, habits, finance, caffeine,
+    COLORS, iconFor, tasks, events, notes, habits, finance, caffeine, daily,
     calendar: { range, createEvent, updateEvent, deleteEvent },
   };
 })();

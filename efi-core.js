@@ -119,40 +119,103 @@
       .filter((n) => /^gemini-/.test(n) && !/(embedding|image|tts|audio|live|vision|aqa|robotics|computer-use)/i.test(n));
   }
 
-  // Model names churn — instead of hard-coding one that may be retired,
-  // pick the newest general "flash" model the key can actually use.
-  function pickDefault(names) {
-    function version(n) { const m = n.match(/^gemini-(\d+(?:\.\d+)?)/); return m ? parseFloat(m[1]) : 0; }
-    function score(n) {
-      let s = version(n) * 100;
-      if (/-flash(?!-lite)/.test(n)) s += 30;
-      else if (/-pro/.test(n)) s += 20;
-      else if (/-flash-lite/.test(n)) s += 5;
-      if (/latest/.test(n)) s += 3;
-      if (/preview|exp/.test(n)) s -= 8;
-      if (/\d{3,}$|-\d{2}-\d{2}/.test(n)) s -= 2; // dated snapshots
-      return s;
-    }
-    return names.slice().sort((a, b) => score(b) - score(a))[0] || null;
+  // Model list, cached for 12 h so fallbacks don't cost an extra request.
+  const MODELS_LS = 'efi_local:gemini_models';
+  async function cachedModels() {
+    const c = get(MODELS_LS, null);
+    if (c && Array.isArray(c.names) && Date.now() - c.ts < 12 * 3600 * 1000) return c.names;
+    const names = await listModels();
+    set(MODELS_LS, { ts: Date.now(), names });
+    return names;
   }
+
+  // Ranking: STABLE models first (preview/experimental models are the ones
+  // that most often answer "model is overloaded / high demand"), then newest
+  // version, then Flash > Pro > Flash-Lite.
+  function version(n) { const m = n.match(/^gemini-(\d+(?:\.\d+)?)/); return m ? parseFloat(m[1]) : 0; }
+  function isPreview(n) { return /preview|exp/.test(n); }
+  function score(n) {
+    let s = version(n) * 100;
+    if (/-flash(?!-lite)/.test(n)) s += 30;
+    else if (/-pro/.test(n)) s += 20;
+    else if (/-flash-lite/.test(n)) s += 5;
+    if (/latest/.test(n)) s += 3;
+    if (/\d{3,}$|-\d{2}-\d{2}/.test(n)) s -= 2; // dated snapshots
+    if (isPreview(n)) s -= 1000;
+    return s;
+  }
+  function rank(names) { return names.slice().sort((a, b) => score(b) - score(a)); }
+  function pickDefault(names) { return rank(names)[0] || null; }
 
   async function resolveModel() {
     const chosen = EFI.settings.get().geminiModel;
     if (chosen) return chosen;
     const cached = getRaw(AUTO_MODEL_LS);
-    if (cached) return cached;
+    // Older versions could auto-pick a preview model; re-pick a stable one.
+    if (cached && !isPreview(cached)) return cached;
     try {
-      const pick = pickDefault(await listModels());
+      const pick = pickDefault(await cachedModels());
       if (pick) { setRaw(AUTO_MODEL_LS, pick); return pick; }
     } catch (e) { if (e.code === 'no-key' || e.code === 'bad-key') throw e; }
     return FALLBACK_MODEL;
   }
 
-  // Low-level call. `contents` is Gemini's native [{role, parts}] array.
+  // Models to try, in order: the chosen/auto model first, then the best
+  // alternatives (at most 4 in total).
+  async function candidates(first) {
+    let names = [];
+    try { names = await cachedModels(); } catch (e) { names = []; }
+    const out = [first];
+    rank(names).forEach((n) => { if (out.indexOf(n) === -1) out.push(n); });
+    if (out.indexOf(FALLBACK_MODEL) === -1) out.push(FALLBACK_MODEL);
+    return out.slice(0, 4);
+  }
+
+  // "Overloaded", "high demand", quota and 5xx errors are temporary and
+  // model-specific — worth retrying and then trying another model.
+  function transient(status, msg) {
+    return status === 429 || status === 500 || status === 502 || status === 503 || status === 504 ||
+      /overloaded|high demand|high usage|try again later|unavailable|resource.?exhausted/i.test(msg || '');
+  }
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  // Low-level call with automatic retry + model fallback.
+  // `contents` is Gemini's native [{role, parts}] array.
+  // opts.pinModel: only use opts.model (still retried) — used mid tool-loop,
+  // where switching models could invalidate Gemini's thought signatures.
   async function generate(opts) {
     const key = apiKey();
     if (!key) throw new AIError('Add your Gemini API key in E.F.I. settings first.', 'no-key');
-    const model = opts.model || await resolveModel();
+    const first = opts.model || await resolveModel();
+    const models = opts.pinModel ? [first] : await candidates(first);
+    const tried = [];
+    let lastErr = null;
+    for (const model of models) {
+      for (let attempt = 0; attempt < 2; attempt++) {
+        if (attempt) await sleep(1200 + Math.random() * 800);
+        try {
+          const r = await generateOnce(key, model, opts);
+          // Auto mode: remember the model that actually works right now.
+          if (model !== first && !EFI.settings.get().geminiModel) setRaw(AUTO_MODEL_LS, model);
+          return r;
+        } catch (e) {
+          lastErr = e;
+          if (e && e.name === 'AbortError') throw e;
+          if (e.code === 'bad-key' || e.code === 'network' || e.code === 'empty') throw e;
+          if (e.code === 'gone') { if (!EFI.settings.get().geminiModel) setRaw(AUTO_MODEL_LS, ''); break; }
+          if (e.code !== 'busy') throw e;
+          if (e.quota) break; // daily/minute quota for this model — go straight to the next model
+        }
+      }
+      tried.push(model);
+    }
+    if (lastErr && lastErr.code === 'busy') {
+      throw new AIError('Gemini is overloaded right now (tried ' + tried.join(', ') + '). Give it a minute and try again.', 'busy');
+    }
+    throw lastErr || new AIError('Gemini did not answer.', 'http');
+  }
+
+  async function generateOnce(key, model, opts) {
     const body = { contents: opts.contents, generationConfig: { maxOutputTokens: opts.maxTokens || 8192 } };
     if (opts.system) body.systemInstruction = { parts: [{ text: opts.system }] };
     if (opts.json) body.generationConfig.responseMimeType = 'application/json';
@@ -176,13 +239,13 @@
     }
     if (!res.ok) {
       const msg = (json.error && json.error.message) || ('HTTP ' + res.status);
-      // An auto-picked model that got retired: forget it and retry once.
-      if (res.status === 404 && !opts._retried && !EFI.settings.get().geminiModel) {
-        setRaw(AUTO_MODEL_LS, '');
-        return generate(Object.assign({}, opts, { _retried: true, model: null }));
+      if (res.status === 404) throw new AIError('Model ' + model + ' is not available.', 'gone');
+      if ((res.status === 400 || res.status === 403) && /api key|permission/i.test(msg)) throw new AIError('Gemini rejected the API key — check it in settings.', 'bad-key');
+      if (transient(res.status, msg)) {
+        const err = new AIError('Gemini is busy: ' + msg, 'busy');
+        err.quota = res.status === 429 && /quota/i.test(msg);
+        throw err;
       }
-      if (res.status === 429) throw new AIError('Gemini rate limit hit — wait a moment and try again.', 'rate');
-      if (res.status === 400 && /api key/i.test(msg)) throw new AIError('Gemini rejected the API key — check it in settings.', 'bad-key');
       throw new AIError('Gemini error: ' + msg, 'http');
     }
     const cand = (json.candidates || [])[0];
