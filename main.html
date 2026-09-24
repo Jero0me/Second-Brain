@@ -3,9 +3,9 @@
 <head>
 <script src="/api/config"></script>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#05090A">
-<title>Planner · E.F.I.</title>
+<title>Routines · E.F.I.</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="efi-auth.js"></script>
 <script src="efi-core.js"></script>
@@ -734,7 +734,7 @@ body::after {
 <body>
 <div class="page">
 
-  <h1 class="dash-title">Planner</h1>
+  <h1 class="dash-title">Routines</h1>
 
   <div class="ticker-row">
     <div class="goal-ticker" id="goalTicker" aria-live="polite" aria-atomic="true">
@@ -1341,72 +1341,14 @@ body::after {
     loadTomorrow();
   }
 
-  // ---------- rollover: pull undone older goals into today ----------
-  // Undone one-off tasks move forward; the old day keeps what was actually
-  // done (so the calendar and E.F.I. still see history). Habit instances
-  // and template pseudo-tasks are regenerated daily, so they stay put.
-  // Must run AFTER processStreak(), which needs to see the undone items.
-  const HISTORY_DAYS = 60;
-  function rollover() {
-    const todayDateStr = getActiveDateString();
-    const todayK = 'goals:' + todayDateStr;
-    let today = getGoals(todayK);
-    const texts = new Set(today.map(g => g.text));
-    const pruneBefore = dateToKey(new Date(Date.now() - HISTORY_DAYS * 86400000));
-
-    storeListKeys('goals:').forEach(k => {
-      const dateStr = k.slice('goals:'.length);
-      if (dateStr >= todayDateStr) return;
-      if (dateStr < pruneBefore) { storeDelete(k); storeDelete('plan:' + dateStr); return; }
-      const old = getGoals(k);
-      const kept = [];
-      let moved = false;
-      old.forEach(g => {
-        const carry = !g.done && g.text && !g.sourceHabitId && !g.sourceTemplateBlockId;
-        if (carry) {
-          moved = true;
-          if (!texts.has(g.text)) {
-            // Carry the full item forward (importance/duration/type/etc.),
-            // not just its text — but placement/completion don't carry over.
-            const next = Object.assign({}, g, { id: genId(), done: false, scheduled: null, locked: false });
-            delete next.doneAt;
-            today.push(next);
-            texts.add(g.text);
-          }
-        } else kept.push(g);
-      });
-      if (!moved) return;
-      if (kept.length) setGoals(k, kept); else storeDelete(k);
-    });
-    setGoals(todayK, today);
-  }
-
   // ---------- streak ----------
+  // Rollover, streak processing and habit/template materialization live in
+  // efi-data.js (EFI.data.daily) so E.F.I. and the Calendar run them too.
   function loadStreak() {
     const s = storeGet('goal_streak_v1');
     if (s && typeof s.count === 'number') return s;
     return { count: 0, lastProcessedDate: '' };
   }
-  function saveStreak(s) { storeSet('goal_streak_v1', s); }
-
-  function processStreak() {
-    const s = loadStreak();
-    const todayDateStr = getActiveDateString();
-    const keys = storeListKeys('goals:')
-      .map(k => k.slice('goals:'.length))
-      .filter(d => d < todayDateStr)
-      .sort();
-    keys.forEach(dateStr => {
-      if (s.lastProcessedDate && dateStr <= s.lastProcessedDate) return;
-      const list = getGoals('goals:' + dateStr);
-      if (list.length === 0) { /* don't break the streak on empty days */ }
-      else if (list.every(g => g.done)) s.count += 1;
-      else s.count = 0;
-      s.lastProcessedDate = dateStr;
-    });
-    saveStreak(s);
-  }
-
   // ---------- Goal Ticker ----------
   const tickerStage = document.getElementById('goalTickerStage');
   const tickerMeta  = document.getElementById('goalTickerMeta');
@@ -2523,14 +2465,7 @@ body::after {
   // and again after the initial cloud pull (see the sync script below) —
   // running only now let the pull overwrite them, so on synced devices
   // rolled-over tasks and today's habit instances silently disappeared.
-  function dailySetup() {
-    processStreak();
-    rollover();
-    materializeHabits(getActiveDateString());
-    materializeHabits(getTomorrowDateString());
-    materializeRecurringTemplates(getActiveDateString());
-    materializeRecurringTemplates(getTomorrowDateString());
-  }
+  function dailySetup() { window.EFI.data.daily.run(); }
   window.__plannerDailySetup = function () {
     dailySetup();
     loadToday(); loadTomorrow(); renderStreak(); renderHabits(); renderTemplates();

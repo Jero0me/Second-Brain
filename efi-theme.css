@@ -40,6 +40,14 @@
 html, body { background-color: var(--efi-bg) !important; }
 /* The hidden attribute must win over component display rules (flex buttons etc.). */
 [hidden] { display: none !important; }
+
+/* iPhone Safari zooms the whole page into any text field under 16px and
+   leaves it zoomed. 16px on touch devices stops that on every page. */
+@media (pointer: coarse) {
+  input:not([type=checkbox]):not([type=radio]):not([type=range]), textarea, select { font-size: 16px !important; }
+}
+/* While typing to E.F.I., hide the tab bar so the input sits on the keyboard. */
+body.efi-typing .efi-nav { display: none; }
 body { font-family: var(--efi-font); }
 
 /* Replace the old warm-orange wash with E.F.I.'s green/teal glow. */

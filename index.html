@@ -3,7 +3,7 @@
 <head>
 <script src="/api/config"></script>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#05090A">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -120,6 +120,10 @@ body.thinking .orb .wave { animation-duration: 1.8s; }
 }
 .brief { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .brief .card.wide { grid-column: span 2; }
+.card.tap { display: block; text-decoration: none; color: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: transform 0.12s, border-color 0.15s; }
+.card.tap:hover { border-color: var(--efi-border-strong); }
+.card.tap:active { transform: scale(0.98); }
+.card.tap::after { content: '›'; position: absolute; top: 12px; right: 16px; font-size: 20px; line-height: 1; color: var(--efi-text-3); }
 .b-eyebrow { display: flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--efi-text-3); }
 .b-eyebrow .ic { width: 26px; height: 26px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: var(--efi-accent-soft); color: var(--efi-accent); }
 .b-big { margin-top: 12px; font-size: 26px; font-weight: 800; color: var(--efi-text); letter-spacing: -0.03em; line-height: 1; font-variant-numeric: tabular-nums; }
@@ -213,8 +217,10 @@ body.chatting .orb-status { margin-top: 10px; }
 }
 .composer textarea {
   flex: 1; min-width: 0; resize: none; border: 0; outline: none; background: transparent;
-  color: var(--efi-text); font: 500 15px/1.4 var(--efi-font); padding: 9px 0; max-height: 120px;
+  color: var(--efi-text); font: 500 16px/1.4 var(--efi-font); padding: 9px 0; max-height: 120px;
 }
+/* Typing: tab bar hidden (efi-theme.css), composer drops onto the keyboard. */
+body.efi-typing .composer { bottom: calc(8px + env(safe-area-inset-bottom)); }
 .composer textarea::placeholder { color: var(--efi-text-3); }
 .mic { color: var(--efi-text-2); border: 0; background: transparent; width: 40px; height: 40px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
 .mic.rec { color: var(--efi-danger); background: rgba(255,122,112,0.12); }
@@ -306,31 +312,31 @@ body.chatting .orb-status { margin-top: 10px; }
   <main id="home">
     <div class="sec-head"><h2>Today</h2><a href="calendar.html">Open calendar →</a></div>
     <div class="brief">
-      <div class="card wide" id="bNext">
+      <a class="card wide tap" id="bNext" href="calendar.html" aria-label="Open calendar">
         <div class="b-eyebrow"><span class="ic" data-icon="calendar"></span>Up next</div>
         <div class="next-list" id="bNextList"><div class="b-line dim">Loading your day…</div></div>
-      </div>
-      <div class="card" id="bTasks">
+      </a>
+      <a class="card tap" id="bTasks" href="calendar.html" aria-label="Open today's tasks">
         <div class="b-eyebrow"><span class="ic" data-icon="check"></span>Tasks</div>
         <div class="b-big" id="bTasksBig">—</div>
         <div class="bar"><i id="bTasksBar" style="width:0%"></i></div>
         <div class="b-line dim" id="bTasksLine">&nbsp;</div>
-      </div>
-      <div class="card" id="bEnergy">
+      </a>
+      <a class="card tap" id="bEnergy" href="energy.html" aria-label="Open energy">
         <div class="b-eyebrow"><span class="ic" data-icon="bolt"></span>Energy</div>
         <div class="b-big" id="bEnergyBig">—</div>
         <div class="b-line dim" id="bEnergyLine">&nbsp;</div>
-      </div>
-      <div class="card" id="bMoney">
+      </a>
+      <a class="card tap" id="bMoney" href="finance.html" aria-label="Open finances and subscriptions">
         <div class="b-eyebrow"><span class="ic" data-icon="wallet"></span>Money</div>
         <div class="b-big" id="bMoneyBig">—</div>
         <div class="b-line dim" id="bMoneyLine">&nbsp;</div>
-      </div>
-      <div class="card" id="bHealth">
+      </a>
+      <a class="card tap" id="bHealth" href="health.html" aria-label="Open health">
         <div class="b-eyebrow"><span class="ic" data-icon="heart"></span>Body</div>
         <div class="b-big" id="bHealthBig">—</div>
         <div class="b-line dim" id="bHealthLine">&nbsp;</div>
-      </div>
+      </a>
     </div>
 
     <div class="sec-head"><h2>Modules</h2></div>
@@ -467,7 +473,8 @@ body.chatting .orb-status { margin-top: 10px; }
 
   const MODULES = [
     { href: 'calendar.html', icon: 'calendar', t: 'Calendar', s: 'Day, week & month', c: '#34D8A0' },
-    { href: 'main.html', icon: 'list', t: 'Planner', s: 'Goals, time-blocks, habits', c: '#22C3C9' },
+    { href: 'energy.html', icon: 'bolt', t: 'Energy', s: 'Curve, sleep, caffeine', c: '#22C3C9' },
+    { href: 'main.html', icon: 'list', t: 'Routines', s: 'Habits, shift templates, auto-schedule', c: '#9B8AFB' },
     { href: 'finance.html', icon: 'wallet', t: 'Finance', s: 'Net worth & subscriptions', c: '#F5C065' },
     { href: 'health.html', icon: 'heart', t: 'Health', s: 'Sleep, vitals, supplements', c: '#FF8A7A' },
     { href: 'gym.html', icon: 'dumbbell', t: 'Fitness', s: 'Workouts & calories', c: '#5AB8F5' },
@@ -678,6 +685,11 @@ body.chatting .orb-status { margin-top: 10px; }
   const input = $('input');
   function autosize() { input.style.height = 'auto'; input.style.height = Math.min(120, input.scrollHeight) + 'px'; }
   input.addEventListener('input', autosize);
+  input.addEventListener('focus', () => document.body.classList.add('efi-typing'));
+  input.addEventListener('blur', () => document.body.classList.remove('efi-typing'));
+  // Tapping Send/mic must not blur the field first — the layout would shift
+  // under the finger and the tap could miss.
+  ['sendBtn', 'micBtn'].forEach((id) => $(id).addEventListener('pointerdown', (e) => { if (document.activeElement === input) e.preventDefault(); }));
   input.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); send(input.value); }
   });
@@ -690,6 +702,7 @@ body.chatting .orb-status { margin-top: 10px; }
     if (!EFI.ai.hasKey()) { openSettings(); $('gHint').className = 'hint err'; $('gHint').textContent = 'Add your Gemini API key first — then ask again.'; return; }
     busy = true; $('sendBtn').disabled = true;
     input.value = ''; autosize();
+    input.blur(); // drop the keyboard so the reply is visible
     if (!document.body.classList.contains('chatting')) { restoreLog(); setChatting(true); }
     addUser(text); saveLog({ role: 'user', text });
     const bubble = addEfi('<span class="dots"><i></i><i></i><i></i></span>');
@@ -881,6 +894,9 @@ body.chatting .orb-status { margin-top: 10px; }
   }
 
   // ---------- boot ----------
+  // Daily setup (streak, rollover, today's habits + shift blocks) — runs here
+  // and on the Calendar now that the Planner isn't in the main navigation.
+  try { EFI.data.daily.run(); } catch (e) {}
   greeting(); renderVoiceBtn(); renderNotes();
   renderBriefing({ cachedOnly: true }).then(() => renderBriefing());
   setInterval(() => { greeting(); if (!document.hidden) renderBriefing({ cachedOnly: true }); }, 5 * 60 * 1000);
@@ -895,7 +911,11 @@ body.chatting .orb-status { margin-top: 10px; }
   const q = params.get('q');
   if (gParam || q) history.replaceState(null, '', location.pathname);
   document.addEventListener('DOMContentLoaded', () => {
-    if (window.CloudSync) window.CloudSync.initAll({ onApplied: () => { scheduleBriefing(); renderNotes(); } });
+    if (window.CloudSync) {
+      window.CloudSync.initAll({ onApplied: () => { scheduleBriefing(); renderNotes(); } })
+        // Again after the cloud pull, which would otherwise overwrite it.
+        .then(() => { try { EFI.data.daily.run(); } catch (e) {} scheduleBriefing(); });
+    }
     if (window.AppleHealth) window.AppleHealth.subscribe(() => scheduleBriefing());
     if (q) send(q);
   });

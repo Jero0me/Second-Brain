@@ -279,9 +279,9 @@
       silent: true,
     },
     open_page: {
-      decl: { description: 'Open one of the dashboard modules after replying.', parameters: obj({ page: str('', { enum: ['calendar', 'planner', 'finance', 'health', 'fitness', 'mealprep'] }) }, ['page']) },
+      decl: { description: 'Open one of the dashboard modules after replying. "routines" = habits, shift templates and the time-block planner.', parameters: obj({ page: str('', { enum: ['calendar', 'energy', 'finance', 'health', 'fitness', 'mealprep', 'routines'] }) }, ['page']) },
       async run(a) {
-        const map = { calendar: 'calendar.html', planner: 'main.html', finance: 'finance.html', health: 'health.html', fitness: 'gym.html', mealprep: 'mealprep.html' };
+        const map = { calendar: 'calendar.html', energy: 'energy.html', finance: 'finance.html', health: 'health.html', fitness: 'gym.html', mealprep: 'mealprep.html', routines: 'main.html', planner: 'main.html' };
         return map[a.page] ? { ok: true, navigate: map[a.page] } : { ok: false };
       },
       silent: true,
@@ -417,8 +417,13 @@
     let navigate = null;
 
     try {
+      let pinned = null;
       for (let step = 0; step < 8; step++) {
-        const r = await EFI.ai.generate({ system, contents: history, tools: declarations, temperature: 0.4, signal: ui.signal });
+        // The first call may fall back to another model if Gemini is busy;
+        // after that the turn stays on the model that answered, because its
+        // thought signatures in the history are only valid for that model.
+        const r = await EFI.ai.generate({ system, contents: history, tools: declarations, temperature: 0.4, signal: ui.signal, model: pinned, pinModel: !!pinned });
+        pinned = r.model;
         history.push(r.content); // verbatim — preserves Gemini thought signatures
         if (!r.calls.length) {
           saveHistory(history);
