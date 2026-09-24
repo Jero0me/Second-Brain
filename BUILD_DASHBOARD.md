@@ -1,4 +1,4 @@
-# Tutorial prompt — paste this into Claude
+# Tutorial prompt — paste this into your AI coding assistant
 
 Build a single self-contained HTML file called `dashboard.html`. It must work when double-clicked from the desktop or opened via VS Code Live Server — no build step, no npm, no external CSS or JS. All styles inline in `<style>`, all JavaScript inline in one `<script>` tag at the bottom.
 
@@ -257,7 +257,7 @@ Helper functions:
 
 **Add + Polish** wired by a shared `makeAddHandlers(input, addBtn, polishBtn, key, statusEl, reload)`:
 - Add: trim input, push `{ text, done: false }`, save, clear input, reload.
-- Polish: at the very top of the JS, declare `const ANTHROPIC_API_KEY = '';`. If empty → fall back to plain Add and show a brief tertiary message in `statusEl` saying `Polish needs an Anthropic API key — added as-typed.` for 3.5 seconds. If a key is set → POST to `https://api.anthropic.com/v1/messages` with headers `Content-Type: application/json`, `x-api-key: <KEY>`, `anthropic-version: 2023-06-01`, `anthropic-dangerous-direct-browser-access: true`. Body: model `claude-sonnet-4-5`, `max_tokens: 1000`, single user message asking the model to clean up exactly ONE goal and return it as a one-element JSON array of strings (no preamble, no fences). Parse, push, save, clear input. On any error: add the raw text and show `Polish failed — added as-typed.` in red for 3.5s.
+- Polish: at the very top of the JS, declare `const GEMINI_API_KEY = '';`. If empty → fall back to plain Add and show a brief tertiary message in `statusEl` saying `Polish needs a Gemini API key — added as-typed.` for 3.5 seconds. If a key is set → POST to `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent` with headers `Content-Type: application/json`, `x-goog-api-key: <KEY>`. Body: `generationConfig: { responseMimeType: 'application/json', maxOutputTokens: 8192 }` and a single user message in `contents` asking the model to clean up exactly ONE goal and return it as a one-element JSON array of strings (no preamble, no fences). Parse, push, save, clear input. On any error: add the raw text and show `Polish failed — added as-typed.` in red for 3.5s.
 - Enter in the input fires Add (not Polish).
 
 After both handlers wired: call `loadToday()` and `loadTomorrow()`. Run `renderStreak()` once. Run the day-ring update once and start the 60-second interval.

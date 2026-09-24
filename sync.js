@@ -1,10 +1,18 @@
 // =============================================================
 // Shared cloud-sync helper for the dashboard.
-// Each page calls initCloudSync({...}) once with its config:
-//   appKey         — string row key in the public.app_state table
-//   syncedKeys     — exact localStorage keys to mirror
-//   syncedPrefixes — localStorage key prefixes to mirror (e.g. 'goals:')
-//   onApplied      — optional callback after remote state has been applied
+//
+// Every module's data lives in one row of public.app_state (keyed by
+// appKey). A page registers the rows it reads/writes:
+//
+//   CloudSync.init('goals', { onApplied })          // row from ROWS below
+//   initCloudSync({ appKey, syncedKeys, syncedPrefixes, onApplied })  // legacy form
+//
+// E.F.I. writes into several modules at once (goals, finance, notes…),
+// so a page may register many rows — localStorage is patched ONCE and
+// each write is routed to every row whose keys/prefixes match it.
+//
+// CloudSync.ready(appKey) resolves after that row's initial pull, so
+// writers can wait for it instead of racing (and losing to) the pull.
 //
 // Requires:
 //   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -18,27 +26,79 @@
   const SUPABASE_URL = (typeof window !== 'undefined' && window.DASH_SUPABASE_URL) || 'https://srajryooffirbroltjmg.supabase.co';
   const SUPABASE_KEY = (typeof window !== 'undefined' && window.DASH_SUPABASE_KEY) || 'sb_publishable_5142ZwTLF_DkSVRzciNuRA_bHwRAu4c';
 
-  window.initCloudSync = function (config) {
-    const appKey = config && config.appKey;
-    const syncedKeys = (config && config.syncedKeys) || [];
-    const syncedPrefixes = (config && config.syncedPrefixes) || [];
-    const onApplied = config && config.onApplied;
-    if (!appKey) return;
-    if (!window.supabase) return;
-    if (!SUPABASE_URL || !SUPABASE_KEY) return;
-    if (SUPABASE_URL.indexOf('PASTE-') === 0 || SUPABASE_KEY.indexOf('PASTE-') === 0) return;
+  // Single source of truth for which localStorage keys belong to which row.
+  // Anything prefixed `efi_local:` (API keys, OAuth tokens, chat history)
+  // is deliberately NOT here — it must never leave the device.
+  const ROWS = {
+    goals:    { syncedPrefixes: ['goals:', 'habits:', 'templates:', 'plan:'], syncedKeys: ['goal_streak_v1'] },
+    finance:  { syncedPrefixes: ['nw:'], syncedKeys: ['subs', 'wishlist', 'incoming_orders'] },
+    health:   { syncedPrefixes: ['stack:taken:'], syncedKeys: ['stack:items', 'stack:version', 'stack:low'] },
+    mealprep: { syncedPrefixes: ['mealprep:'], syncedKeys: [] },
+    efi:      { syncedPrefixes: [], syncedKeys: ['profile:v1', 'efi:events', 'efi:notes', 'efi:caffeine', 'efi:settings'] },
+  };
 
-    let supa = null;
+  const enabled = typeof window !== 'undefined' && !!window.supabase && !!SUPABASE_URL && !!SUPABASE_KEY &&
+    SUPABASE_URL.indexOf('PASTE-') !== 0 && SUPABASE_KEY.indexOf('PASTE-') !== 0;
+
+  // Postgres jsonb re-orders object keys, so a plain JSON.stringify of what
+  // we pushed never equals what comes back over realtime. Comparing with a
+  // key-sorted stringify stops our own echoes from being "applied" again
+  // (which used to re-render lists mid-edit after every save).
+  function stable(v) {
+    if (Array.isArray(v)) return '[' + v.map(stable).join(',') + ']';
+    if (v && typeof v === 'object') {
+      return '{' + Object.keys(v).sort().map((k) => JSON.stringify(k) + ':' + stable(v[k])).join(',') + '}';
+    }
+    return JSON.stringify(v === undefined ? null : v);
+  }
+  function parseMaybe(s) { try { return JSON.parse(s); } catch (e) { return s; } }
+
+  const rows = {};      // appKey -> row state
+  let supa = null;
+  let suppress = 0;
+  let origSet = null, origRemove = null;
+
+  function rowsMatching(k) {
+    const out = [];
+    if (!k) return out;
+    for (const appKey in rows) if (rows[appKey].matches(k)) out.push(rows[appKey]);
+    return out;
+  }
+
+  function patchStorage() {
+    if (origSet) return;
+    origSet = localStorage.setItem.bind(localStorage);
+    origRemove = localStorage.removeItem.bind(localStorage);
+    localStorage.setItem = function (k, v) {
+      origSet(k, v);
+      try { if (!suppress) rowsMatching(k).forEach((r) => r.schedulePush()); } catch (e) {}
+    };
+    localStorage.removeItem = function (k) {
+      origRemove(k);
+      try { if (!suppress) rowsMatching(k).forEach((r) => r.schedulePush()); } catch (e) {}
+    };
+    window.addEventListener('storage', (e) => {
+      if (e.key) rowsMatching(e.key).forEach((r) => r.schedulePush());
+    });
+    const flushAll = () => { for (const k in rows) rows[k].flushOnUnload(); };
+    window.addEventListener('pagehide', flushAll);
+    window.addEventListener('beforeunload', flushAll);
+    document.addEventListener('visibilitychange', () => { if (document.hidden) flushAll(); });
+  }
+
+  function makeRow(appKey, cfg) {
+    const syncedKeys = cfg.syncedKeys || [];
+    const syncedPrefixes = cfg.syncedPrefixes || [];
+    const listeners = [];
     let pushTimer = null;
-    let suppressSync = false;
-    let lastSyncedJson = null;
+    let lastSynced = null;   // stable() of last state pushed or received
+    let resolveReady;
+    const ready = new Promise((r) => { resolveReady = r; });
 
     function matches(k) {
       if (!k) return false;
       if (syncedKeys.indexOf(k) !== -1) return true;
-      for (let i = 0; i < syncedPrefixes.length; i++) {
-        if (k.indexOf(syncedPrefixes[i]) === 0) return true;
-      }
+      for (let i = 0; i < syncedPrefixes.length; i++) if (k.indexOf(syncedPrefixes[i]) === 0) return true;
       return false;
     }
     function listAllKeys() {
@@ -53,59 +113,39 @@
       const out = {};
       for (const k of listAllKeys()) {
         const v = localStorage.getItem(k);
-        if (v == null) continue;
-        try { out[k] = JSON.parse(v); } catch (e) { out[k] = v; }
+        if (v != null) out[k] = parseMaybe(v);
       }
       return out;
     }
-
-    const origSet = localStorage.setItem.bind(localStorage);
-    const origRemove = localStorage.removeItem.bind(localStorage);
-    localStorage.setItem = function (k, v) {
-      origSet(k, v);
-      try { if (!suppressSync && matches(k)) schedulePush(); } catch (e) {}
-    };
-    localStorage.removeItem = function (k) {
-      origRemove(k);
-      try { if (!suppressSync && matches(k)) schedulePush(); } catch (e) {}
-    };
-
     function applyRemote(remote) {
       if (!remote || typeof remote !== 'object') return false;
-      suppressSync = true;
       let changed = false;
+      suppress++;
       try {
         for (const k of Object.keys(remote)) {
           if (!matches(k)) continue;
-          const incoming = JSON.stringify(remote[k]);
           const local = localStorage.getItem(k);
-          if (local !== incoming) {
-            try { origSet(k, incoming); changed = true; } catch (e) {}
-          }
+          if (local != null && stable(parseMaybe(local)) === stable(remote[k])) continue;
+          try { origSet(k, JSON.stringify(remote[k])); changed = true; } catch (e) {}
         }
         for (const k of listAllKeys()) {
-          if (!(k in remote)) {
-            try { origRemove(k); changed = true; } catch (e) {}
-          }
+          if (!(k in remote)) { try { origRemove(k); changed = true; } catch (e) {} }
         }
-      } finally { suppressSync = false; }
-      if (changed && typeof onApplied === 'function') {
-        try { onApplied(); } catch (e) {}
-      }
+      } finally { suppress--; }
+      if (changed) listeners.forEach((fn) => { try { fn(appKey); } catch (e) {} });
       return changed;
     }
-
     async function pushNow() {
       if (!supa) return;
       const state = collect();
-      const json = JSON.stringify(state);
-      if (json === lastSyncedJson) return;
+      const sig = stable(state);
+      if (sig === lastSynced) return;
       try {
         const { error } = await supa.from('app_state').upsert(
           { key: appKey, data: state, updated_at: new Date().toISOString() },
           { onConflict: 'key' }
         );
-        if (!error) lastSyncedJson = json;
+        if (!error) lastSynced = sig;
       } catch (e) {}
     }
     function schedulePush() {
@@ -113,9 +153,10 @@
       pushTimer = setTimeout(pushNow, 250);
     }
     function flushOnUnload() {
+      if (!supa) return;
       const state = collect();
-      const json = JSON.stringify(state);
-      if (json === lastSyncedJson) return;
+      const sig = stable(state);
+      if (sig === lastSynced) return;
       try {
         fetch(SUPABASE_URL + '/rest/v1/app_state?on_conflict=key', {
           method: 'POST',
@@ -128,42 +169,81 @@
           body: JSON.stringify({ key: appKey, data: state, updated_at: new Date().toISOString() }),
           keepalive: true,
         }).catch(() => {});
-        lastSyncedJson = json;
+        lastSynced = sig;
       } catch (e) {}
     }
-
-    (async function init() {
-      supa = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    async function start() {
       try {
-        const { data, error } = await supa
-          .from('app_state').select('data').eq('key', appKey).maybeSingle();
+        const { data, error } = await supa.from('app_state').select('data').eq('key', appKey).maybeSingle();
         if (!error && data && data.data && Object.keys(data.data).length > 0) {
-          lastSyncedJson = JSON.stringify(data.data);
+          lastSynced = stable(data.data);
           applyRemote(data.data);
         } else if (Object.keys(collect()).length > 0) {
           schedulePush();
         }
       } catch (e) {}
+      resolveReady();
       supa.channel('app_state_' + appKey)
-        .on('postgres_changes', {
-          event: '*',
-          schema: 'public',
-          table: 'app_state',
-          filter: 'key=eq.' + appKey,
-        }, (payload) => {
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'app_state', filter: 'key=eq.' + appKey }, (payload) => {
           if (!payload.new || !payload.new.data) return;
-          const incoming = JSON.stringify(payload.new.data);
-          if (incoming === lastSyncedJson) return;
-          lastSyncedJson = incoming;
+          const sig = stable(payload.new.data);
+          if (sig === lastSynced) return; // echo of our own push
+          lastSynced = sig;
           applyRemote(payload.new.data);
         })
         .subscribe();
-    })();
+    }
 
-    window.addEventListener('beforeunload', flushOnUnload);
-    window.addEventListener('pagehide', flushOnUnload);
-    window.addEventListener('storage', (e) => {
-      if (e.key && matches(e.key)) schedulePush();
-    });
+    return { appKey, matches, schedulePush, flushOnUnload, listeners, ready, start, resolveReady };
+  }
+
+  function init(appKey, opts) {
+    opts = opts || {};
+    if (!appKey) return Promise.resolve();
+    let row = rows[appKey];
+    if (!row) {
+      const def = ROWS[appKey] || { syncedKeys: opts.syncedKeys, syncedPrefixes: opts.syncedPrefixes };
+      row = rows[appKey] = makeRow(appKey, def);
+      if (!enabled) { row.resolveReady(); }
+      else {
+        patchStorage();
+        if (!supa) supa = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        row.start();
+      }
+    }
+    if (typeof opts.onApplied === 'function') row.listeners.push(opts.onApplied);
+    return row.ready;
+  }
+
+  // Resolves once the named rows (default: every row registered so far)
+  // have finished their initial pull. Never rejects; times out after 6s so
+  // a flaky connection can't block the UI forever.
+  function ready(appKeys) {
+    const keys = appKeys ? [].concat(appKeys) : Object.keys(rows);
+    const all = Promise.all(keys.map((k) => (rows[k] ? rows[k].ready : Promise.resolve())));
+    return Promise.race([all, new Promise((r) => setTimeout(r, 6000))]);
+  }
+
+  // Read-only fetch of any row (e.g. the gym page's own 'po-coach' row or
+  // the 'apple_health' row) without subscribing to it.
+  async function fetchRow(appKey) {
+    if (!enabled) return null;
+    if (!supa) supa = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    try {
+      const { data, error } = await supa.from('app_state').select('data, updated_at').eq('key', appKey).maybeSingle();
+      if (error || !data) return null;
+      return data;
+    } catch (e) { return null; }
+  }
+
+  window.CloudSync = {
+    ROWS, enabled, init, ready, fetchRow,
+    initAll(opts) { return Promise.all(Object.keys(ROWS).map((k) => init(k, opts))); },
+  };
+
+  // Legacy entry point — older pages call this with an inline config.
+  window.initCloudSync = function (config) {
+    if (!config || !config.appKey) return Promise.resolve();
+    return init(config.appKey, config);
   };
 })();

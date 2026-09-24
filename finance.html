@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<script src="lock.js"></script>
 <script src="/api/config"></script>
+<script src="efi-core.js"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#0a0a0b">
@@ -1571,6 +1571,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   .sub-auto-toggle { width: 100%; justify-content: space-between; padding: 12px 14px; }
 }
 </style>
+<link rel="stylesheet" id="efi-theme" href="efi-theme.css">
 </head>
 <body>
 <div class="shell">
@@ -2534,7 +2535,30 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   // Idempotent via `lastDeductedAt` so refreshing the page doesn't
   // double-charge.
   // ============================================================
+  // Held back until this device has pulled the latest finance data from the
+  // cloud — otherwise a phone with day-old local data could deduct a renewal
+  // another device already deducted.
+  var deductReady = false;
+  window.__financeSyncReady = function () {
+    if (deductReady) return;
+    deductReady = true;
+    try { renderSubs(); } catch (e) {}
+  };
+  setTimeout(function () { window.__financeSyncReady(); }, 8000); // offline fallback
+
+  // Month steps anchored to the original day: Jan 31 → Feb 28 → Mar 31,
+  // instead of setMonth()'s overflow (Jan 31 + 1 month = Mar 3, drifting forever).
+  function stepPeriod(d, period, anchorDay) {
+    if (period === 'weekly') { const x = new Date(d); x.setDate(x.getDate() + 7); return x; }
+    const months = period === 'yearly' ? 12 : 1;
+    const x = new Date(d.getFullYear(), d.getMonth() + months, 1);
+    const last = new Date(x.getFullYear(), x.getMonth() + 1, 0).getDate();
+    x.setDate(Math.min(anchorDay || d.getDate(), last));
+    return x;
+  }
+
   function processAutoDeductSubs() {
+    if (!deductReady) return false;
     const items = storeGet('subs') || [];
     if (!items.length) return false;
     const now = new Date();
@@ -2545,6 +2569,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
       const isoSafe = (typeof it.renewal === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(it.renewal)) ? it.renewal + 'T00:00' : it.renewal;
       let renewalDate = new Date(isoSafe);
       if (isNaN(renewalDate)) return;
+      if (!it.anchorDay) { it.anchorDay = renewalDate.getDate(); changed = true; }
       let safety = 0;
       while (renewalDate.getTime() <= todayMs && safety++ < 200) {
         const renewalMs = new Date(renewalDate.getFullYear(), renewalDate.getMonth(), renewalDate.getDate()).getTime();
@@ -2559,9 +2584,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
           it.lastDeductedAt = renewalMs;
           changed = true;
         }
-        if (it.period === 'weekly') renewalDate.setDate(renewalDate.getDate() + 7);
-        else if (it.period === 'yearly') renewalDate.setFullYear(renewalDate.getFullYear() + 1);
-        else renewalDate.setMonth(renewalDate.getMonth() + 1);
+        renewalDate = stepPeriod(renewalDate, it.period, it.anchorDay);
       }
       const newRenewal = renewalDate.getFullYear() + '-' + String(renewalDate.getMonth() + 1).padStart(2, '0') + '-' + String(renewalDate.getDate()).padStart(2, '0');
       if (newRenewal !== it.renewal) {
@@ -3161,14 +3184,11 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     const isoSafe = (typeof isoDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(isoDate)) ? isoDate + 'T00:00' : isoDate;
     let d = new Date(isoSafe);
     if (isNaN(d)) return null;
+    const anchor = d.getDate();
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     let safety = 0;
-    while (d < today && safety++ < 600) {
-      if (period === 'weekly')      d.setDate(d.getDate() + 7);
-      else if (period === 'yearly') d.setFullYear(d.getFullYear() + 1);
-      else                          d.setMonth(d.getMonth() + 1); // monthly default
-    }
+    while (d < today && safety++ < 600) d = stepPeriod(d, period, anchor);
     return d;
   }
   function buildTickerEntries() {
@@ -3276,20 +3296,30 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   safeRenderTicker();
   setInterval(safeRenderTicker, 1500);
 
+  // Re-paint when cloud sync (or E.F.I. in another tab) changes the data.
+  // This page never listened before, so remote changes only showed after a
+  // reload — and the stale screen could then overwrite them. Deferred while
+  // an input is focused so an in-progress edit isn't wiped.
+  let pendingRemote = false;
+  function rerenderFromStorage() {
+    const ae = document.activeElement;
+    if (ae && /^(INPUT|SELECT|TEXTAREA)$/.test(ae.tagName)) { pendingRemote = true; return; }
+    pendingRemote = false;
+    try { renderAllNetWorth(); renderSubs(); renderWishlist(); renderOrders(); safeRenderTicker(); } catch (e) { console.error(e); }
+  }
+  window.addEventListener('storage', rerenderFromStorage);
+  document.addEventListener('focusout', () => setTimeout(() => { if (pendingRemote) rerenderFromStorage(); }, 0), true);
+
 })();
 </script>
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-  if (typeof initCloudSync !== 'function') return;
-  initCloudSync({
-    appKey: 'finance',
-    syncedKeys: ['subs', 'wishlist', 'incoming_orders', 'nw:activity', 'nw:history'],
-    syncedPrefixes: ['nw:'],
-    onApplied: function () {
-      window.dispatchEvent(new Event('storage'));
-    }
-  });
+  const ready = function () { if (window.__financeSyncReady) window.__financeSyncReady(); };
+  if (!window.CloudSync) { ready(); return; }
+  window.CloudSync.init('finance', {
+    onApplied: function () { window.dispatchEvent(new Event('storage')); }
+  }).then(ready);
 });
 </script>
 
