@@ -124,8 +124,10 @@ export default async function handler(req, res) {
       asleepMin: asleepMin != null ? asleepMin : null,
       coreMin, deepMin, remMin, inBedMin,
       awakeMin: (inBedMin != null && asleepMin != null) ? Math.max(0, inBedMin - asleepMin) : null,
-      sleepStart: s.sleepStart || null,
-      sleepEnd: s.sleepEnd || null,
+      // Not every Health Auto Export version fills sleepStart/sleepEnd; fall back
+      // to the in-bed window so the energy model gets real wake/bed times.
+      sleepStart: s.sleepStart || s.inBedStart || s.startDate || null,
+      sleepEnd: s.sleepEnd || s.inBedEnd || s.endDate || null,
     };
   }
 

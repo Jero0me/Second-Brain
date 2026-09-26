@@ -2,1443 +2,505 @@
 <html lang="en">
 <head>
 <script src="/api/config"></script>
-<script src="efi-core.js"></script>
-<script src="efi-data.js"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#050506">
-<meta name="color-scheme" content="dark">
-<title>Daily Stack — Customizable Template</title>
+<meta name="theme-color" content="#05090A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/efi-180.png">
+<title>Health · E.F.I.</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" id="efi-theme" href="efi-theme.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="efi-auth.js"></script>
+<script src="efi-core.js"></script>
+<script src="efi-google.js"></script>
+<script src="efi-data.js"></script>
+<script src="energy.js"></script>
 <script src="sync.js" defer></script>
 <script src="topbar.js" defer></script>
+<script src="applehealth.js" defer></script>
 <style>
-:root {
-  --bg: #050506;
-  --bg-card: rgba(255, 255, 255, 0.04);
-  --bg-secondary: rgba(255, 255, 255, 0.035);
-  --bg-input: rgba(0, 0, 0, 0.28);
-  --bg-input-focus: rgba(0, 0, 0, 0.36);
-  --bg-dropdown: rgba(15, 15, 18, 0.96);
-
-  --border: rgba(255, 255, 255, 0.06);
-  --border-soft: rgba(255, 255, 255, 0.04);
-  --border-strong: rgba(255, 255, 255, 0.12);
-
-  --text-primary: #FAFAFA;
-  --text-secondary: #B8B6B0;
-  --text-tertiary: #76746E;
-  --text-quaternary: #4D4B47;
-
-  --accent: #1D9E75;
-  --accent-glow: rgba(29, 158, 117, 0.35);
-  --warning: #FF8A4D;
-  --warning-bg: rgba(163, 45, 45, 0.10);
-  --tag-stack: #D8AB30;
-  --tag-stack-bg: rgba(216, 171, 48, 0.15);
-
-  --font: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-}
-
 * { box-sizing: border-box; }
-html, body {
-  margin: 0; padding: 0;
-  background: var(--bg);
-  color: var(--text-secondary);
-  font-family: var(--font);
-  font-size: 15px; line-height: 1.5;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-body { min-height: 100vh; position: relative; overflow-x: hidden; }
-
-body::before {
-  content: ''; position: fixed; inset: 0;
+html, body { margin: 0; padding: 0; }
+body {
+  min-height: 100vh; color: var(--efi-text-2); font-family: var(--efi-font); -webkit-font-smoothing: antialiased;
   background:
-    radial-gradient(60% 50% at 82% 14%, rgba(224, 118, 88, 0.16) 0%, transparent 60%),
-    radial-gradient(50% 40% at 18% 90%, rgba(180, 180, 200, 0.06) 0%, transparent 60%);
-  filter: blur(40px);
-  pointer-events: none; z-index: 0;
-  animation: drift 36s ease-in-out infinite alternate;
+    radial-gradient(120% 50% at 0% 0%, rgba(40, 170, 120, 0.20), transparent 55%),
+    radial-gradient(80% 40% at 100% 0%, rgba(24, 110, 120, 0.16), transparent 60%),
+    #05090A;
+  overflow-x: hidden;
 }
-body::after {
-  content: ''; position: fixed; inset: 0;
-  background-image: radial-gradient(rgba(255,255,255,0.014) 1px, transparent 1px);
-  background-size: 3px 3px;
-  pointer-events: none; z-index: 1;
-}
-@keyframes drift { 0% { transform: translate(0, 0); } 100% { transform: translate(-2%, 2%); } }
+body::before { display: none; }
+.page { max-width: 760px; margin: 0 auto; padding: max(14px, env(safe-area-inset-top)) 16px calc(var(--efi-nav-h) + 60px + env(safe-area-inset-bottom)); }
 
-main {
-  position: relative; z-index: 2;
-  max-width: 720px; margin: 0 auto;
-  padding: 56px 20px 80px;
-  padding-top: max(56px, env(safe-area-inset-top, 56px));
-}
+/* header */
+.hd { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+h1 { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -0.03em; color: var(--efi-text); }
+.sub { font-size: 12.5px; color: var(--efi-text-3); margin-top: 3px; line-height: 1.45; }
+.sync { display: inline-flex; align-items: center; gap: 6px; }
+.sync i { width: 7px; height: 7px; border-radius: 50%; background: var(--efi-text-3); }
+.sync.ok i { background: var(--efi-accent); box-shadow: 0 0 8px var(--efi-glow); }
+.icon-btn { width: 36px; height: 36px; flex-shrink: 0; border-radius: 50%; border: 1px solid var(--efi-border); background: rgba(255,255,255,0.05); color: var(--efi-text-2); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; transition: transform 0.5s; }
+.icon-btn.spin { transform: rotate(360deg); }
 
-.section-title {
-  font-family: var(--font-mono);
-  font-size: 11px; font-weight: 600;
-  letter-spacing: 0.18em; text-transform: uppercase;
-  color: var(--text-tertiary);
-  margin: 0 4px 14px;
-  display: flex; align-items: center; gap: 12px;
-}
-.section-title::before { content: '≡'; font-size: 14px; opacity: 0.5; }
+/* cards */
+.card { margin-top: 14px; border-radius: 20px; padding: 16px; background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.03)); border: 1px solid var(--efi-border); }
+.card-h { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+.card-h h2 { margin: 0; font-size: 14px; font-weight: 700; color: var(--efi-text); display: flex; align-items: center; gap: 8px; }
+.card-h h2 .efi-ico { color: var(--efi-accent); }
+.card-h small { font-size: 11.5px; color: var(--efi-text-3); text-align: right; }
 
-.sleep-open-btn {
-  display: flex; align-items: center; gap: 14px;
-  margin: 0 0 24px;
-  padding: 16px 18px;
-  background: linear-gradient(135deg, rgba(125, 211, 252, 0.10), rgba(168, 162, 255, 0.08));
-  border: 1px solid rgba(168, 162, 255, 0.18);
-  border-radius: 16px;
-  text-decoration: none; color: var(--text-primary);
-  -webkit-tap-highlight-color: transparent;
-  transition: background 0.15s, transform 0.10s;
-}
-.sleep-open-btn:hover {
-  background: linear-gradient(135deg, rgba(125, 211, 252, 0.16), rgba(168, 162, 255, 0.14));
-}
-.sleep-open-btn:active { transform: scale(0.985); }
-.sleep-open-icon {
-  font-size: 22px; line-height: 1;
-  filter: grayscale(20%);
-}
-.sleep-open-text { flex: 1; display: flex; flex-direction: column; gap: 2px; }
-.sleep-open-title {
-  font-size: 14px; font-weight: 700; letter-spacing: 0.02em;
-}
-.sleep-open-sub {
-  font-size: 11px; font-weight: 500;
-  color: var(--text-tertiary);
-  font-family: var(--font-mono);
-  letter-spacing: 0.08em; text-transform: uppercase;
-}
-.sleep-open-chevron {
-  font-size: 22px; line-height: 1;
-  color: var(--text-tertiary);
-  font-weight: 300;
-}
+/* hero: energy now + today's call */
+.hero { display: flex; align-items: center; gap: 18px; }
+.gauge { position: relative; width: 108px; height: 108px; flex-shrink: 0; }
+.gauge svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.gauge .num { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.gauge .num b { font-size: 32px; font-weight: 800; color: var(--efi-text); letter-spacing: -0.04em; line-height: 1; font-variant-numeric: tabular-nums; }
+.gauge .num span { font-size: 9.5px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--efi-text-3); margin-top: 4px; }
+.hero-text { min-width: 0; }
+.hero-state { font-size: 18px; font-weight: 800; color: var(--efi-text); }
+.hero-line { font-size: 13px; color: var(--efi-text-2); margin-top: 4px; line-height: 1.5; }
+.call { display: flex; gap: 10px; align-items: flex-start; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--efi-border); }
+.badge { flex-shrink: 0; font-size: 10px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; padding: 4px 9px; border-radius: 999px; }
+.call p { margin: 0; font-size: 12px; line-height: 1.5; color: var(--efi-text-3); }
+.call p b { display: block; font-size: 13px; color: var(--efi-text); font-weight: 700; }
 
-.water-embed { margin-top: 56px; }
-.water-iframe {
-  display: block;
-  width: 100%;
-  height: 880px;
-  border: 0;
-  background: transparent;
-  border-radius: 16px;
-  overflow: hidden;
-  color-scheme: dark;
-}
-@media (max-width: 480px) {
-  .water-embed { margin-top: 40px; }
-  .water-iframe { height: 780px; }
-}
+/* chart */
+.chart-wrap { position: relative; }
+.chart-wrap svg { display: block; width: 100%; overflow: visible; touch-action: pan-y; }
+.legend { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 8px; font-size: 11.5px; color: var(--efi-text-2); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 16px; height: 0; border-top: 2px solid; display: inline-block; }
+.legend i.dash { border-top-style: dashed; }
+.tip { position: absolute; top: 0; pointer-events: none; padding: 7px 10px; border-radius: 10px; background: #0F1A1C; border: 1px solid var(--efi-border-strong); font-size: 12px; color: var(--efi-text); white-space: nowrap; box-shadow: 0 8px 24px rgba(0,0,0,0.5); opacity: 0; transition: opacity 0.1s; z-index: 2; }
+.tip.show { opacity: 1; }
+.tip small { color: var(--efi-text-3); display: block; margin-top: 2px; }
 
-.stack-card {
-  background: var(--bg-card);
-  border-radius: 16px;
-  padding: 22px 22px 18px;
-  backdrop-filter: blur(24px) saturate(1.2);
-  -webkit-backdrop-filter: blur(24px) saturate(1.2);
-  box-shadow: 0 12px 40px rgba(0,0,0,0.45);
-}
+/* rows */
+.rows { display: flex; flex-direction: column; gap: 6px; }
+.rows.sep { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--efi-border); }
+.row { display: flex; align-items: center; gap: 12px; padding: 9px 11px; border-radius: 14px; background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.05); }
+.row .ic { width: 30px; height: 30px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; color: #fff; }
+.row .t { flex: 1; min-width: 0; }
+.row .t b { display: block; font-size: 13px; color: var(--efi-text); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row .t small { display: block; font-size: 11.5px; color: var(--efi-text-3); font-variant-numeric: tabular-nums; }
+.pill { font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 999px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.empty { font-size: 12.5px; color: var(--efi-text-3); padding: 6px 2px; line-height: 1.5; }
+.hint { font-size: 12px; color: var(--efi-text-3); margin-top: 10px; line-height: 1.5; }
 
-.stack-head { margin-bottom: 12px; }
-.sf-eyebrow {
-  font-family: var(--font-mono);
-  font-size: 11px; font-weight: 600;
-  letter-spacing: 0.16em; text-transform: uppercase;
-  color: var(--text-tertiary);
-  margin-bottom: 6px;
-}
-.sf-title {
-  font-size: 24px; font-weight: 700;
-  letter-spacing: -0.022em;
-  color: var(--text-primary);
-  line-height: 1.15; margin-bottom: 2px;
-}
-.stack-progress-text {
-  font-family: var(--font-mono);
-  font-size: 12px; color: var(--text-tertiary);
-  font-variant-numeric: tabular-nums;
-  margin-top: 6px;
-}
-.stack-progress-track {
-  height: 5px;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 999px; overflow: hidden;
-  margin: 14px 0 18px;
-}
-.stack-progress-fill {
-  height: 100%; width: 0%;
-  background: #FFFFFF; border-radius: 999px;
-  transition: width 0.5s cubic-bezier(0.22, 1, 0.36, 1);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4);
-}
+/* stat tiles */
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.stat { padding: 12px 8px; border-radius: 14px; background: rgba(255,255,255,0.035); text-align: center; min-width: 0; }
+.stat b { display: block; font-size: 20px; font-weight: 800; color: var(--efi-text); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; white-space: nowrap; }
+.stat b small { font-size: 11px; font-weight: 700; color: var(--efi-text-3); margin-left: 2px; letter-spacing: 0; }
+.stat > span { display: block; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--efi-text-3); margin-top: 2px; }
+.stat em { display: block; font-style: normal; font-size: 10.5px; font-weight: 700; margin-top: 4px; }
 
-.stack-window { margin-bottom: 14px; }
-.stack-window-header {
-  display: flex; align-items: center; gap: 8px;
-  margin-bottom: 8px; padding-bottom: 6px;
-  border-bottom: 1px solid var(--border-soft);
-}
-.stack-window-icon { font-size: 16px; }
-.stack-window-title { font-size: 13px; font-weight: 700; color: var(--text-primary); }
-.stack-window-time { font-size: 11px; color: var(--text-tertiary); font-weight: 500; }
+/* sleep */
+.sleep-top { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; }
+.sleep-big { font-size: 30px; font-weight: 800; color: var(--efi-text); letter-spacing: -0.03em; line-height: 1; font-variant-numeric: tabular-nums; }
+.sleep-big small { font-size: 15px; color: var(--efi-text-3); font-weight: 700; margin: 0 3px 0 1px; }
+.sleep-meta { font-size: 12px; color: var(--efi-text-3); margin-top: 6px; }
+.goal { height: 6px; border-radius: 3px; background: rgba(255,255,255,0.06); overflow: hidden; margin-top: 12px; }
+.goal i { display: block; height: 100%; border-radius: 3px; transition: width 0.7s cubic-bezier(0.22,1,0.36,1); }
+.stages { display: flex; height: 8px; border-radius: 4px; overflow: hidden; gap: 2px; margin: 14px 0 8px; }
+.stages i { display: block; height: 100%; }
+.stage-leg { display: flex; flex-wrap: wrap; gap: 12px; font-size: 11.5px; color: var(--efi-text-2); }
+.stage-leg span { display: inline-flex; align-items: center; gap: 5px; }
+.stage-leg i { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
+.sub-h { display: flex; justify-content: space-between; align-items: baseline; margin: 16px 0 6px; font-size: 12px; font-weight: 700; color: var(--efi-text); }
+.sub-h small { font-size: 11px; font-weight: 600; color: var(--efi-text-3); }
 
-.stack-item {
-  display: grid;
-  grid-template-columns: 32px 1fr auto auto;
-  gap: 10px;
-  align-items: center;
-  padding: 10px 12px;
-  border-radius: 10px;
-  background: var(--bg-secondary);
-  margin-bottom: 6px;
-  border: 1px solid transparent;
-  transition: background 0.2s, border-color 0.2s;
-}
-.stack-item:hover { background: rgba(255,255,255,0.05); }
-.stack-item.taken { background: rgba(29,158,117,0.08); }
-.stack-item.taken .stack-item-name { text-decoration: line-through; color: var(--text-tertiary); }
+.cta { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; margin-top: 14px; padding: 13px; border: 0; border-radius: 16px; font: 800 14px var(--efi-font); color: var(--efi-accent-ink); background: linear-gradient(180deg, #5EF0BC, #1FB58A); box-shadow: 0 8px 26px rgba(52,216,160,0.3); cursor: pointer; text-decoration: none; }
+.cta:active { transform: scale(0.98); }
 
-@keyframes pulse-red {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
-  50%      { box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
-}
-.stack-item.missed {
-  border: 1px solid rgba(239, 68, 68, 0.45);
-  animation: pulse-red 1.5s ease-in-out infinite;
-}
-.stack-item.missed .stack-check { border-color: rgba(239, 68, 68, 0.55); }
-.stack-item.taken.missed { animation: none; border-color: transparent; }
-.stack-item.taken.missed .stack-check { border-color: var(--accent); }
-
-.stack-check {
-  width: 28px; height: 28px;
-  border-radius: 50%;
-  border: 2px solid var(--border-strong);
-  background: var(--bg-card);
-  cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 14px; color: transparent;
-  transition: all 0.2s;
-  flex-shrink: 0; font-family: inherit; padding: 0;
-}
-.stack-check:hover { border-color: var(--accent); }
-.stack-check.checked {
-  background: var(--accent); border-color: var(--accent);
-  color: white;
-  box-shadow: 0 0 12px var(--accent-glow);
-}
-
-.stack-item-body { min-width: 0; }
-.stack-item-name {
-  font-size: 14px; font-weight: 600;
-  color: var(--text-primary);
-  line-height: 1.2;
-  display: inline-flex; align-items: center;
-  gap: 8px; flex-wrap: wrap;
-  outline: none;
-}
-.stack-item-name[contenteditable="true"] {
-  outline: 1px solid rgba(255,255,255,0.25);
-  outline-offset: 4px; border-radius: 4px;
-}
-.stack-item-meta {
-  font-size: 11px; color: var(--text-tertiary);
-  margin-top: 2px; outline: none; cursor: text;
-}
-.stack-item-meta[contenteditable="true"] {
-  outline: 1px solid rgba(255,255,255,0.2);
-  outline-offset: 4px; border-radius: 4px;
-  color: var(--text-secondary);
-}
-.stack-item-meta:empty::before {
-  content: 'add notes…';
-  color: var(--text-quaternary);
-  font-style: italic;
-}
-
-.stack-item-tag {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  padding: 2px 7px; border-radius: 99px;
-  font-weight: 600; letter-spacing: 0.04em;
-  text-transform: lowercase;
-}
-.stack-item-tag.tag-stack { background: var(--tag-stack-bg); color: var(--tag-stack); }
-.stack-item-tag.tag-not-ordered { background: var(--warning-bg); color: var(--text-tertiary); }
-
-.stack-low-btn {
-  background: transparent;
-  border: 1px solid var(--border-strong);
-  color: var(--text-tertiary);
-  font-size: 10px;
-  padding: 5px 9px; border-radius: 6px;
-  cursor: pointer;
-  font-family: var(--font-mono);
-  font-weight: 600; letter-spacing: 0.04em;
-  white-space: nowrap;
-  display: inline-flex; align-items: center; gap: 4px;
-  transition: all 0.15s;
-}
-.stack-low-btn:hover { border-color: rgba(163,45,45,0.4); color: var(--warning); }
-.stack-low-btn.is-low {
-  background: var(--warning-bg);
-  border-color: rgba(163,45,45,0.4);
-  color: var(--warning);
-}
-
-.stack-item-del {
-  background: transparent;
-  border: 1px solid var(--border-strong);
-  color: var(--text-tertiary);
-  cursor: pointer;
-  font-size: 16px;
-  padding: 4px 10px; border-radius: 6px;
-  opacity: 0.7;
-  transition: opacity 0.15s, color 0.15s, border-color 0.15s, background 0.15s;
-  font-family: inherit;
-  line-height: 1;
-  min-width: 28px; min-height: 28px;
-  display: inline-flex; align-items: center; justify-content: center;
-}
-.stack-item:hover .stack-item-del { opacity: 1; }
-.stack-item-del:hover, .stack-item-del:active {
-  color: #FF6B6B;
-  border-color: rgba(239, 68, 68, 0.45);
-  background: rgba(239, 68, 68, 0.08);
-  opacity: 1;
-}
-
-.stack-window-empty {
-  font-size: 12px;
-  color: var(--text-quaternary);
-  font-style: italic;
-  padding: 8px 12px;
-}
-
-/* ====== TICKER — cycles missed + running low every 5s ====== */
-.stack-ticker {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 14px;
-  margin-bottom: 14px;
-  background: rgba(0, 0, 0, 0.28);
-  border: 1px solid rgba(255, 255, 255, 0.04);
-  border-radius: 10px;
-  font-size: 12px;
-  min-height: 36px;
-}
-.stack-ticker-dot {
-  width: 8px; height: 8px;
-  border-radius: 50%;
-  background: #6BE3A4;
-  flex-shrink: 0;
-  transition: background 0.3s;
-}
-.stack-ticker.status-low .stack-ticker-dot { background: #FF8A4D; }
-.stack-ticker.status-missed .stack-ticker-dot {
-  background: #FF6B6B;
-  animation: ticker-pulse 1.5s ease-in-out infinite;
-}
-@keyframes ticker-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5); }
-  50%      { box-shadow: 0 0 0 5px rgba(239, 68, 68, 0); }
-}
-.stack-ticker-label {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--text-tertiary);
-  flex-shrink: 0;
-}
-.stack-ticker-sep { color: var(--text-quaternary); flex-shrink: 0; }
-.stack-ticker-msg {
-  flex: 1;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  transition: opacity 0.28s;
-}
-.stack-ticker-msg.is-fading { opacity: 0; }
-.stack-ticker-count {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--text-tertiary);
-  font-variant-numeric: tabular-nums;
-  flex-shrink: 0;
-}
-
-.stack-add-wrap {
-  margin-top: 16px;
-  padding-top: 14px;
-  border-top: 1px solid var(--border-soft);
-}
-.stack-add-label { margin-bottom: 10px; }
-.stack-add-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr 110px 90px;
-  gap: 6px;
-  align-items: center;
-}
-.stack-input {
-  font-size: 13px;
-  padding: 9px 11px;
-  border-radius: 10px;
-  border: 1px solid var(--border-strong);
-  background: var(--bg-input);
-  color: var(--text-primary);
-  font-family: inherit;
-  transition: border-color 0.18s, background 0.18s;
-}
-.stack-input::placeholder { color: var(--text-tertiary); }
-.stack-input:focus {
-  outline: none;
-  border-color: rgba(255, 255, 255, 0.40);
-  background: var(--bg-input-focus);
-}
-.stack-select { cursor: pointer; }
-.stack-add-btn {
-  font-size: 13px;
-  padding: 9px 11px;
-  border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.85);
-  background: linear-gradient(180deg, #FFFFFF 0%, #E8E5DD 100%);
-  color: #0A0A0B;
-  font-weight: 700;
-  letter-spacing: 0.005em;
-  cursor: pointer;
-  font-family: inherit;
-  transition: transform 0.12s, box-shadow 0.18s, background 0.18s;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.55),
-    0 4px 14px rgba(0, 0, 0, 0.30);
-}
-.stack-add-btn:hover {
-  background: linear-gradient(180deg, #FFFFFF 0%, #F2F0EA 100%);
-  transform: translateY(-1px);
-}
-.stack-add-btn:active { transform: translateY(0) scale(0.97); }
-
-/* ====== SEARCH AUTOCOMPLETE — appears below the form when typing in Name ====== */
-.stack-name-wrap { position: relative; }
-
-.stack-search-results {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
-  width: max(100%, 320px);
-  background: var(--bg-dropdown);
-  border: 1px solid var(--border-strong);
-  border-radius: 12px;
-  max-height: 280px;
-  overflow-y: auto;
-  backdrop-filter: blur(20px) saturate(1.2);
-  -webkit-backdrop-filter: blur(20px) saturate(1.2);
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.65);
-  z-index: 50;
-  padding: 6px;
-}
-.stack-search-results[hidden] { display: none; }
-
-.stack-result {
-  display: flex;
-  gap: 12px; align-items: center;
-  width: 100%;
-  padding: 9px 11px;
-  background: transparent; border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  text-align: left;
-  font-family: inherit;
-  color: var(--text-secondary);
-  transition: background 0.12s;
-}
-.stack-result:hover, .stack-result.is-focused { background: rgba(255, 255, 255, 0.06); }
-
-.stack-result-icon { font-size: 17px; flex-shrink: 0; width: 24px; text-align: center; }
-.stack-result-body { min-width: 0; flex: 1; }
-.stack-result-name {
-  font-size: 13px; font-weight: 600;
-  color: var(--text-primary); line-height: 1.2;
-}
-.stack-result-meta {
-  font-size: 11px; color: var(--text-tertiary);
-  margin-top: 2px;
-}
-
-.attribution {
-  text-align: center; margin-top: 28px;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--text-quaternary);
-}
-
-@media (max-width: 600px) {
-  main { padding: 40px 16px 60px; }
-  .stack-card { padding: 18px 16px 14px; }
-  .stack-item { grid-template-columns: 28px 1fr auto; gap: 8px; }
-  .stack-item .stack-low-btn { grid-column: 2 / 4; margin-top: 4px; justify-self: start; }
-  .stack-add-row { grid-template-columns: 1fr 1fr; }
-  .stack-add-row .stack-add-btn { grid-column: 1 / -1; }
-  .stack-add-row .stack-select { grid-column: 1 / -1; }
-  .stack-search-results { width: 100%; }
-}
-
-::selection { background: rgba(224, 118, 88, 0.3); color: var(--text-primary); }
-::-webkit-scrollbar { width: 10px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.08); border-radius: 999px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.15); }
+/* setup (no Apple Health data yet) */
+.setup ol { margin: 8px 0 0; padding-left: 18px; font-size: 12.5px; color: var(--efi-text-2); line-height: 1.7; }
+.setup code { font-family: var(--efi-mono); font-size: 11px; background: rgba(255,255,255,0.06); padding: 1px 5px; border-radius: 5px; color: var(--efi-text); word-break: break-all; }
 </style>
-<link rel="stylesheet" id="efi-theme" href="efi-theme.css">
 </head>
 <body>
-
-<main>
-
-  <!-- ===== Apple Health card (full) ===== -->
-  <style>
-    .whoop-section { margin-bottom: 32px; }
-    .whoop-card {
-      padding: 22px 22px 18px;
-      background: rgba(255,255,255,0.025);
-      border-radius: 22px;
-      box-shadow: 0 1px 0 0 rgba(255,255,255,0.06) inset, 0 12px 40px rgba(0,0,0,0.45), 0 1px 2px rgba(0,0,0,0.25);
-    }
-    /* Disconnected */
-    .wh-brand { display:inline-flex; align-items:center; gap:8px; }
-    .wh-brand-mark { width:22px; height:22px; border-radius:50%; background:#FFF; color:#0A0A0B; font-weight:900; font-size:12px; display:inline-flex; align-items:center; justify-content:center; letter-spacing:-0.04em; box-shadow:0 0 12px rgba(255,255,255,0.20); }
-    .wh-brand-text { font-weight:800; font-size:13px; letter-spacing:0.18em; color:var(--text-primary); }
-    .wh-disc { display:flex; flex-direction:column; align-items:center; text-align:center; padding:18px 8px 8px; gap:6px; }
-    .wh-disc .wh-brand { margin-bottom:14px; }
-    .wh-disc-title { font-size:22px; font-weight:700; color:var(--text-primary); letter-spacing:-0.02em; margin-top:2px; }
-    .wh-disc-sub { font-size:13px; color:var(--text-tertiary); max-width:280px; line-height:1.5; margin-bottom:18px; }
-    .wh-connect { display:inline-flex; align-items:center; gap:8px; padding:12px 22px; border-radius:999px; border:1px solid rgba(255,255,255,0.85); background:linear-gradient(180deg, #FFF, #E8E5DD); color:#0A0A0B; font-family:inherit; font-size:13.5px; font-weight:700; cursor:pointer; box-shadow:inset 0 1px 0 rgba(255,255,255,0.55), 0 6px 20px rgba(0,0,0,0.45); transition:transform 0.12s; }
-    .wh-connect:hover { transform:translateY(-1px); }
-    /* Header */
-    .wh-head { display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:18px; flex-wrap:wrap; }
-    .wh-live { display:inline-flex; align-items:center; gap:5px; font-size:9.5px; font-weight:700; letter-spacing:0.16em; text-transform:uppercase; color:#6BE3A4; margin-left:4px; padding:3px 8px; border-radius:999px; background:rgba(107,227,164,0.10); border:1px solid rgba(107,227,164,0.30); }
-    .wh-live-dot { width:6px; height:6px; border-radius:50%; background:#6BE3A4; box-shadow:0 0 8px rgba(107,227,164,0.65); animation:wh-pulse 1.6s ease-in-out infinite; }
-    @keyframes wh-pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(0.85)} }
-    .wh-head-right { display:flex; align-items:center; gap:10px; }
-    .wh-updated { font-size:11px; color:var(--text-tertiary); font-family:var(--font-mono); }
-    .wh-refresh { width:32px; height:32px; border-radius:50%; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.06); color:var(--text-secondary); cursor:pointer; display:flex; align-items:center; justify-content:center; transition:transform 0.4s, background 0.18s, color 0.18s; }
-    .wh-refresh:hover { background:rgba(255,255,255,0.10); color:var(--text-primary); }
-    .wh-refresh.spin { transform:rotate(360deg); }
-    /* Ring */
-    .wh-ring-wrap { position:relative; width:240px; max-width:78%; margin:0 auto 24px; aspect-ratio:1; }
-    .wh-ring { width:100%; height:100%; transform:rotate(-90deg); filter:drop-shadow(0 0 24px rgba(255,255,255,0.05)); }
-    .wh-ring-track { fill:none; stroke:rgba(255,255,255,0.06); stroke-width:12; }
-    .wh-ring-fill { fill:none; stroke:#FFF; stroke-width:12; stroke-linecap:round; stroke-dasharray:603.19; stroke-dashoffset:603.19; transition:stroke-dashoffset 0.8s cubic-bezier(0.22,1,0.36,1), stroke 0.4s; }
-    .wh-ring-center { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; pointer-events:none; }
-    .wh-ring-num { font-size:60px; font-weight:700; letter-spacing:-0.04em; color:var(--text-primary); line-height:1; font-variant-numeric:tabular-nums; }
-    .wh-ring-unit { font-size:10px; font-weight:700; letter-spacing:0.22em; text-transform:uppercase; color:var(--text-tertiary); margin-top:10px; }
-    .wh-ring-label { font-size:12.5px; font-weight:600; margin-top:6px; letter-spacing:-0.005em; }
-    /* Stages */
-    .wh-stages { margin-bottom:22px; padding-top:22px; border-top:1px solid rgba(255,255,255,0.05); }
-    .wh-stages-head { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:10px; }
-    .wh-stages-eye { font-size:10px; font-weight:700; letter-spacing:0.18em; text-transform:uppercase; color:var(--text-tertiary); }
-    .wh-stages-meta { font-size:11px; color:var(--text-tertiary); font-family:var(--font-mono); }
-    .wh-stages-bar { display:flex; height:10px; background:rgba(255,255,255,0.04); border-radius:999px; overflow:hidden; margin-bottom:12px; border:1px solid rgba(255,255,255,0.04); }
-    .wh-stage { height:100%; transition:width 0.7s cubic-bezier(0.22,1,0.36,1); }
-    .wh-stage-rem   { background:#FFF; }
-    .wh-stage-deep  { background:#B8B6B0; }
-    .wh-stage-light { background:#76746E; }
-    .wh-stage-awake { background:#38362F; }
-    .wh-stages-legend { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
-    .wh-leg { display:flex; align-items:center; gap:6px; font-size:11px; color:var(--text-secondary); font-weight:500; }
-    .wh-leg-dot { width:8px; height:8px; border-radius:2px; flex-shrink:0; }
-    .wh-leg-dot.d-rem{background:#FFF} .wh-leg-dot.d-deep{background:#B8B6B0} .wh-leg-dot.d-light{background:#76746E} .wh-leg-dot.d-awake{background:#38362F; border:1px solid rgba(255,255,255,0.10);}
-    .wh-leg-num { margin-left:auto; color:var(--text-primary); font-weight:700; font-family:var(--font-mono); font-size:11px; }
-    @media (max-width:480px) { .wh-stages-legend { grid-template-columns:repeat(2,1fr); } }
-    /* Stats */
-    .wh-stats { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; padding-top:22px; border-top:1px solid rgba(255,255,255,0.05); }
-    .wh-stat { position:relative; background:rgba(255,255,255,0.025); border:1px solid rgba(255,255,255,0.04); border-radius:12px; padding:12px 10px; text-align:center; }
-    .wh-stat-label { font-size:10px; color:var(--text-tertiary); text-transform:uppercase; letter-spacing:0.14em; font-weight:700; margin-bottom:8px; }
-    .wh-stat-val { font-size:22px; font-weight:700; color:var(--text-primary); line-height:1; font-variant-numeric:tabular-nums; letter-spacing:-0.03em; }
-    .wh-stat-sub { font-size:10px; color:var(--text-tertiary); margin-top:5px; font-family:var(--font-mono); }
-    @media (max-width:480px) { .wh-stats { grid-template-columns:repeat(2,1fr); } .wh-stat-val { font-size:20px; } }
-    /* Biomarkers */
-    .wh-bio { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:12px; }
-    .wh-bio-item { position:relative; background:rgba(255,255,255,0.025); border:1px solid rgba(255,255,255,0.04); border-radius:12px; padding:11px 12px; text-align:center; }
-    .wh-bio-label { display:block; font-size:9.5px; font-weight:700; letter-spacing:0.14em; text-transform:uppercase; color:var(--text-tertiary); margin-bottom:4px; }
-    .wh-bio-val { display:block; font-size:14px; font-weight:700; color:var(--text-primary); font-variant-numeric:tabular-nums; }
-    @media (max-width:380px) { .wh-bio { grid-template-columns:1fr; } }
-    .wh-bio.wh-bio-4 { grid-template-columns:repeat(4,1fr); }
-    @media (max-width:480px) { .wh-bio.wh-bio-4 { grid-template-columns:repeat(2,1fr); } }
-    /* Zone dot */
-    .wh-zone { position:absolute; top:9px; right:9px; width:7px; height:7px; border-radius:50%; background:rgba(255,255,255,0.12); }
-    .wh-zone.z-good { background:#6BE3A4; box-shadow:0 0 7px rgba(107,227,164,0.55); }
-    .wh-zone.z-norm { background:rgba(255,255,255,0.30); }
-    .wh-zone.z-warn { background:#F2C063; box-shadow:0 0 7px rgba(242,192,99,0.55); }
-    .wh-zone.z-bad  { background:#FF8A8A; box-shadow:0 0 7px rgba(255,138,138,0.55); }
-    /* Legend */
-    .wh-legend { display:flex; justify-content:center; flex-wrap:wrap; gap:14px; margin-top:14px; padding:10px 12px; background:rgba(255,255,255,0.02); border-radius:999px; border:1px solid rgba(255,255,255,0.04); }
-    .wh-leg-item { display:inline-flex; align-items:center; gap:6px; font-size:10.5px; font-weight:600; color:var(--text-tertiary); }
-    .wh-leg-item .wh-zone { position:static; display:inline-block; }
-    /* Today's Call */
-    .wh-verdict { margin-top:18px; padding:16px 18px; background:rgba(255,255,255,0.025); border:1px solid rgba(255,255,255,0.04); border-left:2px solid rgba(255,255,255,0.40); border-radius:0 12px 12px 0; }
-    .wh-verdict-head { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
-    .wh-verdict-eye { font-size:10px; color:var(--text-tertiary); text-transform:uppercase; letter-spacing:0.18em; font-weight:700; }
-    .wh-verdict-badge { font-size:9.5px; font-weight:800; padding:3px 9px; border-radius:999px; letter-spacing:0.14em; text-transform:uppercase; border:1px solid; }
-    .wh-verdict-badge.green  { color:#6BE3A4; border-color:rgba(107,227,164,0.50); background:rgba(107,227,164,0.10); }
-    .wh-verdict-badge.yellow { color:#F2C063; border-color:rgba(242,192,99,0.50); background:rgba(242,192,99,0.10); }
-    .wh-verdict-badge.red    { color:#FF8A8A; border-color:rgba(255,138,138,0.50); background:rgba(255,138,138,0.10); }
-    .wh-verdict-headline { font-size:15px; font-weight:600; color:var(--text-primary); line-height:1.4; margin-bottom:12px; }
-    .wh-verdict-reasons { font-size:12.5px; color:var(--text-secondary); line-height:1.65; }
-    /* Disconnect */
-    .wh-disconnect-link { display:block; margin:16px auto 0; padding:6px 14px; background:transparent; border:none; color:var(--text-tertiary); font-family:inherit; font-size:11px; text-align:center; cursor:pointer; letter-spacing:0.04em; }
-    .wh-err { background:rgba(255,107,107,0.08); border:1px solid rgba(255,107,107,0.28); color:#FF8A8A; padding:10px 12px; border-radius:10px; font-size:11.5px; font-family:var(--font-mono); margin-bottom:14px; }
-    .wh-disc-sub { max-width:320px; }
-    .wh-setup { width:100%; max-width:360px; text-align:left; margin-top:16px; padding:14px 16px; background:rgba(255,255,255,0.025); border:1px solid rgba(255,255,255,0.06); border-radius:14px; }
-    .wh-setup ol { margin:0; padding-left:18px; font-size:12px; color:var(--text-secondary); line-height:1.7; }
-    .wh-setup code { font-family:var(--font-mono); font-size:11px; background:rgba(255,255,255,0.06); padding:1px 5px; border-radius:5px; color:var(--text-primary); word-break:break-all; }
-  </style>
-  <div class="whoop-section">
-    <div class="section-title">Apple Health</div>
-    <div class="whoop-card">
-      <div id="whDisc" class="wh-disc">
-        <div class="wh-brand"><span class="wh-brand-mark">♥</span><span class="wh-brand-text">APPLE HEALTH</span></div>
-        <div class="wh-disc-title">Not synced yet</div>
-        <div class="wh-disc-sub">No login here — data comes from the "Health Auto Export" iPhone app pushing straight to this dashboard. Set the automation up once and this card fills in on its own.</div>
-        <button id="whConnectBtn" class="wh-connect" type="button">Setup steps</button>
-        <div id="whSetup" class="wh-setup" style="display:none">
-          <ol>
-            <li>Install <b>Health Auto Export – JSON+CSV</b> from the App Store.</li>
-            <li>Create a new <b>REST API</b> automation with URL: <code id="whSetupUrl">—</code></li>
-            <li>Add header <code>Authorization: Bearer &lt;HEALTH_IMPORT_SECRET&gt;</code> — the value you set for that env var in Vercel.</li>
-            <li>Include Heart Rate Variability, Resting Heart Rate, Respiratory Rate, Blood Oxygen, Active Energy, Step Count, Exercise Time, Sleep Analysis, <b>Dietary Caffeine</b>, and (for MyFitnessPal) Dietary Energy, Protein, Carbohydrates, Total Fat. Turn <b>off</b> "Aggregate data" for caffeine so each drink keeps its time.</li>
-            <li>Turn the automation on (e.g. every morning). This card updates automatically after the first sync.</li>
-          </ol>
-        </div>
-      </div>
-      <div id="whConn" style="display:none">
-        <div class="wh-head">
-          <div class="wh-brand"><span class="wh-brand-mark">♥</span><span class="wh-brand-text">APPLE HEALTH</span><span class="wh-live"><span class="wh-live-dot"></span>live</span></div>
-          <div class="wh-head-right">
-            <span id="whUpdated" class="wh-updated">—</span>
-            <button id="whRefresh" class="wh-refresh" type="button" aria-label="Refresh"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M20.49 15A9 9 0 1 1 5.64 5.64L23 10"/></svg></button>
-          </div>
-        </div>
-        <div id="whErr" class="wh-err" style="display:none"></div>
-        <div class="wh-ring-wrap">
-          <svg class="wh-ring" viewBox="0 0 220 220" aria-hidden="true">
-            <circle class="wh-ring-track" cx="110" cy="110" r="96"/>
-            <circle class="wh-ring-fill" cx="110" cy="110" r="96" id="whRingFill"/>
-          </svg>
-          <div class="wh-ring-center">
-            <div id="whRecNum" class="wh-ring-num">—</div>
-            <div class="wh-ring-unit">sleep</div>
-            <div id="whRecLabel" class="wh-ring-label">—</div>
-          </div>
-        </div>
-        <div id="whStages" class="wh-stages" style="display:none">
-          <div class="wh-stages-head"><span class="wh-stages-eye">Sleep stages</span><span class="wh-stages-meta" id="whStagesMeta">—</span></div>
-          <div class="wh-stages-bar">
-            <div class="wh-stage wh-stage-rem"   id="whBarRem"   style="width:0%"></div>
-            <div class="wh-stage wh-stage-deep"  id="whBarDeep"  style="width:0%"></div>
-            <div class="wh-stage wh-stage-light" id="whBarLight" style="width:0%"></div>
-            <div class="wh-stage wh-stage-awake" id="whBarAwake" style="width:0%"></div>
-          </div>
-          <div class="wh-stages-legend">
-            <div class="wh-leg"><span class="wh-leg-dot d-rem"></span>REM<span class="wh-leg-num" id="whRem">—</span></div>
-            <div class="wh-leg"><span class="wh-leg-dot d-deep"></span>Deep<span class="wh-leg-num" id="whDeep">—</span></div>
-            <div class="wh-leg"><span class="wh-leg-dot d-light"></span>Light<span class="wh-leg-num" id="whLight">—</span></div>
-            <div class="wh-leg"><span class="wh-leg-dot d-awake"></span>Awake<span class="wh-leg-num" id="whAwake">—</span></div>
-          </div>
-        </div>
-        <div class="wh-stats">
-          <div class="wh-stat"><span class="wh-zone" id="whZoneSleep"></span><div class="wh-stat-label">Sleep</div><div class="wh-stat-val" id="whSleep">—</div><div class="wh-stat-sub" id="whSleepSub">—</div></div>
-          <div class="wh-stat"><span class="wh-zone" id="whZoneStrain"></span><div class="wh-stat-label">Active</div><div class="wh-stat-val" id="whStrain">—</div><div class="wh-stat-sub" id="whStrainSub">kcal</div></div>
-          <div class="wh-stat"><span class="wh-zone" id="whZoneHrv"></span><div class="wh-stat-label">HRV</div><div class="wh-stat-val" id="whHrv">—</div><div class="wh-stat-sub">ms</div></div>
-          <div class="wh-stat"><span class="wh-zone" id="whZoneRhr"></span><div class="wh-stat-label">RHR</div><div class="wh-stat-val" id="whRhr">—</div><div class="wh-stat-sub">bpm</div></div>
-        </div>
-        <div id="whBio" class="wh-bio wh-bio-4" style="display:none">
-          <div class="wh-bio-item"><span class="wh-zone" id="whZoneCaf"></span><span class="wh-bio-label">Caffeine</span><span class="wh-bio-val" id="whCaf">—</span></div>
-          <div class="wh-bio-item"><span class="wh-zone" id="whZoneSkin"></span><span class="wh-bio-label">Exercise</span><span class="wh-bio-val" id="whSkin">—</span></div>
-          <div class="wh-bio-item"><span class="wh-zone" id="whZoneSpo2"></span><span class="wh-bio-label">Blood O₂</span><span class="wh-bio-val" id="whSpo2">—</span></div>
-          <div class="wh-bio-item"><span class="wh-zone" id="whZoneResp"></span><span class="wh-bio-label">Resp rate</span><span class="wh-bio-val" id="whResp">—</span></div>
-        </div>
-        <div class="wh-legend">
-          <span class="wh-leg-item"><span class="wh-zone z-good"></span>Good</span>
-          <span class="wh-leg-item"><span class="wh-zone z-norm"></span>Normal</span>
-          <span class="wh-leg-item"><span class="wh-zone z-warn"></span>Watch</span>
-          <span class="wh-leg-item"><span class="wh-zone z-bad"></span>High / Low</span>
-        </div>
-        <div id="whVerdict" class="wh-verdict" style="display:none">
-          <div class="wh-verdict-head"><span class="wh-verdict-eye">Today's call</span><span id="whVerdictBadge" class="wh-verdict-badge"></span></div>
-          <div id="whVerdictHead" class="wh-verdict-headline"></div>
-          <div id="whVerdictReasons" class="wh-verdict-reasons"></div>
-        </div>
-      </div>
+<div class="page">
+  <div class="hd">
+    <div>
+      <h1>Health</h1>
+      <div class="sub"><span id="today">—</span> · <span class="sync" id="sync"><i></i><span id="syncText">Apple Health</span></span></div>
     </div>
+    <button class="icon-btn" id="refreshBtn" type="button" aria-label="Refresh Apple Health"><span data-icon="refresh"></span></button>
   </div>
-  <script src="applehealth.js" defer></script>
-  <script>
-  document.addEventListener('DOMContentLoaded', function () {
-    const $ = (id) => document.getElementById(id);
-    const errEl = $('whErr');
-    function showErr(m) { errEl.textContent = m || ''; errEl.style.display = m ? 'block' : 'none'; }
 
-    const setupUrlEl = $('whSetupUrl');
-    if (setupUrlEl) setupUrlEl.textContent = window.location.origin + '/api/health-import';
+  <!-- setup: only while Apple Health has never synced -->
+  <div class="card setup" id="setupCard" hidden>
+    <div class="card-h"><h2><span data-icon="heart"></span>Connect Apple Health</h2></div>
+    <div class="empty" style="padding:0">No login here — the “Health Auto Export” iPhone app pushes your data to this dashboard. Set it up once and this page fills in on its own. Until then, energy uses default wake/bed times.</div>
+    <ol>
+      <li>Install <b>Health Auto Export – JSON+CSV</b> from the App Store.</li>
+      <li>Create a <b>REST API</b> automation with URL <code id="setupUrl">—</code></li>
+      <li>Add header <code>Authorization: Bearer &lt;HEALTH_IMPORT_SECRET&gt;</code> (the value set in Vercel).</li>
+      <li>Include HRV, Resting Heart Rate, Respiratory Rate, Blood Oxygen, Active Energy, Step Count, Exercise Time, Sleep Analysis and <b>Dietary Caffeine</b> (+ Dietary Energy, Protein, Carbs, Fat for MyFitnessPal). Turn <b>off</b> “Aggregate data” for caffeine.</li>
+      <li>Turn the automation on (e.g. every morning).</li>
+    </ol>
+  </div>
 
-    $('whConnectBtn').addEventListener('click', () => {
-      const el = $('whSetup');
-      el.style.display = (el.style.display === 'none' ? '' : 'none');
-    });
-    $('whRefresh').addEventListener('click', async (e) => {
-      const btn = e.currentTarget; btn.classList.add('spin');
-      try { await loadData(); } finally { setTimeout(() => btn.classList.remove('spin'), 600); }
-    });
-
-    function fmtMinsShort(min) { const m = Math.round(min); const h = Math.floor(m/60); return (h>0?h+'h ':'') + (m%60)+'m'; }
-    function zone(el, c) { el.className = 'wh-zone'; if (c) el.classList.add('z-' + c); }
-    function sleepZone(p) { if (p == null) return null; if (p >= 85) return 'good'; if (p >= 70) return 'norm'; return 'warn'; }
-    function hrvZone(h) { if (h == null) return null; if (h >= 60) return 'good'; if (h >= 40) return 'norm'; return 'warn'; }
-    function rhrZone(r) { if (r == null) return null; if (r <= 55) return 'good'; if (r <= 70) return 'norm'; return 'warn'; }
-    function spo2Zone(s) { if (s == null) return null; if (s >= 95) return 'good'; if (s >= 92) return 'norm'; if (s >= 88) return 'warn'; return 'bad'; }
-    function respZone(r) { if (r == null) return null; if (r >= 12 && r <= 18) return 'good'; if (r >= 10 && r <= 22) return 'norm'; return 'warn'; }
-
-    function ringStroke(pct) {
-      if (pct >= 85) return '#6BE3A4';
-      if (pct >= 70) return '#F2C063';
-      return '#FF8A8A';
-    }
-    function sleepLabel(pct) {
-      if (pct >= 85) return 'Well rested';
-      if (pct >= 70) return 'Could use more';
-      return 'Short on sleep';
-    }
-
-    function verdict(sleepPct, hrv, rhr) {
-      if (sleepPct == null && hrv == null && rhr == null) return null;
-      const sleepOk = sleepPct == null || sleepPct >= 80;
-      const hrvOk = hrv == null || hrv >= 50;
-      const rhrOk = rhr == null || rhr <= 60;
-      const okCount = [sleepOk, hrvOk, rhrOk].filter(Boolean).length;
-      if (okCount === 3) return { cls:'green', badge:'GREEN', headline:'Solid night. Body\'s primed — go for the harder workout, the big task, the PR attempt.' };
-      if (okCount >= 1)  return { cls:'yellow', badge:'YELLOW', headline:'Mixed signals. Train as planned, but skip the max-effort sets.' };
-      return { cls:'red', badge:'RED', headline:'Rough night / stressed system. Ease up — light movement, hydrate, sleep early tonight.' };
-    }
-
-    function applyData(latest) {
-      showErr('');
-      const sleep = latest.sleep;
-      let sleepPct = null, sleepMin = null;
-      if (sleep && sleep.asleepMin != null) {
-        sleepMin = sleep.asleepMin;
-        sleepPct = Math.min(100, Math.round(sleep.asleepMin / 480 * 100));
-      }
-
-      const fill = $('whRingFill');
-      const C = 603.19;
-      if (sleepPct != null) {
-        fill.style.strokeDashoffset = String(C * (1 - sleepPct/100));
-        fill.style.stroke = ringStroke(sleepPct);
-        $('whRecNum').textContent = String(sleepPct);
-        const labelEl = $('whRecLabel');
-        labelEl.textContent = sleepLabel(sleepPct);
-        labelEl.style.color = ringStroke(sleepPct);
-      }
-
-      if (sleep) {
-        const rem = sleep.remMin || 0, deep = sleep.deepMin || 0, light = sleep.coreMin || 0, awake = sleep.awakeMin || 0;
-        const total = rem + deep + light + awake;
-        if (total > 0) {
-          $('whStages').style.display = '';
-          $('whBarRem').style.width   = (100*rem/total)   + '%';
-          $('whBarDeep').style.width  = (100*deep/total)  + '%';
-          $('whBarLight').style.width = (100*light/total) + '%';
-          $('whBarAwake').style.width = (100*awake/total) + '%';
-          $('whStagesMeta').textContent = fmtMinsShort(total) + ' total';
-          $('whRem').textContent   = fmtMinsShort(rem);
-          $('whDeep').textContent  = fmtMinsShort(deep);
-          $('whLight').textContent = fmtMinsShort(light);
-          $('whAwake').textContent = fmtMinsShort(awake);
-        }
-      }
-      if (sleepMin != null) {
-        $('whSleep').textContent = fmtMinsShort(sleepMin);
-        $('whSleepSub').textContent = (sleepPct != null ? sleepPct + '% of goal' : '—');
-        zone($('whZoneSleep'), sleepZone(sleepPct));
-      }
-
-      if (latest.activeKcal != null) { $('whStrain').textContent = String(Math.round(latest.activeKcal)); }
-      if (latest.hrv != null) { $('whHrv').textContent = String(Math.round(latest.hrv)); zone($('whZoneHrv'), hrvZone(latest.hrv)); }
-      if (latest.rhr != null) { $('whRhr').textContent = String(Math.round(latest.rhr)); zone($('whZoneRhr'), rhrZone(latest.rhr)); }
-
-      // Caffeine is automatic: Apple Health "Dietary Caffeine" samples
-      // (+ anything logged by telling E.F.I.). Replaces the old manual page.
-      const caf = window.EFI && window.EFI.data ? window.EFI.data.caffeine : null;
-      const cafToday = caf ? caf.todayTotal() : 0;
-      if (caf) {
-        $('whCaf').textContent = cafToday + ' mg';
-        $('whCaf').title = caf.activeNow() + ' mg still active';
-        zone($('whZoneCaf'), cafToday === 0 ? null : cafToday <= 300 ? 'good' : cafToday <= 400 ? 'warn' : 'bad');
-      }
-      const anyBio = (latest.spo2 != null) || (latest.resp != null) || (latest.exerciseMin != null) || cafToday > 0;
-      if (anyBio) {
-        $('whBio').style.display = '';
-        if (latest.exerciseMin != null) { $('whSkin').textContent = Math.round(latest.exerciseMin) + ' min'; }
-        if (latest.spo2 != null) { $('whSpo2').textContent = Number(latest.spo2).toFixed(1) + '%'; zone($('whZoneSpo2'), spo2Zone(latest.spo2)); }
-        if (latest.resp != null) { $('whResp').textContent = Number(latest.resp).toFixed(1) + ' br/min'; zone($('whZoneResp'), respZone(Number(latest.resp))); }
-      }
-
-      const v = verdict(sleepPct, latest.hrv, latest.rhr);
-      if (v) {
-        $('whVerdict').style.display = '';
-        const badge = $('whVerdictBadge');
-        badge.textContent = v.badge;
-        badge.className = 'wh-verdict-badge ' + v.cls;
-        $('whVerdictHead').textContent = v.headline;
-        const reasons = [];
-        if (sleepPct != null) reasons.push((sleepPct >= 80 ? '✓' : '·') + ' Sleep ' + sleepPct + '% of goal — ' + (sleepPct >= 80 ? 'you slept well.' : 'sub-par sleep.'));
-        if (latest.hrv != null) reasons.push((latest.hrv >= 50 ? '✓' : '·') + ' HRV ' + Math.round(latest.hrv) + 'ms — ' + (latest.hrv >= 50 ? 'strong autonomic state.' : 'autonomic stress.'));
-        if (latest.rhr != null) reasons.push((latest.rhr <= 60 ? '✓' : '·') + ' RHR ' + Math.round(latest.rhr) + 'bpm — ' + (latest.rhr <= 60 ? 'well-conditioned.' : 'elevated.'));
-        if (latest.activeKcal != null) reasons.push('· Active energy ' + Math.round(latest.activeKcal) + ' kcal today.');
-        $('whVerdictReasons').innerHTML = reasons.join('<br>');
-      }
-
-      const now = new Date();
-      $('whUpdated').textContent = 'Updated ' + now.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
-    }
-
-    function render(res) {
-      const latest = res && res.latest;
-      const hasData = latest && (latest.hrv != null || latest.rhr != null || latest.sleep);
-      if (hasData) {
-        $('whDisc').style.display = 'none'; $('whConn').style.display = '';
-        applyData(latest);
-      } else {
-        $('whDisc').style.display = ''; $('whConn').style.display = 'none';
-      }
-    }
-
-    async function loadData() {
-      if (!window.AppleHealth) return;
-      try {
-        const res = await window.AppleHealth.get();
-        render(res);
-      } catch (e) {
-        showErr(e.message || String(e));
-      }
-    }
-
-    loadData();
-    if (window.AppleHealth) window.AppleHealth.subscribe(render);
-  });
-  </script>
-
-  <div class="section-title">Daily Stack</div>
-
-  <div class="stack-card">
-    <div class="stack-ticker" id="stackTicker">
-      <span class="stack-ticker-dot"></span>
-      <span class="stack-ticker-label">STACK</span>
-      <span class="stack-ticker-sep">·</span>
-      <span class="stack-ticker-msg" id="stackTickerMsg">All caught up — keep it rolling</span>
-      <span class="stack-ticker-count" id="stackTickerCount">0/0</span>
-    </div>
-
-    <div class="stack-head">
-      <div class="sf-eyebrow">Daily stack</div>
-      <div class="sf-title">Tap each as you take it</div>
-      <div class="stack-progress-text" id="stackProgressText">— / — taken today · resets at 6 AM</div>
-    </div>
-
-    <div class="stack-progress-track">
-      <div id="stackProgressBar" class="stack-progress-fill"></div>
-    </div>
-
-    <div id="stackGroups"></div>
-
-    <div class="stack-add-wrap">
-      <div class="sf-eyebrow stack-add-label">Add to stack</div>
-      <div class="stack-add-row">
-        <div class="stack-name-wrap">
-          <input id="stackAddName" type="text" placeholder="Name (e.g. B-complex)" class="stack-input" autocomplete="off" spellcheck="false" />
-          <div id="stackSearchResults" class="stack-search-results" hidden></div>
-        </div>
-        <input id="stackAddDose" type="text" placeholder="Dose (e.g. 1 cap)" class="stack-input" />
-        <select id="stackAddWindow" class="stack-input stack-select">
-          <option value="morning">Morning</option>
-          <option value="lunch">Lunch</option>
-          <option value="evening">Evening</option>
-          <option value="anytime">Anytime</option>
-        </select>
-        <button id="stackAddBtn" class="stack-add-btn">+ Add</button>
+  <!-- energy now + today's call -->
+  <div class="card">
+    <div class="hero">
+      <div class="gauge" aria-hidden="true">
+        <svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="50" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="10"/><circle id="gaugeArc" cx="60" cy="60" r="50" fill="none" stroke="#1FA476" stroke-width="10" stroke-linecap="round" stroke-dasharray="314.16" stroke-dashoffset="314.16" style="transition: stroke-dashoffset 0.8s cubic-bezier(0.22,1,0.36,1), stroke 0.4s"/></svg>
+        <div class="num"><b id="nowNum">—</b><span>energy</span></div>
       </div>
+      <div class="hero-text">
+        <div class="hero-state" id="nowState">—</div>
+        <div class="hero-line" id="nowLine">Loading your energy model…</div>
+      </div>
+    </div>
+    <div class="call" id="call" hidden><span class="badge" id="callBadge"></span><p id="callText"></p></div>
+  </div>
+
+  <!-- curve + windows -->
+  <div class="card">
+    <div class="card-h"><h2><span data-icon="activity"></span>Today's energy</h2><small id="curveRange"></small></div>
+    <div class="chart-wrap" id="chartWrap">
+      <svg id="chart" role="img" aria-label="Predicted energy through the day"></svg>
+      <div class="tip" id="tip"></div>
+    </div>
+    <div class="legend"><span><i style="border-color:#1FA476"></i>Energy</span><span><i class="dash" style="border-color:#8C86D9"></i>Without caffeine</span></div>
+    <div class="rows sep" id="windows"></div>
+  </div>
+
+  <!-- day vs energy -->
+  <div class="card">
+    <div class="card-h"><h2><span data-icon="calendar"></span>Your day vs. your energy</h2></div>
+    <div class="rows" id="dayFit"></div>
+    <a class="cta" href="#" id="planBtn"><span data-icon="sparkle"></span>Plan my day around my energy</a>
+  </div>
+
+  <!-- sleep -->
+  <div class="card">
+    <div class="card-h"><h2><span data-icon="moon"></span>Sleep</h2><small id="sleepGoal"></small></div>
+    <div id="sleepBody"><div class="empty">No sleep data yet.</div></div>
+    <div id="sleepHist" hidden>
+      <div class="sub-h">Last nights<small>hours asleep</small></div>
+      <div class="chart-wrap" id="histWrap"><svg id="hist" role="img" aria-label="Hours of sleep per night"></svg><div class="tip" id="histTip"></div></div>
     </div>
   </div>
 
-  <div class="attribution">// editable template · all data stays in your browser</div>
-</main>
+  <!-- body / vitals -->
+  <div class="card" id="bodyCard" hidden>
+    <div class="card-h"><h2><span data-icon="heart"></span>Body</h2><small>latest from Apple Health</small></div>
+    <div class="stats" id="vitals"></div>
+  </div>
+
+  <!-- caffeine -->
+  <div class="card">
+    <div class="card-h"><h2><span data-icon="coffee"></span>Caffeine</h2><small id="cafSource"></small></div>
+    <div class="stats">
+      <div class="stat"><b id="cafToday">0</b><span>mg today</span></div>
+      <div class="stat"><b id="cafActive">0</b><span>mg active</span></div>
+      <div class="stat"><b id="cafClear">—</b><span>clear by</span></div>
+    </div>
+    <div class="rows" id="cafList" style="margin-top:8px"></div>
+    <div class="hint">Logged automatically from Apple Health (Dietary Caffeine). Missing a drink? Tell E.F.I. “had a double espresso”.</div>
+  </div>
+</div>
 
 <script>
-(() => {
+(function () {
   'use strict';
+  const EFI = window.EFI, D = EFI.date, I = EFI.icon, esc = EFI.escape, EM = window.EnergyModel;
+  const $ = (id) => document.getElementById(id);
+  const LINE = '#1FA476', BASE = '#8C86D9';
+  const STATUS = { good: '#34D8A0', warn: '#F5C065', low: '#FF8A7A' };
+  const SLEEP_GOAL_MIN = 480;
+  document.querySelectorAll('[data-icon]').forEach((el) => { el.innerHTML = I(el.dataset.icon, 16); });
+  $('setupUrl').textContent = location.origin + '/api/health-import';
 
-  const storeGet = (k) => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } };
-  const storeSet = (k, v) => localStorage.setItem(k, JSON.stringify(v));
+  // Supplements were removed from E.F.I. — drop the old stack data on this device.
+  try { Object.keys(localStorage).filter((k) => k.indexOf('stack:') === 0).forEach((k) => localStorage.removeItem(k)); } catch (e) {}
 
-  function getActiveDate() {
-    const now = new Date();
-    if (now.getHours() < 6) now.setDate(now.getDate() - 1);
-    const y = now.getFullYear();
-    const m = String(now.getMonth() + 1).padStart(2, '0');
-    const d = String(now.getDate()).padStart(2, '0');
-    return `${y}-${m}-${d}`;
+  let ctx = null, health = null;
+  const hourNow = () => EM.nowHour();
+  const clock = (h) => EM.fmtClock(h);
+  const hm = (d) => d ? D.fmtTime(D.pad2(d.getHours()) + ':' + D.pad2(d.getMinutes())) : null;
+  const fmtMin = (m) => { m = Math.round(m); return (m >= 60 ? Math.floor(m / 60) + 'h ' : '') + (m % 60) + 'm'; };
+  function level(v) { return v >= 62 ? { c: STATUS.good, w: 'High' } : v >= 44 ? { c: STATUS.warn, w: 'Steady' } : { c: STATUS.low, w: 'Low' }; }
+  function row(color, icon, title, meta, pill, pillColor) {
+    return '<div class="row"><span class="ic" style="background:' + color + '">' + I(icon, 16) + '</span><span class="t"><b>' + esc(title) + '</b>' + (meta ? '<small>' + esc(meta) + '</small>' : '') + '</span>' +
+      (pill ? '<span class="pill" style="color:' + (pillColor || '#F2F7F6') + ';background:' + (pillColor || '#ffffff') + '1f">' + esc(pill) + '</span>' : '') + '</div>';
+  }
+  const latest = () => (health && health.latest) || null;
+  function sleepPct() { const s = latest() && latest().sleep; return s && s.asleepMin != null ? Math.min(100, Math.round(s.asleepMin / SLEEP_GOAL_MIN * 100)) : null; }
+
+  // ---------- header ----------
+  function renderHeader() {
+    $('today').textContent = new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
+    const has = !!latest();
+    $('sync').classList.toggle('ok', has);
+    $('syncText').textContent = has ? (health.updatedAt ? 'synced ' + new Date(health.updatedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : 'Apple Health') : 'Apple Health not synced';
+    $('setupCard').hidden = has;
   }
 
-  const TEMPLATE_VERSION = 5;
+  // ---------- hero: energy now + today's call ----------
+  function renderHero() {
+    const h = hourNow();
+    const v = Math.round(EM.energyAt(h, ctx, true));
+    const asleep = h < ctx.wakeHour || h >= ctx.bedHour;
+    const lv = level(v);
+    $('nowNum').textContent = v;
+    $('gaugeArc').style.strokeDashoffset = String(314.16 * (1 - v / 100));
+    $('gaugeArc').style.stroke = lv.c;
+    const later = EM.energyAt(h + 2, ctx, true);
+    const trend = later > v + 4 ? 'rising' : later < v - 4 ? 'dipping' : 'holding steady';
+    let peakT = null, peakV = -1;
+    for (let t = h; t <= Math.min(ctx.bedHour, h + 10); t += 1 / 6) { const e = EM.energyAt(t, ctx, true); if (e > peakV) { peakV = e; peakT = t; } }
+    $('nowState').textContent = asleep ? 'Sleep time' : EM.stateWord(v) + ' energy';
+    $('nowState').style.color = asleep ? '' : lv.c;
+    $('nowLine').textContent = asleep ? 'You should be asleep — wake-up around ' + clock(ctx.wakeHour) + '.'
+      : 'Energy is ' + trend + ' over the next 2 hours.' + (peakT != null && peakT - h > 0.4 ? ' Next peak ~' + clock(peakT) + ' (' + Math.round(peakV) + '%).' : '');
 
-  const STACK_DEFAULTS = [
-    { id: 'm1', name: 'XXXXX - Supplement of choice', dose: '', window: 'morning', note: 'how much MG, meal times, any data below', tag: null,    ordered: true  },
-    { id: 'm2', name: 'XXXXX - Supplement of choice', dose: '', window: 'morning', note: 'how much MG, meal times, any data below', tag: 'stack', ordered: true  },
-    { id: 'm3', name: 'XXXXX - Supplement of choice', dose: '', window: 'morning', note: 'how much MG, meal times, any data below', tag: null,    ordered: true  },
-    { id: 'l1', name: 'XXXXX - Supplement of choice', dose: '', window: 'lunch',   note: 'how much MG, meal times, any data below', tag: null,    ordered: true  },
-    { id: 'l2', name: 'XXXXX - Supplement of choice', dose: '', window: 'lunch',   note: 'how much MG, meal times, any data below', tag: null,    ordered: true  },
-    { id: 'e1', name: 'XXXXX - Supplement of choice', dose: '', window: 'evening', note: 'how much MG, meal times, any data below', tag: null,    ordered: true  },
-    { id: 'e2', name: 'XXXXX - Supplement of choice', dose: '', window: 'evening', note: 'how much MG, meal times, any data below', tag: 'not-ordered', ordered: false },
-    { id: 'e3', name: 'XXXXX - Supplement of choice', dose: '', window: 'evening', note: 'how much MG, meal times, any data below', tag: null,    ordered: true  },
-  ];
+    // Today's call — sleep, HRV and resting HR folded into one verdict.
+    const L = latest(), sp = sleepPct();
+    const hrv = L && L.hrv != null ? L.hrv : null, rhr = L && L.rhr != null ? L.rhr : null;
+    if (sp == null && hrv == null && rhr == null) { $('call').hidden = true; return; }
+    const ok = [sp == null || sp >= 80, hrv == null || hrv >= 50, rhr == null || rhr <= 60].filter(Boolean).length;
+    const c = ok === 3 ? { col: STATUS.good, b: 'Green', t: 'Primed — go for the hard workout or the big task.' }
+      : ok >= 1 ? { col: STATUS.warn, b: 'Yellow', t: 'Mixed signals — train as planned, skip max-effort sets.' }
+      : { col: STATUS.low, b: 'Red', t: 'Ease up — light movement, hydrate, early night.' };
+    const why = [sp != null ? 'Sleep ' + sp + '% of goal' : null, hrv != null ? 'HRV ' + Math.round(hrv) + ' ms' : null, rhr != null ? 'RHR ' + Math.round(rhr) + ' bpm' : null].filter(Boolean).join(' · ');
+    $('call').hidden = false;
+    $('callBadge').textContent = c.b; $('callBadge').style.color = c.col; $('callBadge').style.background = c.col + '1f';
+    $('callText').innerHTML = '<b>' + esc(c.t) + '</b>' + esc(why);
+  }
 
-  const STACK_WINDOWS = [
-    { key: 'morning', icon: '🌅', title: 'Morning', time: '7–10 AM', cutoffHour: 10 },
-    { key: 'lunch',   icon: '🍽️', title: 'Lunch',   time: '12–2 PM', cutoffHour: 14 },
-    { key: 'evening', icon: '🌙', title: 'Evening', time: '9–11 PM', cutoffHour: 23 },
-    { key: 'anytime', icon: '⏱️', title: 'Anytime', time: 'No fixed window', cutoffHour: null },
-  ];
-
-  // ====== SUPPLEMENT DATABASE — researched defaults ======
-  const SUPPLEMENT_DB = [
-    { name: 'Creatine monohydrate', dose: '5g', window: 'anytime', note: 'Daily — consistency matters more than timing', icon: '🏋️', aliases: ['creatine'] },
-    { name: 'Beta-alanine', dose: '2–5g', window: 'morning', note: 'Pre-workout — split doses to avoid tingles', icon: '🏋️', aliases: ['beta alanine'] },
-    { name: 'L-citrulline', dose: '6–8g', window: 'morning', note: '~30 min pre-workout for pump', icon: '🏋️', aliases: ['citrulline'] },
-    { name: 'BCAAs', dose: '5–10g', window: 'anytime', note: 'Around workout window', icon: '🏋️', aliases: ['bcaa'] },
-    { name: 'Whey protein', dose: '25–40g', window: 'anytime', note: 'Post-workout or to hit daily target', icon: '🥤', aliases: ['whey'] },
-    { name: 'Casein protein', dose: '25–40g', window: 'evening', note: 'Before bed for slow overnight aminos', icon: '🥤', aliases: ['casein'] },
-    { name: 'L-carnitine', dose: '1–2g', window: 'morning', note: 'With carbs for best uptake', icon: '🏋️', aliases: ['carnitine'] },
-    { name: 'Acetyl-L-carnitine', dose: '500mg–2g', window: 'morning', note: 'Cognitive variant — crosses BBB', icon: '🧠', aliases: ['alcar'] },
-    { name: 'HMB', dose: '3g', window: 'anytime', note: 'Split 3x daily — muscle preservation', icon: '🏋️', aliases: ['hmb'] },
-    { name: 'Glutamine', dose: '5g', window: 'anytime', note: 'Recovery — post-workout or before bed', icon: '🏋️', aliases: ['l-glutamine'] },
-    { name: 'Vitamin D3', dose: '2000–5000 IU', window: 'lunch', note: 'Fat-soluble — take with biggest meal', icon: '☀️', aliases: ['vit d', 'vitamin d', 'd3', 'cholecalciferol'] },
-    { name: 'Vitamin K2 (MK-7)', dose: '100–200 mcg', window: 'lunch', note: 'Pairs with D3 — same meal', icon: '💊', aliases: ['vit k', 'vitamin k', 'k2', 'mk7'] },
-    { name: 'Vitamin C', dose: '500–1000mg', window: 'morning', note: 'Water-soluble — split if over 500mg', icon: '🍊', aliases: ['vit c', 'ascorbic acid'] },
-    { name: 'Vitamin B12', dose: '500–1000mcg', window: 'morning', note: 'Methylcobalamin form preferred', icon: '⚡', aliases: ['b12', 'methylcobalamin'] },
-    { name: 'B-complex', dose: '1 cap', window: 'morning', note: 'All B vitamins — energy', icon: '⚡', aliases: ['b complex', 'b vitamins'] },
-    { name: 'Vitamin A', dose: '5000 IU', window: 'lunch', note: 'Fat-soluble — with fat', icon: '💊', aliases: ['vit a', 'retinol'] },
-    { name: 'Vitamin E', dose: '400 IU', window: 'lunch', note: 'Fat-soluble — with fat', icon: '💊', aliases: ['vit e', 'tocopherol'] },
-    { name: 'Folate', dose: '400–800mcg', window: 'morning', note: 'Methylfolate preferred', icon: '💊', aliases: ['folic acid', 'b9', 'methylfolate'] },
-    { name: 'Biotin', dose: '30mcg–5mg', window: 'anytime', note: 'Hair, skin, nails', icon: '💅', aliases: ['biotin', 'b7'] },
-    { name: 'Multivitamin', dose: '1 serving', window: 'lunch', note: 'Take with food', icon: '💊', aliases: ['multi', 'multivitamin'] },
-    { name: 'Magnesium glycinate', dose: '200–400mg', window: 'evening', note: '30–60 min before bed — sleep helper', icon: '🌙', aliases: ['magnesium', 'mag glycinate', 'bisglycinate'] },
-    { name: 'Magnesium L-threonate', dose: '144mg elemental', window: 'evening', note: 'Cognitive variant — crosses BBB', icon: '🧠', aliases: ['magtein', 'threonate'] },
-    { name: 'Magnesium citrate', dose: '200–400mg', window: 'evening', note: 'Also supports digestion', icon: '🌙', aliases: ['mag citrate'] },
-    { name: 'Zinc', dose: '15–30mg', window: 'evening', note: 'With food — not with calcium or iron', icon: '💊', aliases: ['zinc'] },
-    { name: 'Iron', dose: '18–65mg', window: 'morning', note: 'Empty stomach with vit C', icon: '💊', aliases: ['iron'] },
-    { name: 'Calcium', dose: '500mg', window: 'evening', note: 'With food — not with iron', icon: '🦴', aliases: ['calcium'] },
-    { name: 'Selenium', dose: '100–200mcg', window: 'anytime', note: 'Thyroid + antioxidant', icon: '💊', aliases: ['selenium'] },
-    { name: 'Iodine', dose: '150mcg', window: 'morning', note: 'Thyroid support', icon: '💊', aliases: ['iodine'] },
-    { name: 'Omega-3 (Fish oil)', dose: '2–3g EPA+DHA', window: 'lunch', note: 'With biggest fatty meal', icon: '🐟', aliases: ['omega 3', 'omega3', 'fish oil', 'epa', 'dha'] },
-    { name: 'Krill oil', dose: '500–1000mg', window: 'lunch', note: 'More absorbable than fish oil', icon: '🐟', aliases: ['krill'] },
-    { name: 'MCT oil', dose: '1–2 tbsp', window: 'morning', note: 'Fast energy — start low', icon: '🥥', aliases: ['mct'] },
-    { name: 'Flaxseed oil', dose: '1–2g', window: 'lunch', note: 'Plant omega-3 — with food', icon: '🌱', aliases: ['flax', 'flaxseed'] },
-    { name: 'L-theanine', dose: '100–200mg', window: 'morning', note: 'Stacks with caffeine 2:1', icon: '🧠', aliases: ['theanine'] },
-    { name: 'Caffeine', dose: '100–200mg', window: 'morning', note: 'Stack with L-theanine for cleaner focus', icon: '☕', aliases: ['caffeine'] },
-    { name: 'Rhodiola rosea', dose: '200–400mg', window: 'morning', note: 'Adaptogen — energy and stress', icon: '🌿', aliases: ['rhodiola'] },
-    { name: 'Lion\'s mane', dose: '500–1000mg', window: 'morning', note: 'Cognitive support — daily', icon: '🍄', aliases: ['lions mane', 'hericium'] },
-    { name: 'Bacopa monnieri', dose: '300–600mg', window: 'morning', note: 'With fat — long-term memory', icon: '🌿', aliases: ['bacopa'] },
-    { name: 'Ginkgo biloba', dose: '120–240mg', window: 'morning', note: 'Circulation and cognition', icon: '🌿', aliases: ['ginkgo'] },
-    { name: 'Alpha-GPC', dose: '300–600mg', window: 'morning', note: 'Choline — focus and learning', icon: '🧠', aliases: ['alpha gpc'] },
-    { name: 'Phosphatidylserine', dose: '100–300mg', window: 'evening', note: 'Cortisol regulation', icon: '🧠', aliases: ['ps'] },
-    { name: 'NAC', dose: '600–1800mg', window: 'morning', note: 'Glutathione precursor — split doses', icon: '💊', aliases: ['nac', 'n-acetyl cysteine'] },
-    { name: 'Melatonin', dose: '0.3–3mg', window: 'evening', note: '30–60 min before bed — start low', icon: '🌙', aliases: ['melatonin'] },
-    { name: 'Glycine', dose: '3g', window: 'evening', note: 'Body temp drop = better sleep onset', icon: '🌙', aliases: ['glycine'] },
-    { name: 'Apigenin', dose: '50mg', window: 'evening', note: 'From chamomile — before bed', icon: '🌙', aliases: ['apigenin'] },
-    { name: 'Ashwagandha', dose: '300–600mg', window: 'evening', note: 'KSM-66 form — stress and cortisol', icon: '🌿', aliases: ['ashwagandha', 'ksm-66'] },
-    { name: 'L-tryptophan', dose: '500mg–1g', window: 'evening', note: 'Serotonin precursor — sleep onset', icon: '🌙', aliases: ['tryptophan'] },
-    { name: 'GABA', dose: '500–750mg', window: 'evening', note: 'Calming — before bed', icon: '🌙', aliases: ['gaba'] },
-    { name: 'Valerian root', dose: '300–600mg', window: 'evening', note: 'Sleep onset support', icon: '🌙', aliases: ['valerian'] },
-    { name: 'Probiotics', dose: '10–50 billion CFU', window: 'morning', note: 'Empty stomach or with food', icon: '🦠', aliases: ['probiotic'] },
-    { name: 'Quercetin', dose: '500–1000mg', window: 'anytime', note: 'Pairs well with vitamin C', icon: '🌿', aliases: ['quercetin'] },
-    { name: 'Curcumin', dose: '500–1000mg', window: 'lunch', note: 'With black pepper + fat', icon: '🌿', aliases: ['curcumin', 'turmeric'] },
-    { name: 'Resveratrol', dose: '250–500mg', window: 'morning', note: 'With fat for absorption', icon: '🍇', aliases: ['resveratrol'] },
-    { name: 'CoQ10 / Ubiquinol', dose: '100–200mg', window: 'lunch', note: 'Fat-soluble — with biggest meal', icon: '💊', aliases: ['coq10', 'ubiquinol'] },
-    { name: 'Alpha lipoic acid', dose: '300–600mg', window: 'morning', note: 'Empty stomach for absorption', icon: '💊', aliases: ['ala', 'alpha lipoic'] },
-    { name: 'Glutathione', dose: '250–1000mg', window: 'morning', note: 'Liposomal form for absorption', icon: '💊', aliases: ['glutathione'] },
-    { name: 'Astaxanthin', dose: '4–12mg', window: 'lunch', note: 'Fat-soluble — with fatty meal', icon: '💊', aliases: ['astaxanthin'] },
-    { name: 'Berberine', dose: '500mg', window: 'lunch', note: 'Before meals — glucose support', icon: '💊', aliases: ['berberine'] },
-    { name: 'Milk thistle', dose: '200–400mg', window: 'anytime', note: 'Silymarin — liver support', icon: '🌿', aliases: ['milk thistle', 'silymarin'] },
-    { name: 'Spirulina', dose: '3–5g', window: 'morning', note: 'Algae — protein and antioxidants', icon: '🌱', aliases: ['spirulina'] },
-    { name: 'Chlorella', dose: '2–4g', window: 'morning', note: 'Algae — detox support', icon: '🌱', aliases: ['chlorella'] },
-    { name: 'Tongkat ali', dose: '200–400mg', window: 'morning', note: 'Cycle 8 weeks on/off', icon: '🌿', aliases: ['tongkat', 'longjack'] },
-    { name: 'Fadogia agrestis', dose: '600mg', window: 'morning', note: 'Cycle 8 weeks on/off', icon: '🌿', aliases: ['fadogia'] },
-    { name: 'DHEA', dose: '25–50mg', window: 'morning', note: 'Hormonal — consult doctor', icon: '💊', aliases: ['dhea'] },
-    { name: 'Pregnenolone', dose: '10–50mg', window: 'morning', note: 'Hormonal — consult doctor', icon: '💊', aliases: ['pregnenolone'] },
-    { name: 'Tribulus terrestris', dose: '250–750mg', window: 'morning', note: 'Libido and energy', icon: '🌿', aliases: ['tribulus'] },
-    { name: 'Maca root', dose: '1.5–3g', window: 'morning', note: 'Adaptogen — energy and libido', icon: '🌿', aliases: ['maca'] },
-    { name: 'Collagen peptides', dose: '10–20g', window: 'anytime', note: 'With vitamin C for synthesis', icon: '💅', aliases: ['collagen'] },
-    { name: 'Glucosamine', dose: '1500mg', window: 'lunch', note: 'With food', icon: '🦴', aliases: ['glucosamine'] },
-    { name: 'Chondroitin', dose: '1200mg', window: 'lunch', note: 'Often paired with glucosamine', icon: '🦴', aliases: ['chondroitin'] },
-    { name: 'MSM', dose: '1–3g', window: 'anytime', note: 'Joint support', icon: '🦴', aliases: ['msm'] },
-    { name: 'Hyaluronic acid', dose: '120–200mg', window: 'anytime', note: 'Skin and joint hydration', icon: '💅', aliases: ['hyaluronic', 'ha'] },
-    { name: 'Cordyceps', dose: '1–3g', window: 'morning', note: 'Energy and endurance', icon: '🍄', aliases: ['cordyceps'] },
-    { name: 'Reishi', dose: '1–2g', window: 'evening', note: 'Calming adaptogen', icon: '🍄', aliases: ['reishi', 'ganoderma'] },
-    { name: 'Chaga', dose: '1–2g', window: 'morning', note: 'Antioxidant and immune', icon: '🍄', aliases: ['chaga'] },
-  ];
-
-  let todayKey = `stack:taken:${getActiveDate()}`;
-
-  function getItems() {
-    const storedVersion = storeGet('stack:version');
-    const stored = storeGet('stack:items');
-    // An empty list is a valid choice — only seed the template on first run
-    // (deleting every supplement used to bring the placeholders back).
-    if (!stored || !Array.isArray(stored) || storedVersion !== TEMPLATE_VERSION) {
-      const fresh = JSON.parse(JSON.stringify(STACK_DEFAULTS));
-      storeSet('stack:items', fresh);
-      storeSet('stack:version', TEMPLATE_VERSION);
-      return fresh;
+  // ---------- curve chart ----------
+  function domain() { return [Math.max(0, Math.floor(ctx.wakeHour) - 1), Math.min(30, Math.ceil(ctx.bedHour) + 1)]; }
+  function renderChart() {
+    const wrap = $('chartWrap'), svg = $('chart');
+    const W = Math.max(280, wrap.clientWidth), H = 180, pl = 30, pr = 8, pt = 10, pb = 24;
+    const [a, b] = domain();
+    const x = (t) => pl + (t - a) / (b - a) * (W - pl - pr);
+    const y = (v) => pt + (1 - v / 100) * (H - pt - pb);
+    const pts = [], base = [];
+    for (let t = a; t <= b + 1e-9; t += 1 / 12) { pts.push([t, EM.energyAt(t, ctx, true)]); base.push([t, EM.energyAt(t, ctx, false)]); }
+    const path = (arr) => arr.map((p, i) => (i ? 'L' : 'M') + x(p[0]).toFixed(1) + ',' + y(p[1]).toFixed(1)).join('');
+    let g = '';
+    const sl = (from, to) => { if (to > from) g += '<rect x="' + x(from) + '" y="' + pt + '" width="' + (x(to) - x(from)) + '" height="' + (H - pt - pb) + '" fill="rgba(140,134,217,0.07)"/>'; };
+    sl(a, Math.min(b, ctx.wakeHour)); sl(Math.max(a, ctx.bedHour), b);
+    [25, 50, 75].forEach((v) => { g += '<line x1="' + pl + '" x2="' + (W - pr) + '" y1="' + y(v) + '" y2="' + y(v) + '" stroke="rgba(255,255,255,0.06)"/><text x="' + (pl - 6) + '" y="' + (y(v) + 3.5) + '" text-anchor="end" font-size="10" fill="#6B7C79">' + v + '</text>'; });
+    for (let t = Math.ceil(a / 3) * 3; t <= b; t += 3) {
+      const hh = ((t % 24) + 24) % 24; const lab = hh === 0 ? '12a' : hh === 12 ? '12p' : hh > 12 ? (hh - 12) + 'p' : hh + 'a';
+      g += '<text x="' + x(t) + '" y="' + (H - 6) + '" text-anchor="middle" font-size="10" fill="#6B7C79">' + lab + '</text>';
     }
-    return stored;
-  }
-  function setItems(items) { storeSet('stack:items', items); }
-  function getTaken() { return storeGet(todayKey) || {}; }
-  function setTaken(map) { storeSet(todayKey, map); }
-  function getLow() { return storeGet('stack:low') || []; }
-  function setLow(arr) { storeSet('stack:low', arr); }
-
-  function toggleTaken(id) {
-    const taken = getTaken();
-    if (taken[id]) delete taken[id]; else taken[id] = Date.now();
-    setTaken(taken); render();
-  }
-  function toggleLow(id) {
-    const low = getLow();
-    if (low.includes(id)) setLow(low.filter(x => x !== id));
-    else { low.push(id); setLow(low); }
-    render();
-  }
-  function deleteItem(id) {
-    setItems(getItems().filter(i => i.id !== id));
-    const taken = getTaken();
-    delete taken[id];
-    setTaken(taken);
-    setLow(getLow().filter(x => x !== id));
-    render();
-  }
-  function addItem(name, dose, windowKey, note = '') {
-    const v = String(name || '').trim();
-    if (!v) return;
-    const items = getItems();
-    const id = 'custom_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
-    items.push({
-      id, name: v,
-      dose: String(dose || '').trim(),
-      window: ['morning','lunch','evening','anytime'].includes(windowKey) ? windowKey : 'anytime',
-      note: String(note || '').trim(),
-      tag: null, ordered: true
-    });
-    setItems(items);
-    render();
-  }
-  function updateItem(id, field, value) {
-    const items = getItems();
-    const item = items.find(i => i.id === id);
-    if (!item) return;
-    item[field] = value;
-    setItems(items);
-  }
-
-  function render() {
-    const items = getItems();
-    const taken = getTaken();
-    const low = getLow();
-    const totalCount = items.length;
-    const takenCount = items.filter(i => taken[i.id]).length;
-    document.getElementById('stackProgressText').textContent =
-      `${takenCount} / ${totalCount} taken today · resets at 6 AM`;
-    const pct = totalCount === 0 ? 0 : (takenCount / totalCount) * 100;
-    document.getElementById('stackProgressBar').style.width = pct + '%';
-
-    const groupsEl = document.getElementById('stackGroups');
-    groupsEl.innerHTML = '';
-
-    const now = new Date();
-    const nowHour = now.getHours() + (now.getMinutes() / 60);
-
-    STACK_WINDOWS.forEach(win => {
-      const winItems = items.filter(i => (i.window || 'anytime') === win.key);
-      if (winItems.length === 0) return;
-
-      const group = document.createElement('div');
-      group.className = 'stack-window';
-      group.innerHTML = `
-        <div class="stack-window-header">
-          <span class="stack-window-icon">${win.icon}</span>
-          <span class="stack-window-title">${win.title}</span>
-          <span class="stack-window-time">${win.time}</span>
-        </div>`;
-
-      const isPastCutoff = win.cutoffHour !== null && nowHour > win.cutoffHour;
-
-      winItems.forEach(item => {
-        const isTaken = !!taken[item.id];
-        const isLow = low.includes(item.id);
-        const isMissed = !isTaken && isPastCutoff;
-
-        const row = document.createElement('div');
-        row.className = 'stack-item' + (isTaken ? ' taken' : '') + (isMissed ? ' missed' : '');
-
-        let tagHtml = '';
-        if (item.tag === 'stack') tagHtml = '<span class="stack-item-tag tag-stack">stack</span>';
-        else if (item.tag === 'not-ordered') tagHtml = '<span class="stack-item-tag tag-not-ordered">not ordered</span>';
-
-        row.innerHTML = `
-          <button class="stack-check ${isTaken ? 'checked' : ''}" data-action="toggle" data-id="${item.id}" aria-label="Mark taken">${isTaken ? '✓' : ''}</button>
-          <div class="stack-item-body">
-            <div class="stack-item-name" data-edit="name" data-id="${item.id}">
-              <span class="stack-item-name-text">${escapeHtml(item.name)}</span>${tagHtml}
-            </div>
-            <div class="stack-item-meta" data-edit="meta" data-id="${item.id}">${escapeHtml(metaText(item))}</div>
-          </div>
-          <button class="stack-low-btn ${isLow ? 'is-low' : ''}" data-action="low" data-id="${item.id}">↓ Running low</button>
-          <button class="stack-item-del" data-action="del" data-id="${item.id}" aria-label="Delete">×</button>`;
-
-        group.appendChild(row);
-      });
-
-      groupsEl.appendChild(group);
-    });
-
-    if (groupsEl.children.length === 0) {
-      groupsEl.innerHTML = `<div class="stack-window-empty">No items yet — add one below to start your stack.</div>`;
+    g += '<defs><linearGradient id="fillG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="' + LINE + '" stop-opacity="0.35"/><stop offset="1" stop-color="' + LINE + '" stop-opacity="0"/></linearGradient></defs>';
+    g += '<path d="' + path(pts) + 'L' + x(b) + ',' + y(0) + 'L' + x(a) + ',' + y(0) + 'Z" fill="url(#fillG)"/>';
+    g += '<path d="' + path(base) + '" fill="none" stroke="' + BASE + '" stroke-width="2" stroke-dasharray="4 4" stroke-linejoin="round"/>';
+    g += '<path d="' + path(pts) + '" fill="none" stroke="' + LINE + '" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>';
+    const h = hourNow(), hn = h < a ? h + 24 : h;
+    if (hn >= a && hn <= b) {
+      const v = EM.energyAt(hn, ctx, true);
+      g += '<line x1="' + x(hn) + '" x2="' + x(hn) + '" y1="' + pt + '" y2="' + (H - pb) + '" stroke="rgba(255,255,255,0.25)" stroke-dasharray="2 3"/>';
+      g += '<circle cx="' + x(hn) + '" cy="' + y(v) + '" r="5" fill="' + LINE + '" stroke="#0B1517" stroke-width="2"/>';
+      g += '<text x="' + x(hn) + '" y="' + (pt + 9) + '" text-anchor="middle" font-size="10" font-weight="700" fill="#F2F7F6">now</text>';
     }
+    g += '<line id="xh" y1="' + pt + '" y2="' + (H - pb) + '" stroke="rgba(255,255,255,0.35)" visibility="hidden"/><circle id="xd" r="5" fill="' + LINE + '" stroke="#0B1517" stroke-width="2" visibility="hidden"/>';
+    g += '<rect x="' + pl + '" y="0" width="' + (W - pl - pr) + '" height="' + H + '" fill="transparent" id="hit"/>';
+    svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H); svg.setAttribute('height', H);
+    svg.innerHTML = g;
+    $('curveRange').textContent = clock(a) + ' – ' + clock(b);
 
-    // Sync ticker after every render
-    renderTicker();
-  }
-
-  // ====== TICKER ======
-  let tickerIndex = 0;
-  let tickerInterval = null;
-  let cachedIssues = [];
-
-  function getStackIssues() {
-    const items = getItems();
-    const taken = getTaken();
-    const low = getLow();
-    const now = new Date();
-    const nowHour = now.getHours() + (now.getMinutes() / 60);
-
-    const missed = [];
-    const lowList = [];
-
-    items.forEach(item => {
-      const win = STACK_WINDOWS.find(w => w.key === (item.window || 'anytime'));
-      const isPastCutoff = win && win.cutoffHour !== null && nowHour > win.cutoffHour;
-      const isTaken = !!taken[item.id];
-      if (isPastCutoff && !isTaken) {
-        missed.push({
-          type: 'missed',
-          text: `${item.name} — missed ${win.title.toLowerCase()} dose`
-        });
-      }
-      if (low.includes(item.id)) {
-        lowList.push({
-          type: 'low',
-          text: `${item.name} — running low, reorder soon`
-        });
-      }
-    });
-
-    return [...missed, ...lowList];
-  }
-
-  function renderTicker() {
-    const issues = getStackIssues();
-    const tickerEl = document.getElementById('stackTicker');
-    const msgEl = document.getElementById('stackTickerMsg');
-    const countEl = document.getElementById('stackTickerCount');
-    const totalItems = getItems().length;
-
-    cachedIssues = issues;
-
-    if (issues.length === 0) {
-      msgEl.textContent = 'All caught up — keep it rolling';
-      tickerEl.classList.remove('status-low', 'status-missed');
-      countEl.textContent = `0/${totalItems}`;
-      tickerIndex = 0;
-      return;
+    const tip = $('tip');
+    function move(ev) {
+      const r = svg.getBoundingClientRect();
+      const px = (ev.touches ? ev.touches[0].clientX : ev.clientX) - r.left;
+      const t = Math.max(a, Math.min(b, a + (px * (W / r.width) - pl) / (W - pl - pr) * (b - a)));
+      const v = EM.energyAt(t, ctx, true), v0 = EM.energyAt(t, ctx, false);
+      $('xh').setAttribute('x1', x(t)); $('xh').setAttribute('x2', x(t)); $('xh').setAttribute('visibility', 'visible');
+      $('xd').setAttribute('cx', x(t)); $('xd').setAttribute('cy', y(v)); $('xd').setAttribute('visibility', 'visible');
+      const asleep = t < ctx.wakeHour || t >= ctx.bedHour;
+      tip.innerHTML = '<b>' + clock(t) + ' · ' + Math.round(v) + '%</b><small>' + (asleep ? 'asleep' : EM.stateWord(v)) + (v - v0 >= 1 ? ' · +' + Math.round(v - v0) + ' from caffeine' : '') + '</small>';
+      const left = x(t) / W * r.width;
+      tip.style.left = Math.max(0, Math.min(r.width - tip.offsetWidth, left - tip.offsetWidth / 2)) + 'px';
+      tip.classList.add('show');
     }
-
-    const hasMissed = issues.some(i => i.type === 'missed');
-    tickerEl.classList.remove('status-low', 'status-missed');
-    tickerEl.classList.add(hasMissed ? 'status-missed' : 'status-low');
-
-    if (tickerIndex >= issues.length) tickerIndex = 0;
-    msgEl.textContent = issues[tickerIndex].text;
-    countEl.textContent = `${issues.length}/${totalItems}`;
+    function leave() { tip.classList.remove('show'); $('xh').setAttribute('visibility', 'hidden'); $('xd').setAttribute('visibility', 'hidden'); }
+    const hit = $('hit');
+    hit.addEventListener('pointermove', move); hit.addEventListener('pointerdown', move);
+    hit.addEventListener('pointerleave', leave); hit.addEventListener('pointerup', (e) => { if (e.pointerType !== 'mouse') setTimeout(leave, 1500); });
   }
 
-  function cycleTicker() {
-    if (cachedIssues.length <= 1) {
-      renderTicker();
-      return;
+  // ---------- windows & advice (under the curve) ----------
+  function segments(from, to, test) {
+    const out = []; let cur = null;
+    for (let t = from; t <= to; t += 1 / 6) {
+      const v = EM.energyAt(t, ctx, true);
+      if (test(v)) { if (!cur) cur = { s: t, e: t, sum: 0, n: 0 }; cur.e = t; cur.sum += v; cur.n++; }
+      else if (cur) { out.push(cur); cur = null; }
     }
-    const msgEl = document.getElementById('stackTickerMsg');
-    msgEl.classList.add('is-fading');
-    setTimeout(() => {
-      tickerIndex++;
-      renderTicker();
-      msgEl.classList.remove('is-fading');
-    }, 280);
+    if (cur) out.push(cur);
+    return out.filter((s) => s.e - s.s >= 0.5).map((s) => Object.assign(s, { avg: s.sum / s.n }));
+  }
+  function renderWindows() {
+    const h = hourNow();
+    const from = Math.max(h, ctx.wakeHour), to = ctx.bedHour;
+    const html = [];
+    const peaks = segments(from, to, (v) => v >= 62).sort((p, q) => q.avg - p.avg).slice(0, 2).sort((p, q) => p.s - q.s);
+    peaks.forEach((p) => html.push(row(STATUS.good, 'bolt', 'Peak focus · ' + clock(p.s) + ' – ' + clock(p.e), 'Deep work, hard training', Math.round(p.avg) + '%', STATUS.good)));
+    const dips = segments(from, to, (v) => v < 44).slice(0, 2);
+    dips.forEach((d) => html.push(row(STATUS.low, 'moon', 'Dip · ' + clock(d.s) + ' – ' + clock(d.e), 'Admin, errands, a walk', Math.round(d.avg) + '%', STATUS.low)));
+    if (!peaks.length && from < to) html.unshift(row('#2A3A3D', 'bolt', 'No more peaks ahead today', 'Keep the rest of the day light', null));
+    const nap = EM.predictNap(ctx);
+    if (nap) html.push(row('#8C86D9', 'moon', 'Power nap · ' + clock(nap.start) + ' – ' + clock(nap.end), nap.reason, null));
+    const cutoff = ctx.bedHour - 8;
+    html.push(row('#5AB8F5', 'clock', h >= cutoff ? 'Past your caffeine cutoff' : 'Caffeine cutoff ' + clock(cutoff),
+      'Wind down ' + clock(ctx.bedHour - 1) + ' · bed ' + clock(ctx.bedHour) + (ctx.syncDate ? '' : ' (default)'), null));
+    $('windows').innerHTML = html.join('');
   }
 
-  function startTicker() {
-    if (tickerInterval) clearInterval(tickerInterval);
-    tickerInterval = setInterval(cycleTicker, 5000);
+  // ---------- your day vs energy ----------
+  async function renderDayFit(opts) {
+    const k = D.dateKey();
+    let items = [];
+    try { items = (await EFI.data.calendar.range(k, k, opts)).items.filter((x) => !x.allDay && x.start && x.dateKey === k); } catch (e) {}
+    const h = hourNow();
+    const upcoming = items.filter((x) => D.timeToMin(x.end || x.start) / 60 > h);
+    if (!upcoming.length) { $('dayFit').innerHTML = '<div class="empty">Nothing timed left today — E.F.I. can slot your tasks into your best windows.</div>'; return; }
+    $('dayFit').innerHTML = upcoming.map((x) => {
+      const s = D.timeToMin(x.start) / 60, e = D.timeToMin(x.end || x.start) / 60;
+      const v = Math.round(EM.energyAt((s + Math.max(s, e)) / 2, ctx, true));
+      const lv = level(v);
+      const meta = D.fmtTime(x.start) + ' – ' + D.fmtTime(x.end) + (lv.w === 'Low' && (x.source === 'task' || x.source === 'block') ? ' · consider moving demanding work' : '');
+      return row(x.color, x.icon, x.title, meta, lv.w + ' ' + v + '%', lv.c);
+    }).join('');
   }
-
-  function metaText(item) {
-    const parts = [];
-    if (item.dose) parts.push(item.dose);
-    if (item.note) parts.push(item.note);
-    return parts.join(' · ');
-  }
-  function escapeHtml(str) {
-    return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  }
-
-  document.getElementById('stackGroups').addEventListener('click', (e) => {
-    const btn = e.target.closest('[data-action]');
-    if (!btn) return;
-    e.stopPropagation();
-    const id = btn.dataset.id;
-    if (btn.dataset.action === 'toggle') toggleTaken(id);
-    else if (btn.dataset.action === 'low') toggleLow(id);
-    else if (btn.dataset.action === 'del') deleteItem(id);
-  });
-  document.getElementById('stackGroups').addEventListener('pointerdown', (e) => {
-    const btn = e.target.closest('[data-action="del"]');
-    if (!btn) return;
-    e.preventDefault(); e.stopPropagation();
-    deleteItem(btn.dataset.id);
-  });
-  document.getElementById('stackGroups').addEventListener('click', (e) => {
-    const editEl = e.target.closest('[data-edit]');
-    if (!editEl) return;
-    if (e.target.closest('[data-action]')) return;
-    if (editEl.getAttribute('contenteditable') === 'true') return;
-    startEdit(editEl);
+  $('planBtn').addEventListener('click', (e) => {
+    e.preventDefault();
+    location.href = 'index.html?q=' + encodeURIComponent('Plan the rest of my day around my energy curve: put demanding tasks in my peak windows, light tasks and errands in dips, respect my calendar, and time-block my open tasks.');
   });
 
-  function startEdit(el) {
-    const id = el.dataset.id;
-    const field = el.dataset.edit;
-    if (field === 'name') {
-      const textSpan = el.querySelector('.stack-item-name-text');
-      if (!textSpan) return;
-      textSpan.setAttribute('contenteditable', 'true');
-      textSpan.style.outline = '1px solid rgba(255,255,255,0.25)';
-      textSpan.style.outlineOffset = '4px';
-      textSpan.style.borderRadius = '4px';
-      textSpan.focus();
-      placeCaretAtEnd(textSpan);
-      const finish = (commit) => {
-        textSpan.removeAttribute('contenteditable');
-        textSpan.style.outline = ''; textSpan.style.outlineOffset = '';
-        if (commit) {
-          const newVal = textSpan.textContent.trim();
-          if (newVal) updateItem(id, 'name', newVal); else render();
-        } else render();
-      };
-      textSpan.addEventListener('blur', () => finish(true), { once: true });
-      textSpan.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') { e.preventDefault(); textSpan.blur(); }
-        if (e.key === 'Escape') { textSpan.blur(); render(); }
-      });
-    }
-    if (field === 'meta') {
-      el.setAttribute('contenteditable', 'true');
-      el.focus(); placeCaretAtEnd(el);
-      const finish = (commit) => {
-        el.removeAttribute('contenteditable');
-        if (commit) {
-          const text = el.textContent.trim();
-          const parts = text.split(/\s*·\s*/);
-          updateItem(id, 'dose', parts[0] || '');
-          updateItem(id, 'note', parts.slice(1).join(' · '));
-        }
-        render();
-      };
-      el.addEventListener('blur', () => finish(true), { once: true });
-      el.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') { e.preventDefault(); el.blur(); }
-        if (e.key === 'Escape') { el.blur(); render(); }
-      });
-    }
+  // ---------- sleep ----------
+  function renderSleep() {
+    const L = latest(), s = L && L.sleep;
+    if (!s || s.asleepMin == null) { $('sleepBody').innerHTML = '<div class="empty">No sleep data yet.</div>'; $('sleepGoal').textContent = ''; renderHistory(); return; }
+    const m = Math.round(s.asleepMin), pct = sleepPct();
+    const col = pct >= 85 ? STATUS.good : pct >= 70 ? STATUS.warn : STATUS.low;
+    const word = pct >= 85 ? 'Well rested' : pct >= 70 ? 'Could use more' : 'Short on sleep';
+    const bed = hm(EM.parseHealthDate(s.sleepStart)), wake = hm(EM.parseHealthDate(s.sleepEnd));
+    const stages = [['Deep', s.deepMin, '#5AB8F5'], ['REM', s.remMin, '#8C86D9'], ['Core', s.coreMin, '#1FA476'], ['Awake', s.awakeMin, '#6B7C79']].filter((x) => x[1] > 0);
+    const total = stages.reduce((a, x) => a + x[1], 0) || 1;
+    $('sleepBody').innerHTML =
+      '<div class="sleep-top"><div><div class="sleep-big">' + Math.floor(m / 60) + '<small>h</small>' + (m % 60) + '<small>m</small></div>' +
+      '<div class="sleep-meta">' + (bed && wake ? 'In bed ' + bed + ' → up ' + wake : 'asleep last night') + '</div></div>' +
+      '<span class="pill" style="color:' + col + ';background:' + col + '1f">' + word + ' · ' + pct + '%</span></div>' +
+      '<div class="goal" title="' + pct + '% of an 8 h goal"><i style="width:' + pct + '%;background:' + col + '"></i></div>' +
+      (stages.length ? '<div class="stages">' + stages.map((x) => '<i style="width:' + (x[1] / total * 100) + '%;background:' + x[2] + '" title="' + x[0] + '"></i>').join('') + '</div>' +
+        '<div class="stage-leg">' + stages.map((x) => '<span><i style="background:' + x[2] + '"></i>' + x[0] + ' ' + fmtMin(x[1]) + '</span>').join('') + '</div>' : '');
+    $('sleepGoal').textContent = '8 h goal';
+    renderHistory();
   }
-
-  function placeCaretAtEnd(el) {
-    const range = document.createRange();
-    range.selectNodeContents(el);
-    range.collapse(false);
-    const sel = window.getSelection();
-    sel.removeAllRanges();
-    sel.addRange(range);
-  }
-
-  // ====== ADD FORM + SEARCH AUTOCOMPLETE ======
-  const nameInput = document.getElementById('stackAddName');
-  const doseInput = document.getElementById('stackAddDose');
-  const winSelect = document.getElementById('stackAddWindow');
-  const addBtn = document.getElementById('stackAddBtn');
-  const resultsEl = document.getElementById('stackSearchResults');
-
-  let pendingNote = ''; // hidden note auto-filled when a DB result is selected
-
-  function searchSupplements(q) {
-    const query = q.toLowerCase().trim();
-    if (!query) return [];
-    const starts = [];
-    const contains = [];
-    SUPPLEMENT_DB.forEach(s => {
-      const nameLC = s.name.toLowerCase();
-      const aliases = (s.aliases || []).map(a => a.toLowerCase());
-      const allNames = [nameLC, ...aliases];
-      if (allNames.some(n => n.startsWith(query))) starts.push(s);
-      else if (allNames.some(n => n.includes(query))) contains.push(s);
+  function renderHistory() {
+    const hist = ((health && health.history) || []).filter((h) => h.sleepMin != null).slice(-7);
+    if (hist.length < 2) { $('sleepHist').hidden = true; return; }
+    $('sleepHist').hidden = false;
+    const wrap = $('histWrap'), svg = $('hist');
+    const W = Math.max(260, wrap.clientWidth), H = 110, pl = 22, pb = 20, pt = 10;
+    const max = Math.max(9, ...hist.map((h) => h.sleepMin / 60));
+    const bw = (W - pl) / hist.length;
+    let g = '';
+    [4, 8].forEach((v) => { const yy = pt + (1 - v / max) * (H - pt - pb); g += '<line x1="' + pl + '" x2="' + W + '" y1="' + yy + '" y2="' + yy + '" stroke="rgba(255,255,255,0.06)"/><text x="' + (pl - 5) + '" y="' + (yy + 3.5) + '" text-anchor="end" font-size="10" fill="#6B7C79">' + v + 'h</text>'; });
+    hist.forEach((h, i) => {
+      const hrs = h.sleepMin / 60, bh = hrs / max * (H - pt - pb), x0 = pl + i * bw + 2, w = Math.max(6, bw - 4 - 2);
+      const y0 = H - pb - bh, r = Math.min(4, w / 2, bh);
+      // 4px rounded top, square base anchored to the baseline
+      g += '<path data-i="' + i + '" d="M' + x0 + ',' + (H - pb) + 'V' + (y0 + r) + 'Q' + x0 + ',' + y0 + ' ' + (x0 + r) + ',' + y0 + 'H' + (x0 + w - r) + 'Q' + (x0 + w) + ',' + y0 + ' ' + (x0 + w) + ',' + (y0 + r) + 'V' + (H - pb) + 'Z" fill="' + LINE + '"/>';
+      g += '<text x="' + (x0 + w / 2) + '" y="' + (H - 5) + '" text-anchor="middle" font-size="10" fill="#6B7C79">' + D.parseKey(h.date).toLocaleDateString('en-GB', { weekday: 'narrow' }) + '</text>';
+      g += '<rect data-i="' + i + '" x="' + (pl + i * bw) + '" y="0" width="' + bw + '" height="' + H + '" fill="transparent"/>';
     });
-    return [...starts, ...contains].slice(0, 6);
+    svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H); svg.setAttribute('height', H);
+    svg.innerHTML = g;
+    const tip = $('histTip');
+    svg.onpointermove = svg.onpointerdown = (e) => {
+      const el = e.target.closest('[data-i]'); if (!el) return;
+      const h = hist[+el.dataset.i]; const r = svg.getBoundingClientRect();
+      tip.innerHTML = '<b>' + (h.sleepMin / 60).toFixed(1) + ' h</b><small>' + D.parseKey(h.date).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }) + (h.hrv ? ' · HRV ' + h.hrv : '') + '</small>';
+      const cx = (pl + (+el.dataset.i + 0.5) * bw) / W * r.width;
+      tip.style.left = Math.max(0, Math.min(r.width - tip.offsetWidth, cx - tip.offsetWidth / 2)) + 'px';
+      tip.classList.add('show');
+    };
+    svg.onpointerleave = () => tip.classList.remove('show');
   }
 
-  function renderSearchResults(q) {
-    const matches = searchSupplements(q);
-    if (!q.trim() || matches.length === 0) {
-      resultsEl.hidden = true;
-      resultsEl.innerHTML = '';
-      return;
-    }
-    resultsEl.hidden = false;
-    resultsEl.innerHTML = matches.map(s => {
-      const winMeta = STACK_WINDOWS.find(w => w.key === s.window) || STACK_WINDOWS[3];
-      return `
-        <button class="stack-result" data-name="${escapeHtml(s.name)}" data-dose="${escapeHtml(s.dose)}" data-window="${s.window}" data-note="${escapeHtml(s.note)}">
-          <div class="stack-result-icon">${s.icon || '💊'}</div>
-          <div class="stack-result-body">
-            <div class="stack-result-name">${escapeHtml(s.name)}</div>
-            <div class="stack-result-meta">${escapeHtml(s.dose)} · ${winMeta.icon} ${winMeta.title.toLowerCase()} · ${escapeHtml(s.note)}</div>
-          </div>
-        </button>`;
+  // ---------- body / vitals ----------
+  // Each tile carries its own status word, so no separate colour legend.
+  const Z = { good: ['Good', STATUS.good], norm: ['Normal', '#A7B6B3'], warn: ['Watch', STATUS.warn], bad: ['Low', STATUS.low] };
+  const VITALS = [
+    { k: 'hrv', label: 'HRV', unit: 'ms', fmt: Math.round, zone: (v) => v >= 60 ? 'good' : v >= 40 ? 'norm' : 'warn' },
+    { k: 'rhr', label: 'Resting HR', unit: 'bpm', fmt: Math.round, zone: (v) => v <= 55 ? 'good' : v <= 70 ? 'norm' : 'warn' },
+    { k: 'steps', label: 'Steps', unit: '', fmt: (v) => Math.round(v).toLocaleString(), zone: (v) => v >= 8000 ? 'good' : null },
+    // exercise minutes ride along on the Active tile (keeps the grid an even 3×2)
+    { k: 'activeKcal', label: 'Active', unit: 'kcal', fmt: Math.round, zone: () => null, note: (L) => L.exerciseMin != null ? Math.round(L.exerciseMin) + ' min exercise' : null },
+    { k: 'spo2', label: 'Blood O₂', unit: '%', fmt: (v) => v.toFixed(1), zone: (v) => v >= 95 ? 'good' : v >= 92 ? 'norm' : v >= 88 ? 'warn' : 'bad' },
+    { k: 'resp', label: 'Resp rate', unit: '/min', fmt: (v) => v.toFixed(1), zone: (v) => v >= 12 && v <= 18 ? 'good' : v >= 10 && v <= 22 ? 'norm' : 'warn' },
+  ];
+  function renderVitals() {
+    const L = latest();
+    const tiles = L ? VITALS.filter((m) => L[m.k] != null && !isNaN(Number(L[m.k]))) : [];
+    $('bodyCard').hidden = !tiles.length;
+    $('vitals').innerHTML = tiles.map((m) => {
+      const v = Number(L[m.k]), zk = m.zone(v), z = zk && Z[zk], note = m.note && m.note(L);
+      return '<div class="stat"><b>' + m.fmt(v) + (m.unit ? '<small>' + m.unit + '</small>' : '') + '</b><span>' + m.label + '</span>' +
+        (z ? '<em style="color:' + z[1] + '">' + z[0] + '</em>' : note ? '<em style="color:var(--efi-text-3)">' + esc(note) + '</em>' : '') + '</div>';
     }).join('');
   }
 
-  nameInput.addEventListener('input', () => {
-    renderSearchResults(nameInput.value);
-    pendingNote = ''; // reset note if user is typing manually
-  });
-  nameInput.addEventListener('focus', () => {
-    if (nameInput.value.trim()) renderSearchResults(nameInput.value);
-  });
-
-  document.addEventListener('click', (e) => {
-    if (!e.target.closest('.stack-name-wrap')) resultsEl.hidden = true;
-  });
-
-  resultsEl.addEventListener('click', (e) => {
-    const btn = e.target.closest('.stack-result');
-    if (!btn) return;
-    nameInput.value = btn.dataset.name;
-    doseInput.value = btn.dataset.dose;
-    winSelect.value = btn.dataset.window;
-    pendingNote = btn.dataset.note;
-    resultsEl.hidden = true;
-    addBtn.focus();
-  });
-
-  addBtn.addEventListener('click', () => {
-    addItem(nameInput.value, doseInput.value, winSelect.value, pendingNote);
-    nameInput.value = '';
-    doseInput.value = '';
-    pendingNote = '';
-    resultsEl.hidden = true;
-    nameInput.focus();
-  });
-
-  [nameInput, doseInput].forEach(i => {
-    i.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        // If search dropdown is open with matches, pick the first one
-        if (!resultsEl.hidden && i === nameInput) {
-          const firstResult = resultsEl.querySelector('.stack-result');
-          if (firstResult) { e.preventDefault(); firstResult.click(); return; }
-        }
-        addBtn.click();
+  // ---------- caffeine ----------
+  function renderCaffeine() {
+    const caf = EFI.data.caffeine;
+    const logs = caf.logs();
+    const start = D.parseKey(D.dateKey()).getTime();
+    const today = logs.filter((l) => l.ts >= start);
+    $('cafToday').textContent = caf.todayTotal();
+    $('cafActive').textContent = caf.activeNow();
+    // when active caffeine falls under 50 mg
+    let clear = 'now';
+    if (caf.activeNow() >= 50) {
+      clear = '—';
+      for (let m = 10; m <= 24 * 60; m += 10) {
+        const t = Date.now() + m * 60000;
+        if (EM.totalActiveAt(logs, t) < 50) { clear = hm(new Date(t)).replace(' ', ''); break; }
       }
-      if (e.key === 'Escape') resultsEl.hidden = true;
-    });
-  });
-
-  setInterval(() => {
-    const newKey = `stack:taken:${getActiveDate()}`;
-    if (newKey !== todayKey) todayKey = newKey;
-    render();
-  }, 60 * 1000);
-
-  // One `stack:taken:<date>` record per day used to accumulate forever in the
-  // synced row (slower sync every month). Keep ~3 months of history. Called
-  // after the cloud pull (see bottom script) so the removal propagates
-  // instead of being restored by the pull.
-  window.__pruneStackTaken = function () {
-    const cutoff = new Date(Date.now() - 90 * 86400000).toISOString().slice(0, 10);
-    const old = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i);
-      if (k && k.indexOf('stack:taken:') === 0 && k.slice(12) < cutoff) old.push(k);
     }
-    old.forEach((k) => localStorage.removeItem(k));
-  };
+    $('cafClear').textContent = clear;
+    $('cafSource').textContent = today.some((l) => l.source === 'health') ? 'from Apple Health' : '';
+    $('cafList').innerHTML = today.slice().reverse().map((l) =>
+      row('#C9A36B', 'coffee', l.mg + ' mg', hm(new Date(l.ts)) + ' · ' + (l.source === 'health' ? 'Apple Health' : 'logged via E.F.I.'), Math.round(EM.activeAt(l.mg, l.ts, Date.now())) + ' mg left', null)
+    ).join('');
+  }
 
-  render();
-  startTicker();
-  // Cloud sync (and other tabs) signal changes via 'storage' — without this
-  // the stack only updated on reload, and a stale screen could overwrite
-  // a newer change from another device.
-  window.addEventListener('storage', () => {
-    todayKey = `stack:taken:${getActiveDate()}`;
-    render();
+  // ---------- boot ----------
+  async function refresh(opts, force) {
+    try { health = window.AppleHealth ? await window.AppleHealth.get(force) : null; } catch (e) { health = null; }
+    ctx = await EM.computeContext();
+    renderHeader(); renderHero(); renderChart(); renderWindows(); renderSleep(); renderVitals(); renderCaffeine();
+    renderDayFit(opts);
+  }
+  $('refreshBtn').addEventListener('click', async (e) => {
+    const btn = e.currentTarget; btn.classList.add('spin');
+    try { await refresh({ cachedOnly: true }, true); } finally { setTimeout(() => btn.classList.remove('spin'), 500); }
   });
+  let resizeT = null;
+  window.addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(() => { if (ctx) { renderChart(); renderHistory(); } }, 150); });
+  document.addEventListener('DOMContentLoaded', () => {
+    refresh({ cachedOnly: true }).then(() => refresh());
+    if (window.AppleHealth) window.AppleHealth.subscribe(() => refresh({ cachedOnly: true }));
+    // goals = planner blocks for "your day"; efi = caffeine logged through E.F.I.
+    if (window.CloudSync) ['goals', 'efi'].forEach((k) => window.CloudSync.init(k, { onApplied: () => refresh({ cachedOnly: true }) }));
+  });
+  setInterval(() => { if (!document.hidden && ctx) refresh({ cachedOnly: true }); }, 60 * 1000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && ctx) refresh(); });
 })();
 </script>
-
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-  const prune = function () { if (window.__pruneStackTaken) window.__pruneStackTaken(); };
-  if (!window.CloudSync) { prune(); return; }
-  const onApplied = function () { window.dispatchEvent(new Event('storage')); };
-  window.CloudSync.init('health', { onApplied }).then(prune);
-  window.CloudSync.init('efi', { onApplied }); // caffeine logged through E.F.I.
-});
-</script>
-
 </body>
 </html>

@@ -96,7 +96,7 @@ create policy "owner manage photos" on storage.objects
 (Only you can upload or delete photos. The buckets stay "public" so images load from their long
 random URLs without extra requests.)
 
-Rows used: `goals` (planner), `finance`, `health` (supplements), `mealprep`, `efi` (profile, notes,
+Rows used: `goals` (planner), `finance`, `mealprep`, `efi` (profile, notes,
 E.F.I. calendar events, manually logged caffeine, settings), `po-coach` (fitness), `apple_health`
 (written by the server). API keys and Google logins are **never** stored here.
 

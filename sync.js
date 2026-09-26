@@ -32,7 +32,6 @@
   const ROWS = {
     goals:    { syncedPrefixes: ['goals:', 'habits:', 'templates:', 'plan:'], syncedKeys: ['goal_streak_v1'] },
     finance:  { syncedPrefixes: ['nw:'], syncedKeys: ['subs', 'wishlist', 'incoming_orders'] },
-    health:   { syncedPrefixes: ['stack:taken:'], syncedKeys: ['stack:items', 'stack:version', 'stack:low'] },
     mealprep: { syncedPrefixes: ['mealprep:'], syncedKeys: [] },
     efi:      { syncedPrefixes: [], syncedKeys: ['profile:v1', 'efi:events', 'efi:notes', 'efi:caffeine', 'efi:settings'] },
   };

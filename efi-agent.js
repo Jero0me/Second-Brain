@@ -281,7 +281,7 @@
     open_page: {
       decl: { description: 'Open one of the dashboard modules after replying. "routines" = habits, shift templates and the time-block planner.', parameters: obj({ page: str('', { enum: ['calendar', 'energy', 'finance', 'health', 'fitness', 'mealprep', 'routines'] }) }, ['page']) },
       async run(a) {
-        const map = { calendar: 'calendar.html', energy: 'energy.html', finance: 'finance.html', health: 'health.html', fitness: 'gym.html', mealprep: 'mealprep.html', routines: 'main.html', planner: 'main.html' };
+        const map = { calendar: 'calendar.html', energy: 'health.html', finance: 'finance.html', health: 'health.html', fitness: 'gym.html', mealprep: 'mealprep.html', routines: 'main.html', planner: 'main.html' };
         return map[a.page] ? { ok: true, navigate: map[a.page] } : { ok: false };
       },
       silent: true,
@@ -364,10 +364,6 @@
       }
     } catch (e) {}
     ctx.health = health;
-
-    const stack = S.get('stack:items', []) || [];
-    const taken = S.get('stack:taken:' + today, {}) || {};
-    if (stack.length) ctx.supplements = { taken: stack.filter((i) => taken[i.id]).map((i) => i.name), pending: stack.filter((i) => !taken[i.id]).map((i) => i.name + ' (' + i.window + ')') };
 
     const week = S.get('mealprep:weekplan:current', null);
     if (week && Array.isArray(week.days)) {
