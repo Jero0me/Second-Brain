@@ -118,6 +118,14 @@ button, input, select, textarea { font-family: inherit; }
 .tl-now .tl-time { color: var(--efi-accent); font-weight: 800; padding-top: 0; }
 .tl-now .line { height: 2px; border-radius: 1px; background: linear-gradient(90deg, var(--efi-accent), transparent); position: relative; }
 .tl-now .line::before { content: ''; position: absolute; left: 20px; top: -4px; width: 10px; height: 10px; border-radius: 50%; background: var(--efi-accent); box-shadow: 0 0 10px var(--efi-glow); }
+/* "now" inside an ongoing block: laid over the pill at the current time */
+.tl-now.in { position: absolute; left: 0; right: 0; margin: 0; transform: translateY(-50%); z-index: 2; pointer-events: none; }
+.tl-now.in .tl-time { background: #05090A; border-radius: 6px; }
+.tl-now.in .line { max-width: 56px; background: var(--efi-accent); box-shadow: 0 0 8px var(--efi-glow); }
+.tl-now.in .line::before { left: 23px; box-shadow: 0 0 0 3px #05090A, 0 0 10px var(--efi-glow); }
+.tl-row.now-top > .tl-time { visibility: hidden; }
+.tl-end { position: absolute; left: 0; width: 64px; font-size: 11px; font-weight: 600; color: var(--efi-text-3); text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; pointer-events: none; }
+.tl-row.past .tl-end { opacity: 0.5; }
 .day-empty { margin-top: 24px; text-align: center; padding: 34px 20px; border-radius: 20px; border: 1px dashed var(--efi-border-strong); color: var(--efi-text-3); font-size: 13px; }
 .day-empty b { display: block; color: var(--efi-text); font-size: 15px; margin-bottom: 6px; }
 
@@ -329,6 +337,8 @@ textarea.inp { resize: vertical; min-height: 60px; }
     const dur = D.timeToMin(it.end) - D.timeToMin(it.start);
     return D.fmtTime(it.start) + ' – ' + D.fmtTime(it.end) + (dur > 0 ? ' (' + D.fmtDuration(dur) + ')' : '');
   }
+  // Day timeline scale: pill height ∝ duration (8.5 h ≈ 560px), capped at 16 h.
+  const TL_PX_PER_MIN = 1.1, TL_MIN_H = 46, TL_MAX_H = Math.round(16 * 60 * TL_PX_PER_MIN), TL_PAD = 6;
   const SOURCE_LABEL = { google: 'Google', local: 'E.F.I.', task: 'Task', block: 'Planner', renewal: 'Subscription', order: 'Order' };
 
   // ---------- loading ----------
@@ -423,11 +433,23 @@ textarea.inp { resize: vertical; min-height: 60px; }
       if (!nowPlaced && nowMin < s) { html += nowRow(now); nowPlaced = true; }
       if (cursor != null && s - cursor >= 30) html += gapRow(cursor, s, k);
       const dur = Math.max(0, e - s);
-      const h = Math.max(46, Math.min(150, Math.round(dur * 1.1)));
+      // The pill spans the block's whole duration (a 7:30–16:00 shift is
+      // one long pill), so "now" can be drawn inside it at the right spot.
+      const h = Math.max(TL_MIN_H, Math.min(TL_MAX_H, Math.round(dur * TL_PX_PER_MIN)));
       const isNow = isToday && nowMin >= s && nowMin < e;
       const past = isToday && nowMin >= e && !isNow;
       const canCheck = x.source === 'task';
-      html += '<div class="tl-row' + (x.done ? ' done' : '') + (isNow ? ' now' : '') + (past ? ' past' : '') + '" data-id="' + esc(x.id) + '" style="--nc:' + x.color + '99">' +
+      let inner = '', nearTop = false;
+      if (isNow && !nowPlaced) {
+        const off = Math.round((nowMin - s) / dur * h);
+        nearTop = off < 20;
+        inner += nowRow(now, TL_PAD + off);
+        nowPlaced = true;
+        if (h >= 90 && h - off >= 22) inner += '<div class="tl-end" style="top:' + (TL_PAD + h - 14) + 'px">' + D.fmtTime(x.end) + '</div>';
+      } else if (h >= 90) {
+        inner += '<div class="tl-end" style="top:' + (TL_PAD + h - 14) + 'px">' + D.fmtTime(x.end) + '</div>';
+      }
+      html += '<div class="tl-row' + (x.done ? ' done' : '') + (isNow ? ' now' : '') + (past ? ' past' : '') + (nearTop ? ' now-top' : '') + '" data-id="' + esc(x.id) + '" style="--nc:' + x.color + '99">' + inner +
         '<div class="tl-time">' + D.fmtTime(x.start) + '</div>' +
         '<div class="tl-node-col"><div class="tl-node" style="height:' + h + 'px;background:' + x.color + '">' + I(x.icon, 19) + '</div></div>' +
         '<div class="tl-body"><div class="tl-sub">' + esc(fmtRange(x)) + '</div>' +
@@ -442,7 +464,7 @@ textarea.inp { resize: vertical; min-height: 60px; }
     html += '</div>';
     $('view').innerHTML = html;
   }
-  function nowRow(now) { return '<div class="tl-now"><div class="tl-time">' + D.fmtTime(D.pad2(now.getHours()) + ':' + D.pad2(now.getMinutes())) + '</div><div class="line"></div></div>'; }
+  function nowRow(now, top) { return '<div class="tl-now' + (top != null ? ' in' : '') + '"' + (top != null ? ' style="top:' + top + 'px"' : '') + '><div class="tl-time">' + D.fmtTime(D.pad2(now.getHours()) + ':' + D.pad2(now.getMinutes())) + '</div><div class="line"></div></div>'; }
   function gapRow(from, to, k) {
     return '<div class="tl-gap"><div></div><div></div><div class="tl-gap-body">' + I('clock', 14) + '<span>' + D.fmtDuration(to - from) + ' free</span>' +
       '<button type="button" data-gap="' + k + '|' + D.minToTime(from) + '|' + D.minToTime(to) + '">Fill it</button></div></div>';

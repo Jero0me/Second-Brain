@@ -2,8 +2,8 @@
 // E.F.I. app shell — drop on any page with:
 //     <script src="topbar.js" defer></script>
 // Injects the E.F.I. theme (efi-theme.css + font) on every page, the
-// floating bottom navigation (Calendar · Energy · E.F.I. · Health ·
-// Fitness) on pages that don't have their own, a tiny toast helper,
+// floating bottom navigation (Calendar · Health · E.F.I. · Fitness ·
+// Finance — energy lives inside Health) on pages that don't have their own, a tiny toast helper,
 // and the mobile scroll/zoom lockdown the dashboard always had.
 // (The old water "+1" pill lived here; the water tracker is gone.)
 // =============================================================
@@ -12,10 +12,10 @@
 
   const NAV = [
     { href: 'calendar.html', key: 'calendar', label: 'Calendar', icon: 'calendar' },
-    { href: 'energy.html', key: 'energy', label: 'Energy', icon: 'bolt' },
-    { href: 'index.html', key: 'efi', label: 'E.F.I.', orb: true },
     { href: 'health.html', key: 'health', label: 'Health', icon: 'heart' },
+    { href: 'index.html', key: 'efi', label: 'E.F.I.', orb: true },
     { href: 'gym.html', key: 'fitness', label: 'Fitness', icon: 'dumbbell' },
+    { href: 'finance.html', key: 'finance', label: 'Finance', icon: 'wallet' },
   ];
 
   const lockCss = `
