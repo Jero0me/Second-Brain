@@ -387,6 +387,63 @@
     },
   };
 
+  // ---------- symptoms (efi:symptoms) ----------
+  // Headaches, gym soreness, pain… logged from the Health body map or by
+  // telling E.F.I. Kept 60 days so E.F.I. can spot patterns.
+  const SYM_KEY = 'efi:symptoms';
+  const SYMPTOM_KINDS = { headache: 'Headache', soreness: 'Soreness', pain: 'Pain', tightness: 'Tightness', fatigue: 'Fatigue', nausea: 'Nausea', other: 'Other' };
+  const BODY_REGIONS = {
+    general: 'Whole body', head: 'Head', neck: 'Neck', shoulder_l: 'Left shoulder', shoulder_r: 'Right shoulder',
+    chest: 'Chest', abs: 'Abs / core', upper_back: 'Upper back', lower_back: 'Lower back',
+    arm_l: 'Left arm', arm_r: 'Right arm', forearm_l: 'Left forearm', forearm_r: 'Right forearm',
+    hips: 'Hips', glutes: 'Glutes', quad_l: 'Left quad', quad_r: 'Right quad', hamstring_l: 'Left hamstring', hamstring_r: 'Right hamstring',
+    knee_l: 'Left knee', knee_r: 'Right knee', shin_l: 'Left shin', shin_r: 'Right shin', calf_l: 'Left calf', calf_r: 'Right calf',
+  };
+  const SEVERITY = { 1: 'Mild', 2: 'Moderate', 3: 'Strong' };
+  const symptoms = {
+    KINDS: SYMPTOM_KINDS, REGIONS: BODY_REGIONS, SEVERITY,
+    list() { const v = S.get(SYM_KEY, []); return Array.isArray(v) ? v.slice().sort((a, b) => b.ts - a.ts) : []; },
+    recent(days) { const cut = Date.now() - (days || 7) * 86400000; return this.list().filter((x) => x.ts >= cut); },
+    add(e) {
+      const kind = SYMPTOM_KINDS[e.kind] ? e.kind : 'other';
+      const region = BODY_REGIONS[e.region] ? e.region : (kind === 'headache' ? 'head' : 'general');
+      const item = {
+        id: D.uid('sy'), kind, region, severity: Math.max(1, Math.min(3, Math.round(Number(e.severity) || 2))),
+        note: String(e.note || '').slice(0, 300), ts: e.ts || Date.now(), insight: null,
+      };
+      const cut = Date.now() - 60 * 86400000;
+      S.set(SYM_KEY, this.list().filter((x) => x.ts >= cut).concat(item));
+      return item;
+    },
+    update(id, patch) {
+      const list = this.list(); const i = list.findIndex((x) => x.id === id);
+      if (i === -1) return null;
+      list[i] = Object.assign({}, list[i], patch);
+      S.set(SYM_KEY, list);
+      return list[i];
+    },
+    remove(id) { S.set(SYM_KEY, this.list().filter((x) => x.id !== id)); },
+    label(x) { return SYMPTOM_KINDS[x.kind] + (x.region && x.region !== 'general' && !(x.kind === 'headache' && x.region === 'head') ? ' · ' + BODY_REGIONS[x.region] : ''); },
+  };
+
+  // ---------- recent training (gym page, po_coach_v1) ----------
+  // Which muscle groups were trained lately — used to explain soreness.
+  function recentTraining(days) {
+    const st = S.get('po_coach_v1', null);
+    if (!st || !Array.isArray(st.exercises) || !st.logs) return [];
+    const cut = D.dateKey(D.addDays(new Date(), -(days || 5)));
+    const byDay = {};
+    st.exercises.forEach((ex) => (st.logs[ex.id] || []).forEach((l) => {
+      const dk = String(l.date || '').slice(0, 10);
+      if (!dk || dk < cut) return;
+      const d = byDay[dk] = byDay[dk] || { date: dk, split: new Set(), exercises: new Set(), sets: 0 };
+      if (ex.day) d.split.add(ex.day);
+      d.exercises.add(ex.name); d.sets++;
+    }));
+    return Object.values(byDay).sort((a, b) => (a.date < b.date ? 1 : -1))
+      .map((d) => ({ date: d.date, split: Array.from(d.split).join('/'), exercises: Array.from(d.exercises), sets: d.sets }));
+  }
+
   // ---------- plan blocks (templates) ----------
   function planFor(dateKey) {
     const p = S.get('plan:' + dateKey, null);
@@ -656,7 +713,7 @@
   }
 
   EFI.data = {
-    COLORS, iconFor, tasks, events, notes, habits, finance, caffeine, daily,
+    COLORS, iconFor, tasks, events, notes, habits, finance, caffeine, symptoms, recentTraining, daily,
     calendar: { range, createEvent, updateEvent, deleteEvent },
   };
 })();

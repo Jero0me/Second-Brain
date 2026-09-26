@@ -261,6 +261,26 @@
       },
       label: (a) => 'Caffeine · ' + Math.round(a.mg) + ' mg' + (a.label ? ' (' + a.label + ')' : ''),
     },
+    log_symptom: {
+      decl: {
+        description: 'Log a symptom the user reports (headache, gym soreness, pain, tightness, fatigue, nausea). Then explain likely causes from the snapshot (sleep, HRV, caffeine, water, recent training).',
+        parameters: obj({
+          kind: str('', { enum: ['headache', 'soreness', 'pain', 'tightness', 'fatigue', 'nausea', 'other'] }),
+          region: str('Body area', { enum: Object.keys(data().symptoms.REGIONS) }),
+          severity: int('1 mild, 2 moderate, 3 strong. Default 2.'),
+          time: str('HH:MM today, default now'),
+          note: str('Optional detail, in their own words'),
+        }, ['kind']),
+      },
+      async run(a) {
+        let ts = Date.now();
+        const t = normTime(a.time);
+        if (t) { const d = new Date(); d.setHours(Math.floor(D.timeToMin(t) / 60), D.timeToMin(t) % 60, 0, 0); ts = d.getTime(); }
+        const item = data().symptoms.add({ kind: a.kind, region: a.region, severity: a.severity, note: a.note, ts });
+        return { ok: true, logged: data().symptoms.label(item), severity: data().symptoms.SEVERITY[item.severity] };
+      },
+      label: (a) => 'Symptom · ' + data().symptoms.label({ kind: a.kind in data().symptoms.KINDS ? a.kind : 'other', region: a.region || (a.kind === 'headache' ? 'head' : 'general') }),
+    },
     add_google_task: {
       decl: { description: 'Add a task to Google Tasks (only if the user explicitly wants it in Google Tasks).', parameters: obj({ title: str(''), notes: str(''), due_date: str('YYYY-MM-DD') }, ['title']) },
       async run(a) {
@@ -348,6 +368,9 @@
         if (L.sleep) health.sleep = { asleep_min: L.sleep.asleepMin, deep_min: L.sleep.deepMin, rem_min: L.sleep.remMin, bed: L.sleep.sleepStart, wake: L.sleep.sleepEnd };
         ['hrv', 'rhr', 'steps', 'activeKcal', 'exerciseMin'].forEach((k) => { if (L[k] != null) health[k] = Math.round(L[k]); });
         if (L.nutrition && L.nutrition.calories != null) health.nutrition_today = L.nutrition;
+        if (L.waterMl != null) health.water_today_ml = L.waterMl;
+        if (L.bodyMassKg != null) health.body_mass_kg = L.bodyMassKg;
+        if (L.bodyFatPct != null) health.body_fat_pct = L.bodyFatPct;
         if (Array.isArray(L.caffeine)) data().caffeine.setAppleSamples(L.caffeine);
       }
     } catch (e) {}
@@ -365,6 +388,12 @@
     } catch (e) {}
     ctx.health = health;
 
+    const sy = data().symptoms;
+    const recentSym = sy.recent(14);
+    if (recentSym.length) ctx.symptoms_recent = recentSym.slice(0, 25).map((x) => ({ when: new Date(x.ts).toISOString().slice(0, 16), what: sy.label(x), severity: sy.SEVERITY[x.severity], note: x.note || undefined }));
+    const training = data().recentTraining(5);
+    if (training.length) ctx.training_recent = training;
+
     const week = S.get('mealprep:weekplan:current', null);
     if (week && Array.isArray(week.days)) {
       const dayName = now.toLocaleDateString('en-US', { weekday: 'short' });
@@ -379,7 +408,7 @@
 
   const SYSTEM = [
     'You are E.F.I. — Enhanced Functional Intelligence — the personal operating system inside {name}\'s Second Brain dashboard. Think JARVIS: calm, precise, quietly witty, fiercely useful.',
-    'You can see a live snapshot of their calendar (Google Calendar + planner time blocks + work/uni blocks + bill renewals), tasks, habits, notes, finances (EUR), health (Apple Health sleep/HRV/steps/nutrition, caffeine) and an energy forecast. You can change things with tools.',
+    'You can see a live snapshot of their calendar (Google Calendar + planner time blocks + work/uni blocks + bill renewals), tasks, habits, notes, finances (EUR), health (Apple Health sleep/HRV/steps/nutrition/water, caffeine, logged symptoms, recent gym training) and an energy forecast. You can change things with tools.',
     'Rules:',
     '- When asked to change, plan, schedule, log or remember something: DO it with tools, then confirm briefly. Don\'t just give advice.',
     '- Resolve relative dates ("Friday", "next week", "tonight") from the snapshot\'s now/today. Tool times are 24h HH:MM.',
@@ -387,6 +416,7 @@
     '- Events = appointments / fixed commitments (Google Calendar). Tasks = to-dos in the planner, optionally time-blocked with start_time. Planning a day usually means time-blocking tasks.',
     '- Deletes and money changes need the user\'s approval — just call the tool; the app shows them a confirm button. If they decline, acknowledge and move on.',
     '- Default durations: events 60 min, tasks 30 min. If something essential is missing and can\'t be sensibly inferred, ask ONE short question.',
+    '- Symptoms: when they mention a headache, soreness, pain etc., log it with log_symptom, then give the 1-3 most likely causes from the snapshot (short sleep, low HRV, caffeine timing or withdrawal, low water, the muscles in training_recent, patterns in symptoms_recent) and one thing to do now. You are not a doctor: for red flags (sudden or worst-ever headache, chest pain, numbness, fainting) tell them to get medical help.',
     '- Caffeine guide: espresso 63mg, double 126, filter coffee 95/cup, latte/cappuccino 63–126, black tea 47, green tea 28, cola 34/330ml, Red Bull 80/250ml, Monster 160, pre-workout ~200.',
     '- Never invent data that isn\'t in the snapshot or a tool result.',
     'Style: lead with the answer. 1–4 short sentences or a few "- " bullets. **Bold** key names, times and amounts. No filler, no restating the question. Money in €.',

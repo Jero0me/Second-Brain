@@ -104,6 +104,17 @@ export default async function handler(req, res) {
   let spo2 = lastQty('blood_oxygen_saturation');
   if (spo2 != null && spo2 <= 1) spo2 = spo2 * 100; // some exports send a 0-1 fraction
 
+  // ---- water + body composition (only if something writes them to Health) ----
+  const waterMetric = byName('dietary_water', 'water');
+  const waterUnits = String((waterMetric && waterMetric.units) || 'mL').toLowerCase();
+  const waterMult = /^l$/.test(waterUnits) ? 1000 : /oz/.test(waterUnits) ? 29.5735 : 1;
+  const waterDay = sumDay(newestDay, 'dietary_water', 'water');
+  const massMetric = byName('body_mass', 'weight_body_mass');
+  const massRaw = lastQty('body_mass', 'weight_body_mass');
+  const bodyMassKg = massRaw == null ? null : /lb/i.test(String((massMetric && massMetric.units) || '')) ? massRaw * 0.453592 : massRaw;
+  let bodyFatPct = lastQty('body_fat_percentage');
+  if (bodyFatPct != null && bodyFatPct <= 1) bodyFatPct = bodyFatPct * 100;
+
   let sleep = null;
   const sleepMetric = byName('sleep_analysis');
   const sleepData = sleepMetric && Array.isArray(sleepMetric.data) ? sleepMetric.data : [];
@@ -163,6 +174,9 @@ export default async function handler(req, res) {
     steps: sumDay(newestDay, 'step_count'),
     exerciseMin: sumDay(newestDay, 'apple_exercise_time'),
     sleep,
+    waterMl: waterDay != null ? Math.round(waterDay * waterMult) : null,
+    bodyMassKg: bodyMassKg != null ? Math.round(bodyMassKg * 10) / 10 : null,
+    bodyFatPct: bodyFatPct != null ? Math.round(bodyFatPct * 10) / 10 : null,
     // Written to Apple Health by MyFitnessPal (HealthKit sharing) when you
     // log food there — field names are best-effort HealthKit identifiers;
     // check the `debug` fingerprint below on first sync to confirm/adjust.
@@ -192,6 +206,12 @@ export default async function handler(req, res) {
       activeKcal: latest.activeKcal != null ? Math.round(latest.activeKcal) : null,
       calories: latest.nutrition.calories != null ? Math.round(latest.nutrition.calories) : null,
       caffeineMg: cafToday != null ? Math.round(cafToday * cafMult) : null,
+      // vitals the Health body view trends over the last week
+      spo2: spo2 != null ? Math.round(spo2 * 10) / 10 : null,
+      resp: latest.resp != null ? Math.round(latest.resp * 10) / 10 : null,
+      exerciseMin: latest.exerciseMin != null ? Math.round(latest.exerciseMin) : null,
+      waterMl: latest.waterMl,
+      bodyMassKg: latest.bodyMassKg != null ? latest.bodyMassKg : (prevDay.bodyMassKg != null ? prevDay.bodyMassKg : null),
     }));
   }
   const history = Array.from(hist.values()).filter((h) => h && h.date).sort((a, b) => (a.date < b.date ? -1 : 1)).slice(-30);
