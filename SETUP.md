@@ -206,7 +206,9 @@ iOS app pushes your data to the dashboard on a schedule. No login involved; it's
    - Header: `Authorization: Bearer <the HEALTH_IMPORT_SECRET value>`
    - Metrics: Heart Rate Variability, Resting Heart Rate, Respiratory Rate, Blood Oxygen Saturation,
      Active Energy, Step Count, Apple Exercise Time, Sleep Analysis, **Dietary Caffeine**,
-     Dietary Energy, Protein, Carbohydrates, Total Fat.
+     Dietary Energy, Protein, Carbohydrates, Total Fat. Optional: **Dietary Water** (if you log water in
+     Apple Health or an app that writes to it), **Body Mass** and **Body Fat Percentage** (smart scale) —
+     the Health body map shows them and E.F.I. uses them when explaining symptoms.
    - Turn **off** "Aggregate data" (at least for caffeine) so every drink keeps its own timestamp —
      the energy curve uses the time you had it.
 4. Turn the automation on (e.g. every 1–2 hours, or every morning at minimum).

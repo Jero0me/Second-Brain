@@ -11,7 +11,7 @@ Setup (Vercel, Supabase, Gemini key, Google OAuth, Apple Health): **[SETUP.md](S
 | [index.html](index.html) | **E.F.I.** — the assistant (JARVIS-style home: chat, voice, daily briefing, notes, settings) |
 | [calendar.html](calendar.html) | Calendar — day timeline, week, month; merges Google Calendar, planner time-blocks, shift templates, bill renewals, orders |
 | [main.html](main.html) | Routines — habits, shift templates, time-blocking grid, AI Auto-schedule (daily setup itself runs everywhere via `EFI.data.daily`) |
-| [health.html](health.html) | Health — live energy gauge + today's curve, peak & dip windows, day-vs-energy, sleep, vitals, caffeine (`energy.html` redirects here) |
+| [health.html](health.html) | Health — energy gauge + today's call, body map (Apple Watch vitals with 7-day trends around a front/back figure, tap to log headaches/soreness/pain; E.F.I. explains the likely cause), energy curve & windows, day-vs-energy, sleep, caffeine (`energy.html` redirects here) |
 | [gym.html](gym.html) | Progressive-overload gym tracker, bodyweight, calories (MyFitnessPal via Health) |
 | [finance.html](finance.html) | Net worth, subscriptions, wishlist, incoming orders (EUR) |
 | [mealprep.html](mealprep.html) | Recipes, fridge, AI chef, weekly meal plan |

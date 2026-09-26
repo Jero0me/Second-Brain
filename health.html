@@ -120,6 +120,67 @@ h1 { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -0.03em; colo
 /* setup (no Apple Health data yet) */
 .setup ol { margin: 8px 0 0; padding-left: 18px; font-size: 12.5px; color: var(--efi-text-2); line-height: 1.7; }
 .setup code { font-family: var(--efi-mono); font-size: 11px; background: rgba(255,255,255,0.06); padding: 1px 5px; border-radius: 5px; color: var(--efi-text); word-break: break-all; }
+
+/* ---------- body map: figure in the middle, Apple Watch vitals around it ---------- */
+.seg { display: inline-flex; padding: 3px; border-radius: 12px; background: rgba(255,255,255,0.05); border: 1px solid var(--efi-border); }
+.seg button { position: relative; border: 0; background: transparent; color: var(--efi-text-3); font: 700 12px var(--efi-font); padding: 6px 12px; border-radius: 9px; cursor: pointer; }
+.seg button.on { background: rgba(94,240,188,0.16); color: var(--efi-accent); }
+.seg button i { position: absolute; top: 3px; right: 3px; width: 6px; height: 6px; border-radius: 50%; background: #FF8A7A; }
+.bmap { position: relative; display: grid; grid-template-columns: 1fr 1fr; column-gap: 150px; row-gap: 8px; min-height: 350px; align-content: center; }
+.bmap .fig { position: absolute; left: 50%; top: 50%; width: 156px; height: 358px; transform: translate(-50%, -50%); }
+.bmap .fig svg { width: 100%; height: 100%; overflow: visible; }
+.rg { fill: url(#bodyG); stroke: rgba(170,255,240,0.35); stroke-width: 0.8; cursor: pointer; transition: fill 0.25s, filter 0.25s; -webkit-tap-highlight-color: transparent; }
+.rg:hover { filter: brightness(1.25); }
+.rg.s1 { fill: #F5C065; filter: drop-shadow(0 0 6px rgba(245,192,101,0.8)); }
+.rg.s2 { fill: #FF9F5A; filter: drop-shadow(0 0 7px rgba(255,159,90,0.85)); }
+.rg.s3 { fill: #FF6B6B; filter: drop-shadow(0 0 9px rgba(255,107,107,0.9)); }
+.fig .deco { fill: none; stroke: rgba(3,20,14,0.35); stroke-width: 1; stroke-linecap: round; pointer-events: none; }
+.vc { position: relative; z-index: 1; min-width: 0; padding: 9px 10px 8px; border-radius: 14px; background: rgba(12,22,24,0.82); border: 1px solid var(--efi-border); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+.vc-l { font-size: 9.5px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--efi-text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vc-v { margin-top: 3px; font-size: 19px; font-weight: 800; color: var(--efi-text); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; white-space: nowrap; display: flex; align-items: baseline; gap: 2px; }
+.vc-v small { font-size: 10px; font-weight: 700; color: var(--efi-text-3); letter-spacing: 0; }
+.vc-v .arr { font-size: 12px; font-style: normal; margin-left: 3px; }
+.vc svg { display: block; width: 100%; height: 16px; margin-top: 4px; }
+.vc-s { font-size: 10.5px; font-weight: 700; margin-top: 2px; min-height: 13px; }
+.vrow { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px; }
+.vrow .vc { background: rgba(255,255,255,0.035); backdrop-filter: none; -webkit-backdrop-filter: none; }
+
+/* symptoms */
+.feel-h { display: flex; align-items: center; justify-content: space-between; margin: 16px 0 8px; padding-top: 14px; border-top: 1px solid var(--efi-border); font-size: 12px; font-weight: 700; color: var(--efi-text); }
+.feel-h small { font-size: 11px; font-weight: 600; color: var(--efi-text-3); }
+.chips { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+.chips::-webkit-scrollbar { display: none; }
+.chip { flex-shrink: 0; border: 1px solid var(--efi-border); background: rgba(255,255,255,0.05); color: var(--efi-text-2); font: 700 12px var(--efi-font); padding: 7px 12px; border-radius: 999px; cursor: pointer; }
+.chip.on { background: rgba(94,240,188,0.16); border-color: rgba(94,240,188,0.4); color: var(--efi-accent); }
+.syms { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+.sym { padding: 10px 11px; border-radius: 14px; background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.05); }
+.sym-top { display: flex; align-items: center; gap: 10px; }
+.sym-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.sym .t { flex: 1; min-width: 0; }
+.sym .t b { display: block; font-size: 13px; color: var(--efi-text); font-weight: 700; }
+.sym .t small { font-size: 11.5px; color: var(--efi-text-3); }
+.sym-btn { border: 0; background: rgba(94,240,188,0.1); color: var(--efi-accent); font: 700 11px var(--efi-font); padding: 5px 10px; border-radius: 999px; cursor: pointer; flex-shrink: 0; }
+.sym-x { border: 0; background: transparent; color: var(--efi-text-3); cursor: pointer; padding: 4px; display: inline-flex; flex-shrink: 0; }
+.sym-ai { margin-top: 8px; padding: 9px 11px; border-radius: 11px; background: rgba(94,240,188,0.06); border: 1px solid rgba(94,240,188,0.14); font-size: 12.5px; line-height: 1.5; color: var(--efi-text-2); white-space: pre-line; }
+.sym-ai b { color: var(--efi-text); }
+.sym-ai.err { background: rgba(255,122,112,0.08); border-color: rgba(255,122,112,0.2); }
+
+/* log sheet */
+.efi-sheet-bg { position: fixed; inset: 0; z-index: 150; display: none; background: rgba(0,0,0,0.55); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+.efi-sheet-bg.show { display: block; }
+.efi-sheet { position: absolute; left: 0; right: 0; bottom: 0; margin: 0 auto; max-width: 560px; max-height: 92vh; overflow-y: auto; background: #0B1517; border: 1px solid var(--efi-border-strong); border-bottom: 0; border-radius: 26px 26px 0 0; padding: 10px 20px calc(24px + env(safe-area-inset-bottom)); animation: sheet-in 0.25s cubic-bezier(0.2, 0.9, 0.3, 1); }
+@keyframes sheet-in { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
+.grabber { width: 40px; height: 5px; border-radius: 3px; background: rgba(255,255,255,0.18); margin: 0 auto 14px; }
+.efi-sheet h3 { margin: 0 0 4px; font-size: 20px; font-weight: 800; color: var(--efi-text); letter-spacing: -0.02em; }
+.efi-sheet .lbl { display: block; margin: 16px 0 8px; font-size: 10.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--efi-text-3); }
+.efi-sheet .chips { flex-wrap: wrap; }
+.inp { width: 100%; padding: 11px 12px; border-radius: 12px; border: 1px solid var(--efi-border); background: rgba(0,0,0,0.3); color: var(--efi-text); font: 14px var(--efi-font); outline: none; color-scheme: dark; }
+.inp:focus { border-color: rgba(94,240,188,0.5); }
+.sh-actions { display: flex; gap: 8px; margin-top: 20px; }
+.btn { border: 0; border-radius: 14px; padding: 13px 16px; font: 700 14px var(--efi-font); cursor: pointer; }
+.btn.primary { flex: 1; background: linear-gradient(180deg, #5EF0BC, #25C08C); color: var(--efi-accent-ink); }
+.btn.ghost { background: rgba(255,255,255,0.06); color: var(--efi-text); border: 1px solid var(--efi-border); }
+@media (max-width: 360px) { .bmap { column-gap: 132px; } .bmap .fig { width: 140px; height: 322px; } .vc-v { font-size: 17px; } }
 </style>
 </head>
 <body>
@@ -140,7 +201,7 @@ h1 { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -0.03em; colo
       <li>Install <b>Health Auto Export – JSON+CSV</b> from the App Store.</li>
       <li>Create a <b>REST API</b> automation with URL <code id="setupUrl">—</code></li>
       <li>Add header <code>Authorization: Bearer &lt;HEALTH_IMPORT_SECRET&gt;</code> (the value set in Vercel).</li>
-      <li>Include HRV, Resting Heart Rate, Respiratory Rate, Blood Oxygen, Active Energy, Step Count, Exercise Time, Sleep Analysis and <b>Dietary Caffeine</b> (+ Dietary Energy, Protein, Carbs, Fat for MyFitnessPal). Turn <b>off</b> “Aggregate data” for caffeine.</li>
+      <li>Include HRV, Resting Heart Rate, Respiratory Rate, Blood Oxygen, Active Energy, Step Count, Exercise Time, Sleep Analysis and <b>Dietary Caffeine</b> (+ Dietary Energy, Protein, Carbs, Fat for MyFitnessPal; optionally Dietary Water, Body Mass, Body Fat Percentage). Turn <b>off</b> “Aggregate data” for caffeine.</li>
       <li>Turn the automation on (e.g. every morning).</li>
     </ol>
   </div>
@@ -158,6 +219,24 @@ h1 { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -0.03em; colo
       </div>
     </div>
     <div class="call" id="call" hidden><span class="badge" id="callBadge"></span><p id="callText"></p></div>
+  </div>
+
+  <!-- body map: Apple Watch vitals around the figure + symptoms -->
+  <div class="card">
+    <div class="card-h"><h2><span data-icon="heart"></span>Body</h2>
+      <div class="seg" id="viewSeg"><button type="button" data-v="front" class="on">Front</button><button type="button" data-v="back">Back</button></div>
+    </div>
+    <div class="bmap">
+      <div class="fig" id="fig"></div>
+      <div class="vc" id="vc-hrv"></div><div class="vc" id="vc-resp"></div>
+      <div class="vc" id="vc-rhr"></div><div class="vc" id="vc-steps"></div>
+      <div class="vc" id="vc-spo2"></div><div class="vc" id="vc-activeKcal"></div>
+    </div>
+    <div class="vrow"><div class="vc" id="vc-weight"></div><div class="vc" id="vc-waterMl"></div><div class="vc" id="vc-exerciseMin"></div></div>
+
+    <div class="feel-h">How do you feel?<small>tap the body or a symptom</small></div>
+    <div class="chips" id="feelChips"></div>
+    <div class="syms" id="syms"></div>
   </div>
 
   <!-- curve + windows -->
@@ -188,12 +267,6 @@ h1 { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -0.03em; colo
     </div>
   </div>
 
-  <!-- body / vitals -->
-  <div class="card" id="bodyCard" hidden>
-    <div class="card-h"><h2><span data-icon="heart"></span>Body</h2><small>latest from Apple Health</small></div>
-    <div class="stats" id="vitals"></div>
-  </div>
-
   <!-- caffeine -->
   <div class="card">
     <div class="card-h"><h2><span data-icon="coffee"></span>Caffeine</h2><small id="cafSource"></small></div>
@@ -204,6 +277,19 @@ h1 { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -0.03em; colo
     </div>
     <div class="rows" id="cafList" style="margin-top:8px"></div>
     <div class="hint">Logged automatically from Apple Health (Dietary Caffeine). Missing a drink? Tell E.F.I. “had a double espresso”.</div>
+  </div>
+</div>
+
+<!-- log a symptom -->
+<div class="efi-sheet-bg" id="symBg">
+  <div class="efi-sheet" role="dialog" aria-label="Log how you feel">
+    <div class="grabber"></div>
+    <h3>How do you feel?</h3>
+    <span class="lbl">What</span><div class="chips" id="sKind"></div>
+    <span class="lbl">Where</span><select class="inp" id="sRegion"></select>
+    <span class="lbl">How bad</span><div class="chips" id="sSev"></div>
+    <span class="lbl">Note (optional)</span><input class="inp" id="sNote" type="text" placeholder="e.g. behind the eyes, since lunch" autocomplete="off">
+    <div class="sh-actions"><button class="btn ghost" id="sCancel" type="button">Cancel</button><button class="btn primary" id="sSave" type="button">Log it &amp; ask E.F.I. why</button></div>
   </div>
 </div>
 
@@ -432,28 +518,233 @@ h1 { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -0.03em; colo
     svg.onpointerleave = () => tip.classList.remove('show');
   }
 
-  // ---------- body / vitals ----------
-  // Each tile carries its own status word, so no separate colour legend.
-  const Z = { good: ['Good', STATUS.good], norm: ['Normal', '#A7B6B3'], warn: ['Watch', STATUS.warn], bad: ['Low', STATUS.low] };
-  const VITALS = [
-    { k: 'hrv', label: 'HRV', unit: 'ms', fmt: Math.round, zone: (v) => v >= 60 ? 'good' : v >= 40 ? 'norm' : 'warn' },
-    { k: 'rhr', label: 'Resting HR', unit: 'bpm', fmt: Math.round, zone: (v) => v <= 55 ? 'good' : v <= 70 ? 'norm' : 'warn' },
-    { k: 'steps', label: 'Steps', unit: '', fmt: (v) => Math.round(v).toLocaleString(), zone: (v) => v >= 8000 ? 'good' : null },
-    // exercise minutes ride along on the Active tile (keeps the grid an even 3×2)
-    { k: 'activeKcal', label: 'Active', unit: 'kcal', fmt: Math.round, zone: () => null, note: (L) => L.exerciseMin != null ? Math.round(L.exerciseMin) + ' min exercise' : null },
-    { k: 'spo2', label: 'Blood O₂', unit: '%', fmt: (v) => v.toFixed(1), zone: (v) => v >= 95 ? 'good' : v >= 92 ? 'norm' : v >= 88 ? 'warn' : 'bad' },
-    { k: 'resp', label: 'Resp rate', unit: '/min', fmt: (v) => v.toFixed(1), zone: (v) => v >= 12 && v <= 18 ? 'good' : v >= 10 && v <= 22 ? 'norm' : 'warn' },
-  ];
-  function renderVitals() {
-    const L = latest();
-    const tiles = L ? VITALS.filter((m) => L[m.k] != null && !isNaN(Number(L[m.k]))) : [];
-    $('bodyCard').hidden = !tiles.length;
-    $('vitals').innerHTML = tiles.map((m) => {
-      const v = Number(L[m.k]), zk = m.zone(v), z = zk && Z[zk], note = m.note && m.note(L);
-      return '<div class="stat"><b>' + m.fmt(v) + (m.unit ? '<small>' + m.unit + '</small>' : '') + '</b><span>' + m.label + '</span>' +
-        (z ? '<em style="color:' + z[1] + '">' + z[0] + '</em>' : note ? '<em style="color:var(--efi-text-3)">' + esc(note) + '</em>' : '') + '</div>';
-    }).join('');
+  // ---------- body map ----------
+  // One outline serves both views; each shape's position maps to a
+  // different region front vs back (and left/right swap: on the front
+  // view your right side is on the viewer's left).
+  const SY = EFI.data.symptoms;
+  const REGION_AT = {
+    front: { head: 'head', neck: 'neck', torso_up: 'chest', torso_lo: 'abs', pelvis: 'hips', sh_vl: 'shoulder_r', sh_vr: 'shoulder_l', arm_vl: 'arm_r', arm_vr: 'arm_l', fore_vl: 'forearm_r', fore_vr: 'forearm_l', thigh_vl: 'quad_r', thigh_vr: 'quad_l', knee_vl: 'knee_r', knee_vr: 'knee_l', leg_vl: 'shin_r', leg_vr: 'shin_l' },
+    back: { head: 'head', neck: 'neck', torso_up: 'upper_back', torso_lo: 'lower_back', pelvis: 'glutes', sh_vl: 'shoulder_l', sh_vr: 'shoulder_r', arm_vl: 'arm_l', arm_vr: 'arm_r', fore_vl: 'forearm_l', fore_vr: 'forearm_r', thigh_vl: 'hamstring_l', thigh_vr: 'hamstring_r', knee_vl: 'knee_l', knee_vr: 'knee_r', leg_vl: 'calf_l', leg_vr: 'calf_r' },
+  };
+  const LIMB = { // viewer-left side; the right side is mirrored
+    sh: ['M84,72 C70,73 56,78 50,92 C47,100 47,110 49,118 L62,118 L64,88 C66,80 74,74 84,72 Z'],
+    arm: ['M49,118 L62,118 C62,132 60,150 58,166 L42,166 C42,150 45,132 49,118 Z'],
+    fore: ['M42,166 L58,166 C56,184 52,204 48,222 L36,222 C36,204 38,184 42,166 Z', 'M36,222 L48,222 C50,230 49,242 43,250 C37,248 34,238 36,222 Z'],
+    thigh: ['M67,232 C78,240 90,244 99,246 L97,300 C96,316 94,328 92,334 L72,334 C70,318 66,290 66,262 C66,250 66,240 67,232 Z'],
+    knee: ['M72,334 L92,334 C93,342 93,348 92,354 L72,354 C71,348 71,342 72,334 Z'],
+    leg: ['M72,354 L92,354 C92,374 90,398 88,420 L77,420 C74,398 72,374 72,354 Z', 'M77,420 L88,420 C90,428 90,434 89,440 L71,440 C71,432 74,426 77,420 Z'],
+  };
+  const CORE = {
+    neck: 'M91,55 L109,55 L113,73 L87,73 Z',
+    torso_up: 'M84,72 L116,72 C126,74 134,80 136,88 L138,128 C124,134 76,134 62,128 L64,88 C66,80 74,74 84,72 Z',
+    torso_lo: 'M62,128 C76,134 124,134 138,128 L134,176 C132,188 130,196 128,202 L72,202 C70,196 68,188 66,176 Z',
+    pelvis: 'M72,202 L128,202 C132,212 134,222 133,232 C122,240 110,244 100,246 C90,244 78,240 67,232 C66,222 68,212 72,202 Z',
+  };
+  const DECO = {
+    front: 'M72,110 C84,121 95,119 100,113 C105,119 116,121 128,110 M100,80 L100,198 M88,150 L112,150 M88,168 L112,168 M89,186 L111,186',
+    back: 'M100,60 L100,200 M76,88 C82,104 90,110 96,108 M124,88 C118,104 110,110 104,108 M84,178 C92,186 108,186 116,178 M100,212 L100,244',
+  };
+  let bodyView = 'front';
+  const sevColor = (s) => ['', '#F5C065', '#FF9F5A', '#FF6B6B'][s] || '#F5C065';
+  function activeBySeverity() { // region → worst severity in the last 24 h
+    const out = {};
+    SY.recent(1).forEach((x) => { out[x.region] = Math.max(out[x.region] || 0, x.severity); });
+    return out;
   }
+  function renderFigure() {
+    const sev = activeBySeverity(), map = REGION_AT[bodyView];
+    const shape = (pos, d) => { const s = sev[map[pos]]; return '<path class="rg' + (s ? ' s' + s : '') + '" data-pos="' + pos + '" d="' + d + '"><title>' + esc(SY.REGIONS[map[pos]]) + '</title></path>'; };
+    const side = (v) => Object.keys(LIMB).map((k) => LIMB[k].map((d) => shape(k + '_' + v, d)).join('')).join('');
+    const hs = sev.head;
+    $('fig').innerHTML = '<svg viewBox="0 0 200 460" role="img" aria-label="Body map. Tap an area to log how it feels">' +
+      '<defs><linearGradient id="bodyG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8AF5E4" stop-opacity="0.8"/><stop offset="0.55" stop-color="#3FC7C0" stop-opacity="0.6"/><stop offset="1" stop-color="#1E8FA3" stop-opacity="0.5"/></linearGradient></defs>' +
+      '<g style="filter:drop-shadow(0 0 10px rgba(80,220,200,0.35))">' +
+      shape('neck', CORE.neck) + shape('torso_up', CORE.torso_up) + shape('torso_lo', CORE.torso_lo) + shape('pelvis', CORE.pelvis) +
+      side('vl') + '<g transform="matrix(-1 0 0 1 200 0)">' + side('vr') + '</g>' +
+      '<ellipse class="rg' + (hs ? ' s' + hs : '') + '" data-pos="head" cx="100" cy="34" rx="20" ry="25"><title>Head</title></ellipse>' +
+      '<path class="deco" d="' + DECO[bodyView] + '"/></g></svg>';
+    // a dot on the other view's button when something is flagged over there
+    const other = bodyView === 'front' ? 'back' : 'front';
+    const here = Object.values(REGION_AT[bodyView]);
+    const hidden = Object.keys(sev).some((r) => Object.values(REGION_AT[other]).indexOf(r) !== -1 && here.indexOf(r) === -1);
+    $('viewSeg').querySelectorAll('button').forEach((b) => {
+      b.classList.toggle('on', b.dataset.v === bodyView);
+      b.innerHTML = (b.dataset.v === 'front' ? 'Front' : 'Back') + (b.dataset.v === other && hidden ? '<i></i>' : '');
+    });
+  }
+  $('viewSeg').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; bodyView = b.dataset.v; renderFigure(); });
+  $('fig').addEventListener('click', (e) => {
+    const el = e.target.closest('[data-pos]'); if (!el) return;
+    const region = REGION_AT[bodyView][el.dataset.pos];
+    openSheet({ region, kind: region === 'head' ? 'headache' : 'soreness' });
+  });
+
+  // ---------- Apple Watch vitals around the figure ----------
+  const Z = { good: ['Good', STATUS.good], norm: ['Normal', '#A7B6B3'], warn: ['Watch', STATUS.warn], bad: ['Low', STATUS.low] };
+  const f0 = (v) => Math.round(v).toLocaleString(), f1 = (v) => v.toFixed(1);
+  const VITALS = [
+    { k: 'hrv', label: 'HRV', unit: 'ms', fmt: f0, better: 1, zone: (v) => v >= 60 ? 'good' : v >= 40 ? 'norm' : 'warn' },
+    { k: 'rhr', label: 'Rest HR', unit: 'bpm', fmt: f0, better: -1, zone: (v) => v <= 55 ? 'good' : v <= 70 ? 'norm' : 'warn' },
+    { k: 'spo2', label: 'Blood O₂', unit: '%', fmt: f1, better: 1, zone: (v) => v >= 95 ? 'good' : v >= 92 ? 'norm' : v >= 88 ? 'warn' : 'bad' },
+    { k: 'resp', label: 'Resp rate', unit: '/min', fmt: f1, better: 0, zone: (v) => v >= 12 && v <= 18 ? 'good' : v >= 10 && v <= 22 ? 'norm' : 'warn' },
+    { k: 'steps', label: 'Steps', unit: '', fmt: f0, better: 1, zone: (v) => v >= 8000 ? 'good' : null, sub: 'today' },
+    { k: 'activeKcal', label: 'Active', unit: 'kcal', fmt: f0, better: 1, zone: () => null, sub: 'today' },
+    { k: 'weight', label: 'Weight', unit: 'kg', fmt: f1, better: 0, zone: () => null },
+    { k: 'waterMl', label: 'Water', unit: 'L', fmt: (v) => (v / 1000).toFixed(1), better: 1, zone: (v) => v >= 2000 ? 'good' : v >= 1200 ? 'norm' : 'warn', missing: 'not tracked' },
+    { k: 'exerciseMin', label: 'Exercise', unit: 'min', fmt: f0, better: 1, zone: (v) => v >= 30 ? 'good' : null, sub: 'today' },
+  ];
+  const num = (v) => (v == null || v === '' || isNaN(Number(v)) ? null : Number(v));
+  // Weight: Apple Health (smart scale) first, else the gym page's bodyweight log.
+  function weightSeries() {
+    const hk = ((health && health.history) || []).map((h) => num(h.bodyMassKg)).filter((v) => v != null);
+    const hkNow = num(latest() && latest().bodyMassKg);
+    if (hkNow != null || hk.length) return { now: hkNow != null ? hkNow : hk[hk.length - 1], series: hk.slice(-7) };
+    const log = (EFI.store.get('po_coach_weights', []) || []).filter((w) => w && num(w.weight) != null).sort((a, b) => (a.dateKey < b.dateKey ? -1 : 1));
+    return { now: log.length ? num(log[log.length - 1].weight) : null, series: log.slice(-7).map((w) => num(w.weight)) };
+  }
+  function spark(series) {
+    if (series.length < 2) return '<svg></svg>';
+    const lo = Math.min(...series), hi = Math.max(...series), span = hi - lo || 1;
+    const pts = series.map((v, i) => (i / (series.length - 1) * 100).toFixed(1) + ',' + (14 - (v - lo) / span * 12).toFixed(1)).join(' ');
+    return '<svg viewBox="0 0 100 16" preserveAspectRatio="none"><polyline points="' + pts + '" fill="none" stroke="#5EF0BC" stroke-opacity="0.75" stroke-width="1.5" vector-effect="non-scaling-stroke" stroke-linejoin="round"/></svg>';
+  }
+  function renderVitals() {
+    const L = latest() || {}, hist = (health && health.history) || [];
+    VITALS.forEach((m) => {
+      let v, series;
+      if (m.k === 'weight') { const w = weightSeries(); v = w.now; series = w.series; }
+      else { v = num(L[m.k]); series = hist.slice(-7).map((h) => num(h[m.k])).filter((x) => x != null); }
+      let arrow = '';
+      if (v != null && series.length >= 3) {
+        const prev = series.slice(0, -1), avg = prev.reduce((a, b) => a + b, 0) / prev.length;
+        if (avg && Math.abs(v - avg) / avg >= 0.03) {
+          const up = v > avg, col = !m.better ? 'var(--efi-text-3)' : (up === (m.better > 0) ? STATUS.good : STATUS.warn);
+          arrow = '<i class="arr" style="color:' + col + '" title="vs. your recent average">' + (up ? '↑' : '↓') + '</i>';
+        }
+      }
+      const zk = v != null ? m.zone(v) : null, z = zk && Z[zk];
+      const status = v == null ? '<span style="color:var(--efi-text-3)">' + (m.missing || 'no data') + '</span>'
+        : z ? '<span style="color:' + z[1] + '">' + z[0] + '</span>' : '<span style="color:var(--efi-text-3)">' + (m.sub || '') + '</span>';
+      $('vc-' + m.k).innerHTML = '<div class="vc-l">' + m.label + '</div>' +
+        '<div class="vc-v">' + (v != null ? m.fmt(v) + (m.unit ? '<small>' + m.unit + '</small>' : '') : '—') + arrow + '</div>' +
+        spark(series) + '<div class="vc-s">' + status + '</div>';
+    });
+  }
+
+  // ---------- symptoms ----------
+  const KIND_ORDER = ['headache', 'soreness', 'pain', 'tightness', 'fatigue', 'nausea', 'other'];
+  $('feelChips').innerHTML = KIND_ORDER.map((k) => '<button type="button" class="chip" data-k="' + k + '">' + SY.KINDS[k] + '</button>').join('');
+  $('feelChips').addEventListener('click', (e) => { const b = e.target.closest('[data-k]'); if (b) openSheet({ kind: b.dataset.k }); });
+  const pending = new Set();
+  function when(ts) {
+    const d = new Date(ts), k = D.dateKey(d), t = hm(d);
+    if (k === D.dateKey()) return 'today ' + t;
+    if (k === D.dateKey(D.addDays(new Date(), -1))) return 'yesterday ' + t;
+    return d.toLocaleDateString('en-GB', { weekday: 'short' }) + ' ' + t;
+  }
+  function fmtInsight(s) { return esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>'); }
+  function renderSymptoms() {
+    const list = SY.recent(7).slice(0, 8);
+    $('syms').innerHTML = list.length ? list.map((x) =>
+      '<div class="sym"><div class="sym-top"><span class="sym-dot" style="background:' + sevColor(x.severity) + ';box-shadow:0 0 8px ' + sevColor(x.severity) + '"></span>' +
+      '<span class="t"><b>' + esc(SY.label(x)) + '</b><small>' + SY.SEVERITY[x.severity] + ' · ' + when(x.ts) + (x.note ? ' · ' + esc(x.note) : '') + '</small></span>' +
+      (!x.insight && !pending.has(x.id) ? '<button type="button" class="sym-btn" data-why="' + x.id + '">Why?</button>' : '') +
+      '<button type="button" class="sym-x" data-del="' + x.id + '" aria-label="Delete">' + I('x', 15) + '</button></div>' +
+      (pending.has(x.id) ? '<div class="sym-ai">E.F.I. is looking at your sleep, vitals, caffeine and training…</div>'
+        : x.insight ? '<div class="sym-ai' + (x.insightError ? ' err' : '') + '">' + fmtInsight(x.insight) + '</div>' : '') +
+      '</div>').join('')
+      : '<div class="empty">Nothing logged this week. Tap the body or a symptom above and E.F.I. will look for the cause in your sleep, vitals, caffeine, water and training.</div>';
+  }
+  $('syms').addEventListener('click', (e) => {
+    const why = e.target.closest('[data-why]'), del = e.target.closest('[data-del]');
+    if (why) explain(why.dataset.why);
+    if (del && confirm('Delete this entry?')) { SY.remove(del.dataset.del); renderBody(); }
+  });
+
+  // Everything E.F.I. needs to reason about a symptom, as compact JSON.
+  function symptomContext(item) {
+    const L = latest() || {}, hist = (health && health.history) || [];
+    const avg = (k, n) => { const v = hist.slice(-(n || 14)).map((h) => num(h[k])).filter((x) => x != null); return v.length ? Math.round(v.reduce((a, b) => a + b, 0) / v.length) : null; };
+    const s = L.sleep;
+    const iso = (ts) => { const d = new Date(ts); return D.dateKey(d) + ' ' + D.pad2(d.getHours()) + ':' + D.pad2(d.getMinutes()); };
+    const sleepAvg = avg('sleepMin');
+    return {
+      now: iso(Date.now()),
+      symptom: { what: SY.label(item), severity: SY.SEVERITY[item.severity], note: item.note || undefined, logged_at: iso(item.ts) },
+      last_night_sleep: s && s.asleepMin != null ? { asleep_h: +(s.asleepMin / 60).toFixed(1), deep_min: s.deepMin, rem_min: s.remMin, awake_min: s.awakeMin, bed: s.sleepStart, wake: s.sleepEnd } : 'no data',
+      today: { hrv_ms: L.hrv, resting_hr: L.rhr, resp_rate: L.resp, spo2: L.spo2, steps: L.steps, active_kcal: L.activeKcal, exercise_min: L.exerciseMin, water_ml: L.waterMl != null ? L.waterMl : 'not tracked', nutrition: L.nutrition },
+      baselines_14d: { sleep_h: sleepAvg != null ? +(sleepAvg / 60).toFixed(1) : null, hrv_ms: avg('hrv'), resting_hr: avg('rhr'), caffeine_mg: avg('caffeineMg'), water_ml: avg('waterMl') },
+      recent_days: hist.slice(-4).map((h) => ({ date: h.date, sleep_h: h.sleepMin != null ? +(h.sleepMin / 60).toFixed(1) : null, hrv: h.hrv, rhr: h.rhr, steps: h.steps, caffeine_mg: h.caffeineMg, water_ml: h.waterMl, calories: h.calories })),
+      caffeine_last_36h: EFI.data.caffeine.logs().filter((l) => l.ts >= Date.now() - 36 * 3600000).map((l) => ({ at: iso(l.ts), mg: l.mg })),
+      energy_now_pct: ctx ? Math.round(EM.energyAt(hourNow(), ctx, true)) : null,
+      gym_training_last_5_days: EFI.data.recentTraining(5),
+      other_symptoms_14d: SY.recent(14).filter((x) => x.id !== item.id).map((x) => ({ at: iso(x.ts), what: SY.label(x), severity: SY.SEVERITY[x.severity] })),
+    };
+  }
+  const EXPLAIN_SYSTEM = [
+    'You are E.F.I., the health assistant inside the user\'s personal dashboard. They just logged a symptom.',
+    'Using ONLY the JSON data, name the 1-3 most likely contributors, each on its own line starting with "• " and citing the number that supports it (e.g. "• **Short sleep** — 3.8 h vs your 7.1 h average").',
+    'Then one final line starting with "→ " with one concrete thing to do now.',
+    'Guidance: soreness in a muscle group trained 12-72 h earlier is normal DOMS (push = chest/shoulders/triceps, pull = back/biceps/forearms, legs = quads/hamstrings/glutes/calves). Headaches: consider short sleep, low water, caffeine well above or below baseline (withdrawal), late caffeine, skipped food, low HRV or high resting HR. If water is "not tracked", say hydration is unknown rather than blaming it.',
+    'If nothing in the data explains it, say so plainly and suggest what to watch. Mention a pattern if other_symptoms_14d shows one.',
+    'You are not a doctor. For red flags (sudden or worst-ever headache, chest pain, numbness or weakness, fainting, pain after an injury, fever with a stiff neck) the final line must tell them to get medical help.',
+    'Max 4 lines. No headings, no preamble.',
+  ].join('\n');
+  async function explain(id) {
+    const item = SY.list().find((x) => x.id === id);
+    if (!item || pending.has(id)) return;
+    if (!EFI.ai.hasKey()) { SY.update(id, { insight: 'Add your Gemini API key in E.F.I. settings and E.F.I. will explain what might be behind this.', insightError: true }); renderSymptoms(); return; }
+    pending.add(id); renderSymptoms();
+    try {
+      const text = await EFI.ai.askText(JSON.stringify(symptomContext(item)), { system: EXPLAIN_SYSTEM, temperature: 0.3 });
+      SY.update(id, { insight: text || 'E.F.I. had nothing to add.', insightError: false, insightAt: Date.now() });
+    } catch (e) {
+      // Show the error briefly, then bring the Why? button back for a retry.
+      SY.update(id, { insight: (e && e.message) || 'E.F.I. could not reach Gemini.', insightError: true });
+      setTimeout(() => { const x = SY.list().find((s) => s.id === id); if (x && x.insightError) { SY.update(id, { insight: null, insightError: false }); renderSymptoms(); } }, 8000);
+    }
+    pending.delete(id); renderSymptoms();
+  }
+
+  // log sheet
+  const REGION_ORDER = ['general', 'head', 'neck', 'shoulder_l', 'shoulder_r', 'chest', 'abs', 'upper_back', 'lower_back', 'arm_l', 'arm_r', 'forearm_l', 'forearm_r', 'hips', 'glutes', 'quad_l', 'quad_r', 'hamstring_l', 'hamstring_r', 'knee_l', 'knee_r', 'shin_l', 'shin_r', 'calf_l', 'calf_r'];
+  $('sRegion').innerHTML = REGION_ORDER.map((r) => '<option value="' + r + '">' + SY.REGIONS[r] + '</option>').join('');
+  $('sKind').innerHTML = KIND_ORDER.map((k) => '<button type="button" class="chip" data-k="' + k + '">' + SY.KINDS[k] + '</button>').join('');
+  $('sSev').innerHTML = [1, 2, 3].map((s) => '<button type="button" class="chip" data-s="' + s + '">' + SY.SEVERITY[s] + '</button>').join('');
+  let draft = null;
+  function paintSheet() {
+    $('sKind').querySelectorAll('.chip').forEach((b) => b.classList.toggle('on', b.dataset.k === draft.kind));
+    $('sSev').querySelectorAll('.chip').forEach((b) => b.classList.toggle('on', +b.dataset.s === draft.severity));
+    $('sRegion').value = draft.region;
+  }
+  function openSheet(o) {
+    const kind = o.kind || 'soreness';
+    draft = { kind, region: o.region || (kind === 'headache' ? 'head' : 'general'), severity: 2 };
+    $('sNote').value = '';
+    paintSheet();
+    $('symBg').classList.add('show');
+  }
+  function closeSheet() { $('symBg').classList.remove('show'); }
+  $('sKind').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-k]'); if (!b) return;
+    draft.kind = b.dataset.k;
+    if (draft.kind === 'headache') draft.region = 'head';
+    else if (draft.region === 'head' && draft.kind !== 'pain' && draft.kind !== 'other') draft.region = 'general';
+    paintSheet();
+  });
+  $('sSev').addEventListener('click', (e) => { const b = e.target.closest('[data-s]'); if (b) { draft.severity = +b.dataset.s; paintSheet(); } });
+  $('sRegion').addEventListener('change', (e) => { draft.region = e.target.value; });
+  $('sCancel').addEventListener('click', closeSheet);
+  $('symBg').addEventListener('click', (e) => { if (e.target === $('symBg')) closeSheet(); });
+  $('sSave').addEventListener('click', () => {
+    const item = SY.add({ kind: draft.kind, region: draft.region, severity: draft.severity, note: $('sNote').value.trim() });
+    closeSheet();
+    renderBody();
+    explain(item.id);
+  });
+
+  function renderBody() { renderFigure(); renderVitals(); renderSymptoms(); }
 
   // ---------- caffeine ----------
   function renderCaffeine() {
@@ -483,7 +774,7 @@ h1 { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -0.03em; colo
   async function refresh(opts, force) {
     try { health = window.AppleHealth ? await window.AppleHealth.get(force) : null; } catch (e) { health = null; }
     ctx = await EM.computeContext();
-    renderHeader(); renderHero(); renderChart(); renderWindows(); renderSleep(); renderVitals(); renderCaffeine();
+    renderHeader(); renderHero(); renderChart(); renderWindows(); renderSleep(); renderBody(); renderCaffeine();
     renderDayFit(opts);
   }
   $('refreshBtn').addEventListener('click', async (e) => {
