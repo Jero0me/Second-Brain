@@ -12,7 +12,7 @@ Setup (Vercel, Supabase, Gemini key, Google OAuth, Apple Health, Hevy): **[SETUP
 | [calendar.html](calendar.html) | Calendar — day timeline, week, month; merges Google Calendar, planner time-blocks, shift templates, bill renewals, orders |
 | [main.html](main.html) | Routines — habits, shift templates, time-blocking grid, AI Auto-schedule (daily setup itself runs everywhere via `EFI.data.daily`) |
 | [health.html](health.html) | Health — energy gauge + today's call, body map (Apple Watch vitals with 7-day trends around a front/back figure, tap to log headaches/soreness/pain; E.F.I. explains the likely cause), energy curve & windows, day-vs-energy, sleep, caffeine (`energy.html` redirects here) |
-| [gym.html](gym.html) | Fitness — read-only view: MyFitnessPal calories & macros vs targets (via Apple Health), Hevy workouts (week, last workout + PRs, sets per muscle, e1RM progress per lift, history), body weight, progress photos |
+| [gym.html](gym.html) | Fitness — read-only view: MacroFactor calories & macros vs targets (via Apple Health), Hevy workouts (week, last workout + PRs, sets per muscle, e1RM progress per lift, history), body weight, progress photos |
 | [finance.html](finance.html) | Net worth, subscriptions, wishlist, incoming orders (EUR) |
 | [mealprep.html](mealprep.html) | Recipes, fridge, AI chef, weekly meal plan |
 
