@@ -24,7 +24,7 @@
 <script src="hevy.js" defer></script>
 <!-- =============================================================
      Fitness — a read-only view of what you log elsewhere:
-       · food & macros: MyFitnessPal → Apple Health → /api/health-import
+       · food & macros: MacroFactor → Apple Health → /api/health-import
        · workouts:      Hevy → /api/hevy-sync
        · body weight:   Apple Health (smart scale), Hevy measurements,
                         or the quick log here (po_coach_weights)
@@ -225,7 +225,7 @@ h1 { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -0.03em; colo
     </ol>
   </div>
 
-  <!-- fuel: MyFitnessPal via Apple Health -->
+  <!-- fuel: MacroFactor via Apple Health -->
   <div class="card">
     <div class="card-h"><h2><span data-icon="utensils"></span>Fuel</h2><button class="link-btn" id="targetsBtn" type="button">Targets</button></div>
     <div class="fuel">
@@ -235,7 +235,7 @@ h1 { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -0.03em; colo
       </div>
       <div class="fuel-side">
         <div class="fuel-state" id="fuelState">—</div>
-        <div class="fuel-line" id="fuelLine">Loading MyFitnessPal…</div>
+        <div class="fuel-line" id="fuelLine">Loading MacroFactor…</div>
       </div>
     </div>
     <div class="macros" id="macros"></div>
@@ -309,7 +309,7 @@ h1 { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -0.03em; colo
   <div class="efi-sheet" role="dialog" aria-label="Nutrition targets">
     <div class="grabber"></div>
     <h3>Daily targets</h3>
-    <p>What the Fuel rings measure against. MyFitnessPal doesn't share its goals with Apple Health, so set them here too.</p>
+    <p>What the Fuel rings measure against. MacroFactor doesn't share its goals with Apple Health, so set them here too.</p>
     <div class="grid2">
       <div><span class="lbl">Calories (kcal)</span><input class="inp" id="tKcal" type="number" inputmode="numeric"></div>
       <div><span class="lbl">Protein (g)</span><input class="inp" id="tProtein" type="number" inputmode="numeric"></div>
@@ -387,7 +387,7 @@ h1 { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -0.03em; colo
     if (err) $('errBanner').textContent = 'Hevy sync problem: ' + err + (hevy && hevy.workouts.length ? ' Showing the last synced workouts.' : '');
   }
 
-  // ---------- fuel (MyFitnessPal via Apple Health) ----------
+  // ---------- fuel (MacroFactor via Apple Health) ----------
   function currentWeight() { const w = weights(); return w.length ? w[w.length - 1].kg : null; }
   function targets() {
     const saved = S.get(TGT_KEY, null) || {};
@@ -413,13 +413,13 @@ h1 { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -0.03em; colo
     const burned = L ? (num(L.activeKcal) || 0) + (num(L.basalKcal) || 0) : 0;
     if (!has) {
       $('fuelState').textContent = health ? 'Nothing logged yet' : 'Not synced';
-      $('fuelLine').innerHTML = health ? 'Log food in MyFitnessPal and it lands here on the next Apple Health sync.' : 'Waiting for Apple Health.';
+      $('fuelLine').innerHTML = health ? 'Log food in MacroFactor and it lands here on the next Apple Health sync.' : 'Waiting for Apple Health.';
     } else {
       const left = T.kcal - eaten;
       $('fuelState').textContent = left >= 0 ? fmtN(left) + ' kcal left' : fmtN(-left) + ' kcal over';
       $('fuelState').style.color = left < -0.1 * T.kcal ? STATUS.warn : '';
       const lines = [];
-      if (!isToday) lines.push('From ' + dayLabel(day) + '. Nothing from MyFitnessPal today yet.');
+      if (!isToday) lines.push('From ' + dayLabel(day) + '. Nothing from MacroFactor today yet.');
       if (L.activeKcal != null) lines.push('Burned <b>' + fmtN(L.activeKcal) + '</b> active' + (L.basalKcal != null ? ' + <b>' + fmtN(L.basalKcal) + '</b> resting' : '') + ' kcal');
       if (L.basalKcal != null && isToday) { const bal = eaten - burned; lines.push('Balance so far <b>' + (bal > 0 ? '+' : '−') + fmtN(Math.abs(bal)) + '</b> kcal'); }
       $('fuelLine').innerHTML = lines.join('<br>') || '&nbsp;';
@@ -432,7 +432,7 @@ h1 { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -0.03em; colo
     }).join('');
     const micro = [['Fiber', n && n.fiberG, 'g'], ['Sugar', n && n.sugarG, 'g'], ['Sodium', n && n.sodiumMg, 'mg']].filter((x) => num(x[1]) != null);
     $('micro').innerHTML = micro.map((x) => '<span>' + x[0] + ' <b>' + fmtN(x[1]) + ' ' + x[2] + '</b></span>').join('');
-    $('fuelHint').textContent = T.custom ? '' : 'Targets are defaults (protein ≈ 2 g per kg of body weight). Tap Targets to match your MyFitnessPal goals.';
+    $('fuelHint').textContent = T.custom ? '' : 'Targets are defaults (protein ≈ 2 g per kg of body weight). Tap Targets to match your MacroFactor goals.';
     renderFuelHistory(T);
   }
   function renderFuelHistory(T) {

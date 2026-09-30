@@ -2,7 +2,7 @@
 
 **E.F.I. (Enhanced Functional Intelligence)** is a static dashboard (plain HTML/JS) that deploys on
 **Vercel**, syncs across your devices with **Supabase**, thinks with **Google Gemini**, and reads/writes
-your **Google Calendar + Google Tasks**. Apple Health (sleep, HRV, MyFitnessPal nutrition, caffeine) and
+your **Google Calendar + Google Tasks**. Apple Health (sleep, HRV, MacroFactor nutrition, caffeine) and
 **Hevy** (workouts) are optional add-ons.
 
 ---
@@ -188,7 +188,7 @@ books over a Google event.
 
 ---
 
-## 5. Apple Health — sleep, vitals, MyFitnessPal, caffeine (optional)
+## 5. Apple Health — sleep, vitals, MacroFactor, caffeine (optional)
 
 There's no public Apple Health API a website can call directly — the **Health Auto Export – JSON+CSV**
 iOS app pushes your data to the dashboard on a schedule. No login involved; it's a one-way webhook.
@@ -213,15 +213,16 @@ iOS app pushes your data to the dashboard on a schedule. No login involved; it's
      the energy curve uses the time you had it.
 4. Turn the automation on (e.g. every 1–2 hours, or every morning at minimum).
 
-### MyFitnessPal
-MFP → **More → Settings → Sharing & Privacy → HealthKit** → allow it to write nutrition. Calories and
-macros then flow MFP → Apple Health → dashboard (Fitness page **Fuel** card, E.F.I.). MFP doesn't share
-its goals with Apple Health, so set your calorie/macro targets on the Fitness page (**Targets**).
+### MacroFactor
+MacroFactor → **More → Integrations → Apple Health** → turn on writing nutrition to Apple Health. Calories
+and macros then flow MacroFactor → Apple Health → dashboard (Fitness page **Fuel** card, E.F.I.).
+MacroFactor doesn't share its targets with Apple Health, so copy your calorie/macro targets onto the
+Fitness page (**Targets**) — and update them there when MacroFactor's weekly check-in changes them.
 
 ### Caffeine (automatic)
 The old manual Caffeine page is gone. Caffeine now comes in automatically from Apple Health's
-**Dietary Caffeine** — whatever app writes it. Note that **MyFitnessPal does not export caffeine to
-Apple Health**, so pick one of these:
+**Dietary Caffeine** — whatever app writes it. Log a coffee in MacroFactor and check Apple Health → Browse → Nutrition →
+Caffeine: if an entry with the right time shows up, you're done. If not, pick one of these:
 - log drinks in an app that writes caffeine to Health (e.g. a caffeine tracker, or Apple Health itself), or
 - make an iOS **Shortcut** "Log espresso" → *Log Health Sample: Caffeine 63 mg* and put it on your
   home screen / Action button, or

@@ -178,7 +178,7 @@ export default async function handler(req, res) {
     waterMl: waterDay != null ? Math.round(waterDay * waterMult) : null,
     bodyMassKg: bodyMassKg != null ? Math.round(bodyMassKg * 10) / 10 : null,
     bodyFatPct: bodyFatPct != null ? Math.round(bodyFatPct * 10) / 10 : null,
-    // Written to Apple Health by MyFitnessPal (HealthKit sharing) when you
+    // Written to Apple Health by MacroFactor (HealthKit sharing) when you
     // log food there — field names are best-effort HealthKit identifiers;
     // check the `debug` fingerprint below on first sync to confirm/adjust.
     nutrition: {
