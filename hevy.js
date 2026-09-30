@@ -16,40 +16,13 @@
 // (never synced), so sync readers like EFI.data.recentTraining() and
 // offline pages still have your recent training.
 //
-// Requires (loaded before this file):
-//   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-//   <script src="/api/config"></script>
+// Load after sync.js (both deferred): it provides CloudSync.reader.
 // =============================================================
 (function () {
   'use strict';
 
-  const SUPABASE_URL = (typeof window !== 'undefined' && window.DASH_SUPABASE_URL) || 'https://srajryooffirbroltjmg.supabase.co';
-  const SUPABASE_KEY = (typeof window !== 'undefined' && window.DASH_SUPABASE_KEY) || 'sb_publishable_5142ZwTLF_DkSVRzciNuRA_bHwRAu4c';
-  const ROW_KEY = 'hevy';
-  const CACHE_LS = 'efi_local:hevy_cache';
   const CACHE_DAYS = 120;
-  const CACHE_MS = 60 * 1000;
 
-  let supa = null;
-  let cached = null, cachedAt = 0, inflight = null;
-
-  function client() {
-    if (supa) return supa;
-    if (typeof window === 'undefined' || !window.supabase) return null;
-    if (!SUPABASE_URL || !SUPABASE_KEY || SUPABASE_URL.indexOf('PASTE-') === 0) return null;
-    if (window.EFIAuth && window.EFIAuth.client()) { supa = window.EFIAuth.client(); return supa; }
-    try { supa = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY); } catch (e) { return null; }
-    return supa;
-  }
-
-  function readCache() {
-    try { const v = JSON.parse(localStorage.getItem(CACHE_LS) || 'null'); return v && Array.isArray(v.workouts) ? v : null; } catch (e) { return null; }
-  }
-  function writeCache(res) {
-    const cut = new Date(Date.now() - CACHE_DAYS * 864e5).toISOString();
-    const trimmed = Object.assign({}, res, { workouts: (res.workouts || []).filter((w) => w.start >= cut) });
-    try { localStorage.setItem(CACHE_LS, JSON.stringify(trimmed)); } catch (e) { /* quota — the live copy still works */ }
-  }
   function normalize(row) {
     const d = (row && row.data) || {};
     return {
@@ -62,29 +35,22 @@
     };
   }
 
-  async function get(force) {
-    if (!force && cached && Date.now() - cachedAt < CACHE_MS) return cached;
-    if (inflight) return inflight;
-    const c = client();
-    if (!c) { cached = readCache(); cachedAt = Date.now(); return cached; }
-    inflight = (async () => {
-      try {
-        if (window.EFIAuth) await window.EFIAuth.whenReady();
-        const { data, error } = await c.from('app_state').select('data, updated_at').eq('key', ROW_KEY).maybeSingle();
-        if (error) return cached || readCache();
-        if (!data || !data.data) return null;
-        cached = normalize(data); cachedAt = Date.now();
-        writeCache(cached);
-        return cached;
-      } catch (e) { return cached || readCache(); } finally { inflight = null; }
-    })();
-    return inflight;
-  }
+  const reader = window.CloudSync.reader('hevy', {
+    cacheKey: 'efi_local:hevy_cache',
+    normalize,
+    // Only the recent months are kept on the device.
+    toCache: (res) => {
+      const cut = new Date(Date.now() - CACHE_DAYS * 864e5).toISOString();
+      return Object.assign({}, res, { workouts: (res.workouts || []).filter((w) => w.start >= cut) });
+    },
+    fromCache: (v) => (v && Array.isArray(v.workouts) ? v : null),
+  });
+  const get = reader.get, subscribe = reader.subscribe;
 
   // Ask the server to pull from Hevy. Resolves { ok, workouts } or { ok:false, code, error }.
   async function sync(opts) {
     opts = opts || {};
-    if (!client()) return { ok: false, code: 'offline', error: 'Cloud sync is off on this device.' };
+    if (!reader.online()) return { ok: false, code: 'offline', error: 'Cloud sync is off on this device.' };
     try {
       if (window.EFIAuth) await window.EFIAuth.whenReady();
       const token = window.EFIAuth ? window.EFIAuth.accessToken() : '';
@@ -98,22 +64,6 @@
       await get(true);
       return Object.assign({ ok: true }, j);
     } catch (e) { return { ok: false, code: 'network', error: 'Could not reach the server.' }; }
-  }
-
-  function subscribe(cb) {
-    const c = client();
-    if (!c) return function () {};
-    let ch = null, stopped = false;
-    const start = () => { if (stopped) return; ch = c.channel('app_state_' + ROW_KEY + '_' + Math.random().toString(36).slice(2, 7))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'app_state', filter: 'key=eq.' + ROW_KEY }, (payload) => {
-        if (!payload.new || !payload.new.data) return;
-        cached = normalize(payload.new); cachedAt = Date.now();
-        writeCache(cached);
-        cb(cached);
-      })
-      .subscribe(); };
-    if (window.EFIAuth) window.EFIAuth.whenReady().then(start); else start();
-    return function () { stopped = true; try { if (ch) c.removeChannel(ch); } catch (e) {} };
   }
 
   // ---------- lift maths ----------
@@ -179,7 +129,7 @@
 
   // Compact training summary for E.F.I. (sync — uses the cache).
   function recent(days, res) {
-    res = res || cached || readCache();
+    res = res || reader.cached();
     if (!res || !res.workouts) return [];
     const cut = new Date(Date.now() - (days || 5) * 864e5).toISOString();
     return res.workouts.filter((w) => w.start >= cut).map((w) => {
@@ -197,7 +147,7 @@
   }
 
   window.Hevy = {
-    get, sync, subscribe, cached: () => cached || readCache(), recent,
+    get, sync, subscribe, cached: reader.cached, recent,
     e1rm, bestSet, workSets, exVolume, volume, setCount, durationMin, exKey, muscleOf, muscleSets, prsIn, localDay, fmtSet, MUSCLE_LABEL,
   };
 })();

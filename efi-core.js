@@ -183,6 +183,8 @@
   // `contents` is Gemini's native [{role, parts}] array.
   // opts.pinModel: only use opts.model (still retried) — used mid tool-loop,
   // where switching models could invalidate Gemini's thought signatures.
+  // opts.onText(textSoFar): stream the reply as it's written.
+  // opts.thinking: 'low' caps how long the model reasons before answering.
   async function generate(opts) {
     const key = apiKey();
     if (!key) throw new AIError('Add your Gemini API key in E.F.I. settings first.', 'no-key');
@@ -201,6 +203,7 @@
         } catch (e) {
           lastErr = e;
           if (e && e.name === 'AbortError') throw e;
+          if (e.partial) throw e; // part of the reply is already on screen — don't answer twice
           if (e.code === 'bad-key' || e.code === 'network' || e.code === 'empty') throw e;
           if (e.code === 'gone') { if (!EFI.settings.get().geminiModel) setRaw(AUTO_MODEL_LS, ''); break; }
           if (e.code !== 'busy') throw e;
@@ -215,39 +218,115 @@
     throw lastErr || new AIError('Gemini did not answer.', 'http');
   }
 
+  // Thinking cap per model family ('low' = answer fast; the default lets
+  // Flash reason for thousands of tokens before the first word). Models that
+  // reject the setting are remembered and asked again without it.
+  const THINK_BUDGET_LOW = 1024;
+  const noThinkingConfig = {};
+  function thinkingFor(model, level) {
+    if (!level || noThinkingConfig[model]) return null;
+    if (/^gemini-[3-9]/.test(model)) return { thinkingLevel: level };
+    if (/^gemini-2\.5-/.test(model)) return { thinkingBudget: THINK_BUDGET_LOW };
+    return null;
+  }
+
   async function generateOnce(key, model, opts) {
+    const thinking = thinkingFor(model, opts.thinking);
+    try { return await callModel(key, model, opts, thinking); }
+    catch (e) {
+      if (!thinking || !e.thinkingRejected) throw e;
+      noThinkingConfig[model] = true;
+      return callModel(key, model, opts, null);
+    }
+  }
+
+  function httpError(status, json, model) {
+    const msg = (json && json.error && json.error.message) || ('HTTP ' + status);
+    if (status === 404) return new AIError('Model ' + model + ' is not available.', 'gone');
+    if ((status === 400 || status === 403) && /api key|permission/i.test(msg)) return new AIError('Gemini rejected the API key — check it in settings.', 'bad-key');
+    if (transient(status, msg)) {
+      const err = new AIError('Gemini is busy: ' + msg, 'busy');
+      err.quota = status === 429 && /quota/i.test(msg);
+      return err;
+    }
+    const err = new AIError('Gemini error: ' + msg, 'http');
+    err.thinkingRejected = status === 400 && /thinking/i.test(msg);
+    return err;
+  }
+
+  async function callModel(key, model, opts, thinking) {
     const body = { contents: opts.contents, generationConfig: { maxOutputTokens: opts.maxTokens || 8192 } };
     if (opts.system) body.systemInstruction = { parts: [{ text: opts.system }] };
     if (opts.json) body.generationConfig.responseMimeType = 'application/json';
     if (opts.temperature != null) body.generationConfig.temperature = opts.temperature;
+    if (thinking) body.generationConfig.thinkingConfig = thinking;
     if (opts.tools && opts.tools.length) {
       body.tools = [{ functionDeclarations: opts.tools }];
       body.toolConfig = { functionCallingConfig: { mode: 'AUTO' } };
     }
-    let res, json;
+    const stream = typeof opts.onText === 'function';
+    const url = GEMINI_BASE + '/models/' + encodeURIComponent(model) + (stream ? ':streamGenerateContent?alt=sse' : ':generateContent');
+    let res;
     try {
-      res = await fetch(GEMINI_BASE + '/models/' + encodeURIComponent(model) + ':generateContent', {
+      res = await fetch(url, {
         method: 'POST',
         headers: { 'content-type': 'application/json', 'x-goog-api-key': key },
         body: JSON.stringify(body),
         signal: opts.signal,
       });
-      json = await res.json().catch(() => ({}));
     } catch (e) {
       if (e && e.name === 'AbortError') throw e;
       throw new AIError('Could not reach Gemini — check your connection.', 'network');
     }
-    if (!res.ok) {
-      const msg = (json.error && json.error.message) || ('HTTP ' + res.status);
-      if (res.status === 404) throw new AIError('Model ' + model + ' is not available.', 'gone');
-      if ((res.status === 400 || res.status === 403) && /api key|permission/i.test(msg)) throw new AIError('Gemini rejected the API key — check it in settings.', 'bad-key');
-      if (transient(res.status, msg)) {
-        const err = new AIError('Gemini is busy: ' + msg, 'busy');
-        err.quota = res.status === 429 && /quota/i.test(msg);
+    if (!res.ok) throw httpError(res.status, await res.json().catch(() => ({})), model);
+    if (!stream) return finish(await res.json().catch(() => ({})), model);
+
+    // Server-sent events: each `data:` line is a partial response. Parts are
+    // kept exactly as sent (thought signatures included) and concatenated.
+    const parts = [];
+    let text = '', finishReason = null, blockReason = null;
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = '';
+    const handle = (line) => {
+      if (line.indexOf('data:') !== 0) return;
+      let chunk;
+      try { chunk = JSON.parse(line.slice(5)); } catch (e) { return; }
+      if (chunk.error) {
+        const err = httpError(chunk.error.code || 500, chunk, model);
+        err.partial = !!text;
         throw err;
       }
-      throw new AIError('Gemini error: ' + msg, 'http');
+      if (chunk.promptFeedback && chunk.promptFeedback.blockReason) blockReason = chunk.promptFeedback.blockReason;
+      const cand = (chunk.candidates || [])[0];
+      if (!cand) return;
+      if (cand.finishReason) finishReason = cand.finishReason;
+      const got = (cand.content && cand.content.parts) || [];
+      let delta = '';
+      got.forEach((p) => { parts.push(p); if (typeof p.text === 'string' && !p.thought) delta += p.text; });
+      if (delta) { text += delta; try { opts.onText(text); } catch (e) {} }
+    };
+    try {
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        let nl;
+        while ((nl = buf.indexOf('\n')) !== -1) { handle(buf.slice(0, nl).trim()); buf = buf.slice(nl + 1); }
+      }
+      handle(buf.trim());
+    } catch (e) {
+      if (e instanceof AIError) throw e;
+      if (e && e.name === 'AbortError') throw e;
+      const err = new AIError('The connection to Gemini dropped mid-reply — try again.', 'network');
+      err.partial = !!text;
+      throw err;
     }
+    if (!parts.length) throw new AIError('Gemini returned no answer (' + (blockReason || finishReason || 'empty response') + ').', 'empty');
+    return finish({ candidates: [{ content: { role: 'model', parts }, finishReason }] }, model);
+  }
+
+  function finish(json, model) {
     const cand = (json.candidates || [])[0];
     if (!cand || !cand.content) {
       const reason = (json.promptFeedback && json.promptFeedback.blockReason) || (cand && cand.finishReason) || 'empty response';

@@ -9,6 +9,9 @@
 // ui.confirm(description) resolves true — the model can propose them,
 // only the user can approve them.
 //
+// ui.onText(textSoFar) streams the reply as it's written; ui.waitFor is
+// awaited (e.g. the first cloud pull) before local data is read.
+//
 // Load after efi-core.js, efi-google.js, efi-data.js.
 // =============================================================
 (function () {
@@ -337,11 +340,17 @@
   };
 
   async function snapshotEvent(id) {
-    try {
-      const from = D.dateKey(D.addDays(new Date(), -30)), to = D.dateKey(D.addDays(new Date(), 180));
-      const r = await data().calendar.range(from, to, { cachedOnly: false });
-      return r.items.find((x) => x.id === id) || null;
-    } catch (e) { return null; }
+    const from = D.dateKey(D.addDays(new Date(), -30)), to = D.dateKey(D.addDays(new Date(), 180));
+    // The events this turn's snapshot was built from are cached — only go
+    // back to Google for an event outside that window.
+    for (const cachedOnly of [true, false]) {
+      try {
+        const r = await data().calendar.range(from, to, { cachedOnly });
+        const hit = r.items.find((x) => x.id === id);
+        if (hit) return hit;
+      } catch (e) {}
+    }
+    return null;
   }
 
   function compactItem(x) {
@@ -353,7 +362,9 @@
   }
 
   // ---------- live context snapshot ----------
-  async function buildContext() {
+  // waitFor: a promise to await before reading this device's own data (the
+  // first cloud pull) — the network reads below start without waiting for it.
+  async function buildContext(waitFor) {
     const now = new Date();
     const today = D.activeDateKey(), tomorrow = D.tomorrowDateKey();
     const ctx = {
@@ -363,8 +374,19 @@
       profile: (() => { const p = EFI.profile.get(); return { heightCm: p.heightCm, weightKg: p.weightKg, age: p.age, sex: p.sex }; })(),
     };
 
+    // Start every network read at once — they're independent, and awaiting
+    // them one by one used to add each round trip to the reply time.
+    const soft = (fn) => { try { return Promise.resolve(fn()).catch(() => null); } catch (e) { return Promise.resolve(null); } };
+    const walletP = soft(() => window.Wallet && window.Wallet.get());
+    const healthP = soft(() => window.AppleHealth && window.AppleHealth.get());
+    const energyP = soft(() => window.EnergyModel && window.EnergyModel.computeContext());
+    const hevyP = soft(() => window.Hevy && window.Hevy.get());
+    if (waitFor) { try { await waitFor; } catch (e) {} }
+    // The calendar merges planner data from localStorage, so it starts after the pull.
+    const calendarP = data().calendar.range(D.dateKey(D.addDays(now, -1)), D.dateKey(D.addDays(now, 14)));
+
     try {
-      const r = await data().calendar.range(D.dateKey(D.addDays(now, -1)), D.dateKey(D.addDays(now, 14)));
+      const r = await calendarP;
       ctx.google = r.google.connected ? 'connected' : (r.google.configured ? 'not connected' : 'not set up');
       ctx.calendar_next_14_days = r.items.slice(0, 140).map(compactItem);
       ctx.unscheduled_tasks = {};
@@ -386,14 +408,14 @@
     };
     // Apple Pay payments pushed by the iOS Shortcut (/api/wallet-import), categories from wallet.js.
     try {
-      if (window.Wallet) { const sp = window.Wallet.forAI(await window.Wallet.get()); if (sp) ctx.finance.card_spending = sp; }
+      if (window.Wallet) { const sp = window.Wallet.forAI(await walletP); if (sp) ctx.finance.card_spending = sp; }
     } catch (e) {}
 
     ctx.notes_recent = data().notes.list().slice(0, 15).map((n) => ({ id: n.id, title: n.title, text: n.text.slice(0, 160) }));
 
     const health = {};
     try {
-      const ah = window.AppleHealth ? await window.AppleHealth.get() : null;
+      const ah = await healthP;
       const L = ah && ah.latest;
       if (L) {
         health.synced = ah.updatedAt;
@@ -409,8 +431,8 @@
     health.caffeine_today_mg = data().caffeine.todayTotal();
     health.caffeine_active_now_mg = data().caffeine.activeNow();
     try {
-      if (window.EnergyModel) {
-        const ectx = await window.EnergyModel.computeContext();
+      const ectx = await energyP;
+      if (window.EnergyModel && ectx) {
         const h = window.EnergyModel.nowHour();
         health.energy_now = Math.round(window.EnergyModel.energyAt(h, ectx, true));
         health.energy_next_hours = [1, 2, 3, 4, 6, 8].map((d) => ({ time: D.minToTime(((h + d) % 24) * 60), energy: Math.round(window.EnergyModel.energyAt(h + d, ectx, true)) }));
@@ -426,7 +448,7 @@
     // Workouts are logged in Hevy (synced by /api/hevy-sync); fall back to the old gym log.
     let hevyWorkouts = null;
     try {
-      if (window.Hevy) { const hv = await window.Hevy.get(); if (hv && hv.workouts.length) hevyWorkouts = window.Hevy.recent(14, hv); }
+      if (window.Hevy) { const hv = await hevyP; if (hv && hv.workouts.length) hevyWorkouts = window.Hevy.recent(14, hv); }
     } catch (e) {}
     if (hevyWorkouts && hevyWorkouts.length) ctx.training_recent = hevyWorkouts;
     else { const training = data().recentTraining(5); if (training.length) ctx.training_recent = training; }
@@ -476,7 +498,7 @@
     const history = loadHistory();
     const baseLen = history.length;
     history.push({ role: 'user', parts: [{ text: String(text) }] });
-    const system = SYSTEM.replace('{name}', EFI.settings.get().userName || 'the user') + '\n\nLIVE SNAPSHOT (JSON):\n' + JSON.stringify(await buildContext());
+    const system = SYSTEM.replace('{name}', EFI.settings.get().userName || 'the user') + '\n\nLIVE SNAPSHOT (JSON):\n' + JSON.stringify(await buildContext(ui.waitFor));
     const declarations = Object.keys(TOOLS).map((name) => Object.assign({ name }, TOOLS[name].decl));
     const actions = [];
     let navigate = null;
@@ -487,7 +509,9 @@
         // The first call may fall back to another model if Gemini is busy;
         // after that the turn stays on the model that answered, because its
         // thought signatures in the history are only valid for that model.
-        const r = await EFI.ai.generate({ system, contents: history, tools: declarations, temperature: 0.4, signal: ui.signal, model: pinned, pinModel: !!pinned });
+        // Streamed, with a light thinking budget: the reply starts appearing
+        // as Gemini writes it instead of after the whole answer.
+        const r = await EFI.ai.generate({ system, contents: history, tools: declarations, temperature: 0.4, signal: ui.signal, model: pinned, pinModel: !!pinned, thinking: 'low', onText: ui.onText });
         pinned = r.model;
         history.push(r.content); // verbatim — preserves Gemini thought signatures
         if (!r.calls.length) {

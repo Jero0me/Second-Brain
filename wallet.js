@@ -23,22 +23,17 @@
 // new shop and fixing one payment fixes them all. A manual expense carries
 // its own category.
 //
-// Requires (loaded before this file):
-//   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-//   <script src="/api/config"></script>
-//   <script src="efi-core.js"></script>   (for Wallet.categorize)
+// Load after sync.js (both deferred; it provides CloudSync.reader) and
+// efi-core.js (for Wallet.categorize).
 // =============================================================
 (function () {
   'use strict';
 
-  const SUPABASE_URL = (typeof window !== 'undefined' && window.DASH_SUPABASE_URL) || 'https://srajryooffirbroltjmg.supabase.co';
-  const SUPABASE_KEY = (typeof window !== 'undefined' && window.DASH_SUPABASE_KEY) || 'sb_publishable_5142ZwTLF_DkSVRzciNuRA_bHwRAu4c';
   const ROW_KEY = 'wallet';
   const CACHE_LS = 'efi_local:wallet_cache';
   const META_LS = 'spend_meta';
   const MANUAL_LS = 'fin:manual';
   const BUDGET_LS = 'fin:budget';
-  const CACHE_MS = 60 * 1000;
   const MAX_PER_ASK = 40; // merchants per Gemini call
   const MANUAL_KEEP_DAYS = 400;
 
@@ -54,24 +49,11 @@
     'Health': 'heart', 'Entertainment': 'star', 'Bills': 'bolt', 'Travel': 'plane', 'Other': 'grid', 'Unsorted': 'card',
   };
 
-  let supa = null;
-  let cached = null, cachedAt = 0, inflight = null;
-
-  function client() {
-    if (supa) return supa;
-    if (typeof window === 'undefined' || !window.supabase) return null;
-    if (!SUPABASE_URL || !SUPABASE_KEY || SUPABASE_URL.indexOf('PASTE-') === 0) return null;
-    if (window.EFIAuth && window.EFIAuth.client()) { supa = window.EFIAuth.client(); return supa; }
-    try { supa = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY); } catch (e) { return null; }
-    return supa;
-  }
-
   function readJSON(key, fallback) {
     try { const v = JSON.parse(localStorage.getItem(key) || 'null'); return v == null ? fallback : v; } catch (e) { return fallback; }
   }
   function writeJSON(key, v) { try { localStorage.setItem(key, JSON.stringify(v)); } catch (e) {} }
 
-  function readCache() { const v = readJSON(CACHE_LS, null); return v && Array.isArray(v.tx) ? v : null; }
   function normalize(row) {
     const d = (row && row.data) || {};
     return {
@@ -80,40 +62,12 @@
     };
   }
 
-  async function get(force) {
-    if (!force && cached && Date.now() - cachedAt < CACHE_MS) return cached;
-    if (inflight) return inflight;
-    const c = client();
-    if (!c) { cached = readCache(); cachedAt = Date.now(); return cached; }
-    inflight = (async () => {
-      try {
-        if (window.EFIAuth) await window.EFIAuth.whenReady();
-        const { data, error } = await c.from('app_state').select('data, updated_at').eq('key', ROW_KEY).maybeSingle();
-        if (error) return cached || readCache();
-        if (!data || !data.data) return null;
-        cached = normalize(data); cachedAt = Date.now();
-        writeJSON(CACHE_LS, cached);
-        return cached;
-      } catch (e) { return cached || readCache(); } finally { inflight = null; }
-    })();
-    return inflight;
-  }
-
-  function subscribe(cb) {
-    const c = client();
-    if (!c) return function () {};
-    let ch = null, stopped = false;
-    const start = () => { if (stopped) return; ch = c.channel('app_state_' + ROW_KEY + '_' + Math.random().toString(36).slice(2, 7))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'app_state', filter: 'key=eq.' + ROW_KEY }, (payload) => {
-        if (!payload.new || !payload.new.data) return;
-        cached = normalize(payload.new); cachedAt = Date.now();
-        writeJSON(CACHE_LS, cached);
-        cb(cached);
-      })
-      .subscribe(); };
-    if (window.EFIAuth) window.EFIAuth.whenReady().then(start); else start();
-    return function () { stopped = true; try { if (ch) c.removeChannel(ch); } catch (e) {} };
-  }
+  const reader = window.CloudSync.reader(ROW_KEY, {
+    cacheKey: CACHE_LS,
+    normalize,
+    fromCache: (v) => (v && Array.isArray(v.tx) ? v : null),
+  });
+  const get = reader.get, subscribe = reader.subscribe;
 
   // ---------- your side: categories, removed payments, manual expenses ----------
   function meta() {
@@ -181,7 +135,7 @@
   function hide(id) { remove({ id }); }
 
   function visible(res) {
-    res = res || cached || readCache();
+    res = res || reader.cached();
     const hidden = meta().hidden;
     const apple = (res && res.tx ? res.tx : []).filter((t) => hidden.indexOf(t.id) === -1);
     const own = manual().map((t) => Object.assign({ manual: true }, t));
@@ -316,7 +270,7 @@
   }
 
   window.Wallet = {
-    get, subscribe, cached: () => cached || readCache(),
+    get, subscribe, cached: reader.cached,
     CATEGORIES, COLORS, ICONS, meta, merchantKey, categoryOf, setCategory, remove, hide, visible, uncategorized, categorize,
     manual, addManual, updateManual, budget, setBudget, month, forAI, localDay,
   };

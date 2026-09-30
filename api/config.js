@@ -17,7 +17,9 @@ export default function handler(req, res) {
   const url = process.env.SUPABASE_URL || '';
   const key = process.env.SUPABASE_ANON_KEY || '';
   res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
-  res.setHeader('Cache-Control', 'no-store');
+  // Public, rarely-changing values: cache them at Vercel's edge (purged on
+  // every deploy) so no page waits on a function cold start before painting.
+  res.setHeader('Cache-Control', 'public, max-age=300, s-maxage=86400, stale-while-revalidate=604800');
   res.status(200).send(
     'window.DASH_SUPABASE_URL=' + JSON.stringify(url) + ';' +
     'window.DASH_SUPABASE_KEY=' + JSON.stringify(key) + ';'

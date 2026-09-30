@@ -4,14 +4,16 @@
 <script src="/api/config"></script>
 <script src="efi-core.js"></script>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#05090A">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>Finance</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/efi-180.png">
+<title>Finance · E.F.I.</title>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
 <link rel="stylesheet" id="efi-theme" href="efi-theme.css">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
 <script src="efi-auth.js"></script>
 <script src="sync.js" defer></script>
 <script src="topbar.js" defer></script>
@@ -56,7 +58,7 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 
 .app {
   max-width: 560px; margin: 0 auto;
-  padding: max(14px, env(safe-area-inset-top)) 16px calc(var(--tabs-h) + 40px + env(safe-area-inset-bottom));
+  padding: max(14px, env(safe-area-inset-top)) 16px 24px;
 }
 
 /* ---------- header ---------- */
@@ -217,26 +219,23 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .wish-hero .bar { margin-top: 14px; height: 10px; border-radius: 5px; }
 .wish-hero .bar-fill { border-radius: 5px; background: #9085e9; }
 
-/* ---------- bottom tabs ---------- */
+/* ---------- section tabs (top; the app's own nav sits at the bottom) ---------- */
 .fin-tabs {
-  position: fixed; left: 0; right: 0; bottom: 0; z-index: 60;
-  display: flex; justify-content: center;
-  padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
-  pointer-events: none;
+  position: sticky; top: 0; z-index: 30;
+  margin: -6px 0 16px; padding: calc(6px + env(safe-area-inset-top)) 0 4px;
 }
 .fin-tabs-inner {
-  pointer-events: auto; width: 100%; max-width: 520px; height: var(--tabs-h);
-  display: grid; grid-template-columns: repeat(4, 1fr); align-items: center;
-  background: rgba(10, 19, 21, 0.82); border: 1px solid var(--line); border-radius: 24px;
-  backdrop-filter: blur(22px) saturate(1.4); -webkit-backdrop-filter: blur(22px) saturate(1.4);
-  box-shadow: 0 18px 50px rgba(0,0,0,0.55);
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 4px;
+  border-radius: 16px; border: 1px solid var(--line);
+  background: rgba(13, 22, 24, 0.86); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
 }
 .fin-tabs button {
-  height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
-  color: var(--t3); font-size: 10.5px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center; gap: 6px; height: 38px; border-radius: 12px;
+  color: var(--t3); font-size: 12.5px; font-weight: 700; transition: background 0.15s, color 0.15s;
 }
-.fin-tabs button.on { color: var(--t1); }
-.fin-tabs button.on .efi-ico { color: var(--accent); filter: drop-shadow(0 0 8px var(--efi-glow)); }
+.fin-tabs button.on { background: var(--surface-2); color: var(--t1); }
+.fin-tabs button.on .efi-ico { color: var(--accent); }
+@media (max-width: 370px) { .fin-tabs button .efi-ico { display: none; } }
 
 /* ---------- bottom sheet ---------- */
 .efi-sheet-bg {
@@ -323,13 +322,21 @@ input[type=date].inp { color-scheme: dark; min-height: 48px; }
 
 <div class="app">
   <header class="top">
-    <a href="index.html" class="icon-btn" id="backBtn" aria-label="Back to E.F.I."></a>
     <div class="top-title">
       <h1 id="pageTitle">Money</h1>
       <div class="top-sub" id="pageSub"></div>
     </div>
     <button class="icon-btn accent" id="addBtn" type="button" aria-label="Add"></button>
   </header>
+
+  <nav class="fin-tabs" aria-label="Finance sections">
+    <div class="fin-tabs-inner" id="tabs">
+      <button type="button" data-tab="home"><span data-i="wallet"></span>Money</button>
+      <button type="button" data-tab="insights"><span data-i="activity"></span>Insights</button>
+      <button type="button" data-tab="bills"><span data-i="repeat"></span>Bills</button>
+      <button type="button" data-tab="wish"><span data-i="gift"></span>Wishlist</button>
+    </div>
+  </nav>
 
   <!-- ===================== MONEY ===================== -->
   <section data-view="home">
@@ -424,15 +431,6 @@ input[type=date].inp { color-scheme: dark; min-height: 48px; }
     <div id="wishList"></div>
   </section>
 </div>
-
-<nav class="fin-tabs" aria-label="Finance sections">
-  <div class="fin-tabs-inner" id="tabs">
-    <button type="button" data-tab="home"><span data-i="wallet"></span>Money</button>
-    <button type="button" data-tab="insights"><span data-i="activity"></span>Insights</button>
-    <button type="button" data-tab="bills"><span data-i="repeat"></span>Bills</button>
-    <button type="button" data-tab="wish"><span data-i="gift"></span>Wishlist</button>
-  </div>
-</nav>
 
 <div class="efi-sheet-bg" id="sheetBg">
   <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
@@ -711,7 +709,9 @@ input[type=date].inp { color-scheme: dark; min-height: 48px; }
       : '<span class="muted" style="font-size:12px">' + accounts().length + ' accounts</span>';
     const pts = hist.filter((p) => p.t >= Date.now() - 90 * DAY).map((p) => p.v);
     if (pts.length === 1 && hist.length > 1) pts.unshift(hist[hist.length - 2].v);
+    // No history yet: collapse the chart instead of leaving an empty gap.
     $('nwSpark').innerHTML = sparkPath(pts.length > 1 ? pts : []);
+    $('nwSpark').hidden = pts.length < 2;
 
     renderMonthCard();
     renderAccounts();
@@ -1522,7 +1522,6 @@ input[type=date].inp { color-scheme: dark; min-height: 48px; }
   };
 
   function boot() {
-    $('backBtn').innerHTML = ico('chevronLeft', 20);
     $('addBtn').innerHTML = ico('plus', 20, 2.4);
     $('mPrev').innerHTML = ico('chevronLeft', 18);
     $('mNext').innerHTML = ico('chevronRight', 18);
@@ -1530,7 +1529,7 @@ input[type=date].inp { color-scheme: dark; min-height: 48px; }
     $('qExpense').innerHTML = ico('plus', 16) + 'Expense';
     $('qAccount').innerHTML = ico('wallet', 16) + 'Account';
     $('qBudget').innerHTML = ico('activity', 16) + 'Budget';
-    document.querySelectorAll('#tabs [data-i]').forEach((s) => { s.outerHTML = ico(s.dataset.i, 22, 1.9); });
+    document.querySelectorAll('#tabs [data-i]').forEach((s) => { s.outerHTML = ico(s.dataset.i, 16, 2); });
     $('addBtn').addEventListener('click', () => ACTIONS[VIEWS[view].add]());
     $('txMore').addEventListener('click', () => { txShown += 30; renderTx(); });
     $('mPrev').addEventListener('click', () => { monthOffset = Math.max(-12, monthOffset - 1); renderInsights(); });

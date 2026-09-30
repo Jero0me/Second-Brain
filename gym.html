@@ -3,7 +3,7 @@
 <head>
 <script src="/api/config"></script>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#05090A">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -13,7 +13,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
 <link rel="stylesheet" id="efi-theme" href="efi-theme.css">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
 <script src="efi-auth.js"></script>
 <script src="efi-core.js"></script>
 <script src="efi-google.js"></script>
@@ -63,6 +63,8 @@ h1 { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -0.03em; colo
 .card-h h2 { margin: 0; font-size: 14px; font-weight: 700; color: var(--efi-text); display: flex; align-items: center; gap: 8px; }
 .card-h h2 .efi-ico { color: var(--efi-accent); }
 .card-h small { font-size: 11.5px; color: var(--efi-text-3); text-align: right; }
+.card-h-actions { display: inline-flex; gap: 6px; }
+a.link-btn { text-decoration: none; }
 .link-btn { border: 0; background: rgba(94,240,188,0.1); color: var(--efi-accent); font: 700 11.5px var(--efi-font); padding: 5px 10px; border-radius: 999px; cursor: pointer; white-space: nowrap; }
 .sub-h { display: flex; justify-content: space-between; align-items: baseline; margin: 16px 0 6px; font-size: 12px; font-weight: 700; color: var(--efi-text); }
 .sub-h small { font-size: 11px; font-weight: 600; color: var(--efi-text-3); }
@@ -203,7 +205,7 @@ h1 { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -0.03em; colo
 </style>
 </head>
 <body>
-<div class="page">
+<div class="page efi-columns">
   <div class="hd">
     <div>
       <h1>Fitness</h1>
@@ -227,7 +229,7 @@ h1 { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -0.03em; colo
 
   <!-- fuel: MacroFactor via Apple Health -->
   <div class="card">
-    <div class="card-h"><h2><span data-icon="utensils"></span>Fuel</h2><button class="link-btn" id="targetsBtn" type="button">Targets</button></div>
+    <div class="card-h"><h2><span data-icon="utensils"></span>Fuel</h2><span class="card-h-actions"><a class="link-btn" href="mealprep.html">Meal prep</a><button class="link-btn" id="targetsBtn" type="button">Targets</button></span></div>
     <div class="fuel">
       <div class="ring" aria-hidden="true">
         <svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="50" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="10"/><circle id="kcalArc" cx="60" cy="60" r="50" fill="none" stroke="#1FA476" stroke-width="10" stroke-linecap="round" stroke-dasharray="314.16" stroke-dashoffset="314.16" style="transition: stroke-dashoffset 0.8s cubic-bezier(0.22,1,0.36,1), stroke 0.4s"/></svg>

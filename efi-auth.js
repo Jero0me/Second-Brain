@@ -12,6 +12,8 @@
 //   EFIAuth.user()          → the signed-in user, or null
 //   EFIAuth.signOut()
 //
+//   EFIAuth.config          → { url, key } — the Supabase project every file uses
+//
 // Load WITHOUT defer, right after supabase-js and /api/config:
 //   <script src="efi-auth.js"></script>
 // =============================================================
@@ -237,6 +239,9 @@ body.efi-gated { overflow: hidden; }`;
 
   window.EFIAuth = {
     enabled,
+    // The one place the project URL + public key are resolved (Vercel env
+    // via /api/config, else the defaults above) — sync.js and the readers use it.
+    config: { url: URL_, key: KEY },
     client: getClient,
     whenReady: () => ready,
     onReady(fn) { if (readyDone) fn(session); else listeners.push(fn); },

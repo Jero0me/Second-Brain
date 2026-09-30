@@ -637,7 +637,8 @@
     let google = { connected: false, error: null };
     if (opts.google !== false && EFI.google) {
       try {
-        const st = await EFI.google.status();
+        // Cached paint: last known status, no network round trip.
+        const st = opts.cachedOnly ? EFI.google.cachedStatus() : await EFI.google.status();
         google.connected = !!st.connected;
         google.configured = !!st.configured;
         if (st.connected) {

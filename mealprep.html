@@ -4,42 +4,48 @@
 <script src="/api/config"></script>
 <script src="efi-core.js"></script>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<meta name="theme-color" content="#0a0a0b">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#05090A">
+<meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>Meal Prep</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/efi-180.png">
+<title>Meal Prep · E.F.I.</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
 <script src="efi-auth.js"></script>
 <script src="sync.js" defer></script>
 <script src="topbar.js" defer></script>
 <style>
 :root {
-  --bg: #0A0A0B;
-  --bg-deep: #050506;
+  --bg: var(--efi-bg, #05090A);
+  --bg-deep: var(--efi-bg, #05090A);
   --bg-card: rgba(255, 255, 255, 0.04);
   --bg-secondary: rgba(255, 255, 255, 0.035);
   --glass-bg: rgba(255, 255, 255, 0.04);
-  --glass-border: transparent;
-  --glass-border-strong: transparent;
+  --glass-border: var(--efi-border, rgba(255,255,255,0.08));
+  --glass-border-strong: var(--efi-border-strong, rgba(255,255,255,0.14));
   --glass-shadow:
     0 1px 0 0 rgba(255, 255, 255, 0.06) inset,
     0 12px 40px rgba(0, 0, 0, 0.45),
     0 1px 2px rgba(0, 0, 0, 0.25);
-  --text-primary: #FAFAFA;
-  --text-secondary: #B8B6B0;
-  --text-tertiary: #76746E;
-  --text-quaternary: #4D4B47;
-  --border: transparent;
-  --border-soft: transparent;
-  --accent: #6BE3A4;
-  --success: #6BE3A4;
-  --warning: #F2C063;
-  --danger: #FF6B6B;
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
-  --font: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --text-primary: var(--efi-text, #F2F7F6);
+  --text-secondary: var(--efi-text-2, #A7B6B3);
+  --text-tertiary: var(--efi-text-3, #6B7C79);
+  --text-quaternary: #45524F;
+  --border: var(--efi-border, rgba(255,255,255,0.08));
+  --border-soft: rgba(255,255,255,0.05);
+  --accent: var(--efi-accent, #34D8A0);
+  --success: var(--efi-accent, #34D8A0);
+  --warning: var(--efi-warn, #F5C065);
+  --danger: var(--efi-danger, #FF7A70);
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  /* One typeface everywhere (the old monospace labels are gone). */
+  --font: var(--efi-font, 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif);
+  --font-mono: var(--efi-font, 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif);
   color-scheme: dark;
 }
 
@@ -53,108 +59,60 @@ html, body {
   min-height: 100%;
 }
 
-body::before {
-  content: '';
-  position: fixed;
-  inset: -10%;
-  z-index: -2;
+/* Same backdrop as the other E.F.I. pages (the old blurred layer + dot
+   grain left a visible seam part-way down the screen). */
+body {
   background:
-    radial-gradient(60% 45% at 82% 14%, rgba(107, 227, 164, 0.14) 0%, transparent 55%),
-    radial-gradient(55% 45% at 18% 90%, rgba(180, 180, 200, 0.06) 0%, transparent 55%),
-    linear-gradient(180deg, #0A0A0B 0%, #050506 100%);
-  filter: blur(40px) saturate(1.05);
-  pointer-events: none;
+    radial-gradient(120% 60% at 0% 0%, rgba(40, 170, 120, 0.22), transparent 55%),
+    radial-gradient(90% 50% at 100% 0%, rgba(24, 110, 120, 0.16), transparent 60%),
+    linear-gradient(180deg, #071112 0%, #05090A 55%) fixed !important;
 }
-body::after {
-  content: '';
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  background-image: radial-gradient(rgba(255,255,255,0.014) 1px, transparent 1px);
-  background-size: 3px 3px;
-  opacity: 0.7;
-  pointer-events: none;
-}
+body::before, body::after { display: none !important; }
 
 .shell {
   max-width: 880px;
   margin: 0 auto;
-  padding: 24px 16px 100px;
+  padding: max(14px, env(safe-area-inset-top)) 16px 24px;
+  font-variant-numeric: tabular-nums;
 }
 
 .hidden { display: none !important; }
 
-/* ===== Back to dashboard ===== */
+/* ===== Header ===== */
+.mp-top { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.mp-top h1 { margin: 0; font-size: 24px; font-weight: 800; letter-spacing: -0.02em; color: var(--text-primary); }
+.mp-top-sub { font-size: 12.5px; color: var(--text-tertiary); font-weight: 600; margin-top: 1px; }
 .mp-back-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 14px 8px 10px;
-  margin: 0 0 14px;
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 999px;
-  color: var(--text-secondary);
-  font-family: var(--font);
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  text-decoration: none;
+  width: 42px; height: 42px; border-radius: 50%; flex-shrink: 0;
+  display: grid; place-items: center; text-decoration: none;
+  background: var(--efi-surface, rgba(255,255,255,0.045)); border: 1px solid var(--border); color: var(--text-secondary);
   -webkit-tap-highlight-color: transparent;
-  transition: background 0.15s ease, color 0.15s ease;
 }
-.mp-back-btn:hover, .mp-back-btn:active {
-  background: rgba(255,255,255,0.07);
-  color: var(--text-primary);
-}
-.mp-back-btn svg { display: block; }
+.mp-back-btn:active { transform: scale(0.94); }
 
-/* ===== Bottom tab bar ===== */
+/* ===== Section tabs (top; the app's own nav sits at the bottom) ===== */
 .bottom-tabs {
-  position: fixed;
-  bottom: 0; left: 0; right: 0;
-  z-index: 100;
-  display: flex;
-  justify-content: center;
-  gap: 4px;
-  padding: 8px max(12px, env(safe-area-inset-left)) calc(8px + env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-right));
-  background: linear-gradient(180deg, transparent, rgba(5,5,6,0.92) 30%);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  position: sticky; top: 0; z-index: 30;
+  margin: -6px 0 16px; padding: calc(6px + env(safe-area-inset-top)) 0 4px;
 }
-.bottom-tabs::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 12px; right: 12px;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.10), transparent);
-  pointer-events: none;
+.bottom-tabs-inner {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 4px;
+  border-radius: 16px; border: 1px solid var(--border);
+  background: rgba(13, 22, 24, 0.86); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
 }
 .bot-tab {
-  flex: 1; max-width: 140px;
-  display: flex; flex-direction: column; align-items: center; gap: 2px;
-  background: transparent;
-  border: 1px solid transparent;
-  color: var(--text-tertiary);
-  padding: 9px 14px 8px;
-  border-radius: 12px;
-  font-family: inherit;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  display: flex; align-items: center; justify-content: center; gap: 6px; height: 38px;
+  border: 0; border-radius: 12px; background: transparent;
+  color: var(--text-tertiary); font: 700 12.5px var(--font); cursor: pointer;
+  -webkit-tap-highlight-color: transparent; transition: background 0.15s, color 0.15s;
 }
-.bot-tab:hover { color: var(--text-secondary); background: rgba(255,255,255,0.025); }
-.bot-tab.active {
-  color: var(--text-primary);
-  background: rgba(255,255,255,0.06);
-  border-color: rgba(255,255,255,0.10);
-}
-.bot-tab-icon { font-size: 18px; line-height: 1; }
-.bot-tab-label {
-  font-size: 10px; font-weight: 700;
-  letter-spacing: 0.10em;
-  text-transform: uppercase;
-}
+.bot-tab.active { background: var(--efi-surface-2, rgba(255,255,255,0.075)); color: var(--text-primary); }
+.bot-tab.active .efi-ico { color: var(--accent); }
+.bot-tab-icon { display: inline-flex; }
+/* Inline icons inside buttons and hints. */
+[data-i] { display: inline-flex; vertical-align: -3px; margin-right: 7px; }
+.bot-tab [data-i], .mp-back-btn [data-i] { margin-right: 0; vertical-align: 0; }
+@media (max-width: 370px) { .bot-tab-icon { display: none; } }
 
 .section[hidden] { display: none !important; }
 
@@ -162,31 +120,6 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
 *::-webkit-scrollbar { width: 0 !important; height: 0 !important; display: none !important; }
 
 .section { margin-bottom: 18px; }
-.section-title {
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: var(--text-tertiary);
-  margin-bottom: 14px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-.section-title::before {
-  content: '';
-  width: 18px;
-  height: 1px;
-  background: var(--text-tertiary);
-  opacity: 0.6;
-}
-.section-title-text { display: inline-flex; align-items: center; gap: 8px; }
-.section-title::after {
-  content: '';
-  flex: 1;
-  height: 1px;
-  background: linear-gradient(90deg, rgba(255,255,255,0.08), transparent);
-}
 
 .card {
   background: var(--glass-bg);
@@ -210,10 +143,8 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
 }
 
 .empty-state {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.10em;
-  text-transform: uppercase;
+  font-size: 13px;
+  font-weight: 500;
   color: var(--text-tertiary);
   text-align: center;
   padding: 16px 0;
@@ -394,7 +325,7 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
   background-position: center;
   background-color: rgba(255,255,255,0.03);
   display: flex; align-items: center; justify-content: center;
-  font-size: 28px;
+  color: var(--text-tertiary);
 }
 .mp-recipe-body { padding: 10px 11px 12px; }
 .mp-recipe-title { font-size: 12.5px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px; line-height: 1.3; }
@@ -474,7 +405,7 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
 .mp-day-row { background: rgba(255,255,255,0.03); border-radius: 12px; padding: 12px 14px; margin-bottom: 8px; }
 .mp-day-name { font-size: 10.5px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-tertiary); margin-bottom: 6px; }
 .mp-meal-line { display: flex; align-items: baseline; gap: 6px; font-size: 13px; color: var(--text-primary); margin-bottom: 3px; }
-.mp-meal-icon { font-size: 12px; flex-shrink: 0; }
+.mp-meal-icon { flex-shrink: 0; color: var(--accent); display: inline-flex; }
 .mp-meal-notes { font-size: 11.5px; color: var(--text-tertiary); }
 .mp-day-macros { font-size: 10.5px; color: var(--text-tertiary); font-family: var(--font-mono); margin-top: 6px; }
 .mp-tips-card { background: rgba(242,192,99,0.06); border: 1px solid rgba(242,192,99,0.16); border-radius: 12px; padding: 12px 14px; margin-top: 4px; }
@@ -501,14 +432,22 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
 <body>
 <div class="shell">
 
-<a href="index.html" class="mp-back-btn" aria-label="Back to dashboard">
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
-  <span>Back</span>
-</a>
+<header class="mp-top">
+  <a href="gym.html" class="mp-back-btn" aria-label="Back to Fitness"><span data-i="chevronLeft"></span></a>
+  <div><h1>Meal Prep</h1><div class="mp-top-sub">Recipes, fridge &amp; your week of meals</div></div>
+</header>
+
+<nav class="bottom-tabs" id="bottomTabs" aria-label="Meal prep sections">
+  <div class="bottom-tabs-inner">
+    <button class="bot-tab active" data-tab="recipes" type="button"><span class="bot-tab-icon" data-i="book"></span>Recipes</button>
+    <button class="bot-tab" data-tab="fridge" type="button"><span class="bot-tab-icon" data-i="package"></span>Fridge</button>
+    <button class="bot-tab" data-tab="week" type="button"><span class="bot-tab-icon" data-i="calendar"></span>Week</button>
+    <button class="bot-tab" data-tab="grocery" type="button"><span class="bot-tab-icon" data-i="cart"></span>Grocery</button>
+  </div>
+</nav>
 
 <!-- ===== RECIPES ===== -->
 <div class="section" data-section="recipes">
-  <div class="section-title"><span class="section-title-text">🍱 RECIPES</span></div>
 
   <button class="mp-action-btn" id="addRecipeToggle" type="button">+ Add recipe</button>
 
@@ -516,7 +455,7 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
     <div class="mp-field">
       <label>Dish photo</label>
       <div class="mp-photo-zone" id="dishPhotoZone" tabindex="0">
-        <span>📷 Click, or paste (Ctrl/Cmd+V) a photo of the dish</span>
+        <span><span data-i="plus"></span>Tap, or paste (Ctrl/Cmd+V) a photo of the dish</span>
       </div>
       <input type="file" id="dishPhotoFile" accept="image/*" class="hidden">
     </div>
@@ -524,10 +463,10 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
     <div class="mp-field">
       <label>Recipe screenshot (ingredients / instructions from a website)</label>
       <div class="mp-photo-zone" id="detailShotZone" tabindex="0">
-        <span>🖼 Click, or paste (Ctrl/Cmd+V) a screenshot to auto-fill below</span>
+        <span><span data-i="note"></span>Tap, or paste (Ctrl/Cmd+V) a screenshot to auto-fill below</span>
       </div>
       <input type="file" id="detailShotFile" accept="image/*" class="hidden">
-      <button class="mp-action-btn" id="extractBtn" type="button" style="margin-top:6px">✨ Extract with AI</button>
+      <button class="mp-action-btn" id="extractBtn" type="button" style="margin-top:6px"><span data-i="sparkle"></span>Extract with AI</button>
       <div class="mp-status" id="extractStatus"></div>
     </div>
 
@@ -569,11 +508,9 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
 
 <!-- ===== FRIDGE ===== -->
 <div class="section" data-section="fridge" hidden>
-  <div class="section-title"><span class="section-title-text">🧊 FRIDGE</span></div>
-
   <div class="mp-fridge-toggle">
-    <button class="mp-fridge-btn active" data-fridge="home" type="button">🏠 Home</button>
-    <button class="mp-fridge-btn" data-fridge="gf" type="button">💜 Girlfriend's</button>
+    <button class="mp-fridge-btn active" data-fridge="home" type="button"><span data-i="home"></span>Home</button>
+    <button class="mp-fridge-btn" data-fridge="gf" type="button"><span data-i="heart"></span>Girlfriend's</button>
   </div>
 
   <div class="card">
@@ -586,16 +523,14 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
   <div id="fridgeList"></div>
   <div class="empty-state" id="fridgeEmpty">Fridge is empty</div>
 
-  <button class="mp-action-btn" id="chefBtn" type="button" style="margin-top:16px">🧑‍🍳 What can I make?</button>
+  <button class="mp-action-btn" id="chefBtn" type="button" style="margin-top:16px"><span data-i="chef"></span>What can I make?</button>
   <div class="mp-status" id="chefStatus"></div>
   <div id="chefResults"></div>
 </div>
 
 <!-- ===== THIS WEEK ===== -->
 <div class="section" data-section="week" hidden>
-  <div class="section-title"><span class="section-title-text">📅 THIS WEEK</span></div>
-
-  <button class="mp-action-btn" id="genWeekToggle" type="button">✨ Generate weekly meal prep</button>
+  <button class="mp-action-btn" id="genWeekToggle" type="button"><span data-i="sparkle"></span>Generate weekly meal prep</button>
 
   <div class="card hidden" id="genWeekPanel">
     <div class="mp-gen-form">
@@ -604,8 +539,8 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
       <div class="mp-field">
         <label>Fridge to prioritize</label>
         <select id="wFridge">
-          <option value="home">🏠 Home</option>
-          <option value="gf">💜 Girlfriend's</option>
+          <option value="home">Home</option>
+          <option value="gf">Girlfriend's</option>
         </select>
       </div>
     </div>
@@ -619,7 +554,6 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
 
 <!-- ===== GROCERY LIST ===== -->
 <div class="section" data-section="grocery" hidden>
-  <div class="section-title"><span class="section-title-text">🛒 GROCERY LIST</span></div>
 
   <div class="card">
     <div class="quick-add">
@@ -634,24 +568,6 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
 
 </div><!-- /.shell -->
 
-<nav class="bottom-tabs" id="bottomTabs" aria-label="Sections">
-  <button class="bot-tab active" data-tab="recipes" type="button">
-    <span class="bot-tab-icon">📖</span>
-    <span class="bot-tab-label">Recipes</span>
-  </button>
-  <button class="bot-tab" data-tab="fridge" type="button">
-    <span class="bot-tab-icon">🧊</span>
-    <span class="bot-tab-label">Fridge</span>
-  </button>
-  <button class="bot-tab" data-tab="week" type="button">
-    <span class="bot-tab-icon">📅</span>
-    <span class="bot-tab-label">This Week</span>
-  </button>
-  <button class="bot-tab" data-tab="grocery" type="button">
-    <span class="bot-tab-icon">🛒</span>
-    <span class="bot-tab-label">Grocery</span>
-  </button>
-</nav>
 
 <!-- ===== RECIPE DETAIL MODAL ===== -->
 <div class="mp-modal-bg hidden" id="recipeDetailBg">
@@ -675,6 +591,9 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
   function genId() { return 'm_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
   const $ = (id) => document.getElementById(id);
 
+  // Line icons (shared with the rest of E.F.I.) in place of the old emoji.
+  document.querySelectorAll('[data-i]').forEach((s) => { s.innerHTML = window.EFI.icon(s.dataset.i, s.classList.contains('mp-back-btn') ? 20 : 16, 2); });
+
   // ============================================================
   // BOTTOM TABS
   // ============================================================
@@ -697,15 +616,8 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
   // ============================================================
   // SUPABASE (Storage uploads only — sync.js handles data sync separately)
   // ============================================================
-  const SUPABASE_URL = (window.DASH_SUPABASE_URL) || 'https://srajryooffirbroltjmg.supabase.co';
-  const SUPABASE_KEY = (window.DASH_SUPABASE_KEY) || 'sb_publishable_5142ZwTLF_DkSVRzciNuRA_bHwRAu4c';
-  let mpSupa = null;
-  function getSupa() {
-    // Shared signed-in client (efi-auth.js) — uploads are owner-only.
-    if (!mpSupa && window.EFIAuth) mpSupa = window.EFIAuth.client();
-    if (!mpSupa && window.supabase) mpSupa = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-    return mpSupa;
-  }
+  // Shared signed-in client (efi-auth.js) — uploads are owner-only.
+  function getSupa() { return window.EFIAuth ? window.EFIAuth.client() : null; }
   async function uploadPhotoToStorage(dataUrl) {
     const supa = getSupa();
     if (!supa) return null;
@@ -952,7 +864,7 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
       const photo = document.createElement('div');
       photo.className = 'mp-recipe-photo';
       if (r.photoUrl) photo.style.backgroundImage = 'url(' + r.photoUrl + ')';
-      else photo.textContent = '🍽️';
+      else photo.innerHTML = window.EFI.icon('utensils', 30, 1.6);
       const body = document.createElement('div');
       body.className = 'mp-recipe-body';
       const t = document.createElement('div');
@@ -993,7 +905,7 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
     if (r.source === 'ai-suggested') {
       const badge = document.createElement('div');
       badge.className = 'mp-badge mp-badge-ai';
-      badge.textContent = '💡 AI idea — unverified';
+      badge.innerHTML = window.EFI.icon('sparkle', 12) + 'AI idea — unverified';
       modal.appendChild(badge);
     }
 
@@ -1150,7 +1062,7 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
       if (!savedRecipe) {
         const badge = document.createElement('span');
         badge.className = 'mp-badge mp-badge-ai';
-        badge.textContent = '💡 AI idea — unverified';
+        badge.innerHTML = window.EFI.icon('sparkle', 12) + 'AI idea — unverified';
         card.appendChild(badge);
       }
       const title = document.createElement('div');
@@ -1331,7 +1243,7 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
         if (savedRecipe && savedRecipe.macrosPerServing) calTotal += savedRecipe.macrosPerServing.calories || 0;
         const icon = document.createElement('span');
         icon.className = 'mp-meal-icon';
-        icon.textContent = savedRecipe ? '🔖' : '💡';
+        icon.innerHTML = window.EFI.icon(savedRecipe ? 'book' : 'sparkle', 16);
         const text = document.createElement('span');
         text.textContent = meal.title;
         line.appendChild(icon);
@@ -1358,7 +1270,7 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
       tipsCard.className = 'mp-tips-card';
       const h = document.createElement('div');
       h.className = 'mp-detail-h';
-      h.textContent = '💰 Money-saving tips';
+      h.textContent = 'Money-saving tips';
       const ul = document.createElement('ul');
       plan.tips.forEach((t) => { const li = document.createElement('li'); li.textContent = t; ul.appendChild(li); });
       tipsCard.appendChild(h);

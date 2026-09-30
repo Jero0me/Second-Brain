@@ -96,32 +96,42 @@ export default async function handler(req, res) {
     card: clean(body.card, 40) || null,
   };
 
-  let previous = {};
-  try {
-    const r = await fetch(supabaseUrl + '/rest/v1/app_state?key=eq.' + ROW_KEY + '&select=data', { headers: sbHeaders });
-    if (r.ok) { const rows = await r.json(); previous = (rows && rows[0] && rows[0].data) || {}; }
-  } catch (e) { /* first payment or transient — fine */ }
-
-  const list = Array.isArray(previous.tx) ? previous.tx : [];
-  const dupe = list.find((x) => x && x.merchant === tx.merchant && x.amount === tx.amount && Math.abs(x.ts - tx.ts) < DEDUPE_MS);
-  if (dupe) return res.status(200).json({ ok: true, duplicate: true, id: dupe.id });
-
+  // Read-modify-write, made safe for two payments arriving at once: the
+  // write only lands if the row is still the version we read (updated_at);
+  // otherwise re-read and try again, so neither payment is lost.
   const cutoff = now - KEEP_DAYS * 864e5;
-  const next = list.filter((x) => x && x.ts >= cutoff).concat(tx).sort((a, b) => a.ts - b.ts).slice(-MAX_TX);
-
   try {
-    const r = await fetch(supabaseUrl + '/rest/v1/app_state?on_conflict=key', {
-      method: 'POST',
-      headers: Object.assign({ Prefer: 'resolution=merge-duplicates' }, sbHeaders),
-      body: JSON.stringify({ key: ROW_KEY, data: { tx: next }, updated_at: new Date().toISOString() }),
-    });
-    if (!r.ok) {
-      const text = await r.text();
-      const hint = /row-level security|42501/i.test(text) && !process.env.SUPABASE_SERVICE_ROLE_KEY
-        ? ' — the table is locked to the owner; set SUPABASE_SERVICE_ROLE_KEY in Vercel (SETUP.md §2).' : '';
-      return res.status(500).json({ error: 'supabase write failed: ' + text + hint });
+    for (let attempt = 0; attempt < 5; attempt++) {
+      let row = null;
+      const r = await fetch(supabaseUrl + '/rest/v1/app_state?key=eq.' + ROW_KEY + '&select=data,updated_at', { headers: sbHeaders });
+      if (r.ok) { const rows = await r.json(); row = (rows && rows[0]) || null; }
+      else if (attempt === 4) return res.status(500).json({ error: 'supabase read failed: ' + (await r.text()) });
+      else continue;
+
+      const list = row && row.data && Array.isArray(row.data.tx) ? row.data.tx : [];
+      const dupe = list.find((x) => x && x.merchant === tx.merchant && x.amount === tx.amount && Math.abs(x.ts - tx.ts) < DEDUPE_MS);
+      if (dupe) return res.status(200).json({ ok: true, duplicate: true, id: dupe.id });
+      const next = list.filter((x) => x && x.ts >= cutoff).concat(tx).sort((a, b) => a.ts - b.ts).slice(-MAX_TX);
+      const body = JSON.stringify(Object.assign(row ? {} : { key: ROW_KEY }, { data: Object.assign({}, row && row.data, { tx: next }), updated_at: new Date().toISOString() }));
+
+      const w = row
+        ? await fetch(supabaseUrl + '/rest/v1/app_state?key=eq.' + ROW_KEY + '&updated_at=eq.' + encodeURIComponent(row.updated_at), {
+          method: 'PATCH', headers: Object.assign({ Prefer: 'return=representation' }, sbHeaders), body })
+        : await fetch(supabaseUrl + '/rest/v1/app_state', {
+          method: 'POST', headers: Object.assign({ Prefer: 'return=representation' }, sbHeaders), body });
+
+      if (w.status === 409) continue; // the row was created in between — read it and retry
+      if (!w.ok) {
+        const text = await w.text();
+        const hint = /row-level security|42501/i.test(text) && !process.env.SUPABASE_SERVICE_ROLE_KEY
+          ? ' — the table is locked to the owner; set SUPABASE_SERVICE_ROLE_KEY in Vercel (SETUP.md §2).' : '';
+        return res.status(500).json({ error: 'supabase write failed: ' + text + hint });
+      }
+      const written = await w.json().catch(() => []);
+      if (Array.isArray(written) && written.length === 0) continue; // changed since we read it
+      return res.status(200).json({ ok: true, id: tx.id, merchant: tx.merchant, amount: tx.amount, currency: tx.currency, stored: next.length });
     }
-    return res.status(200).json({ ok: true, id: tx.id, merchant: tx.merchant, amount: tx.amount, currency: tx.currency, stored: next.length });
+    return res.status(503).json({ error: 'busy — too many payments at once, try again' });
   } catch (e) {
     return res.status(500).json({ error: 'unexpected error: ' + (e && e.message ? e.message : String(e)) });
   }

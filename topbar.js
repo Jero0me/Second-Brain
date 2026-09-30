@@ -3,9 +3,9 @@
 //     <script src="topbar.js" defer></script>
 // Injects the E.F.I. theme (efi-theme.css + font) on every page, the
 // floating bottom navigation (Calendar · Health · E.F.I. · Fitness ·
-// Finance — energy lives inside Health) on pages that don't have their own, a tiny toast helper,
-// and the mobile scroll/zoom lockdown the dashboard always had.
-// (The old water "+1" pill lived here; the water tracker is gone.)
+// Finance — energy lives inside Health; Routines sits under Calendar and
+// Meal Prep under Fitness), a tiny toast helper, modal scroll-locking, and
+// the service worker (sw.js) that makes pages open instantly and offline.
 // =============================================================
 (function () {
   'use strict';
@@ -21,7 +21,8 @@
   const lockCss = `
 html, body { -webkit-text-size-adjust: 100%; }
 @media (max-width: 768px) {
-  html { touch-action: pan-y; }
+  /* manipulation: no double-tap-zoom delay, but pinch-zoom still works */
+  html { touch-action: manipulation; }
   ::-webkit-scrollbar { width: 0; height: 0; display: none; }
   html, body { scrollbar-width: none; -ms-overflow-style: none; }
 }
@@ -38,18 +39,20 @@ body.topbar-modal-open { overflow: hidden; touch-action: none; }
   }
 }`;
 
+  // Sub-pages light up their parent tab.
+  const PARENT = { 'main.html': 'calendar', 'mealprep.html': 'fitness', 'energy.html': 'health' };
+
   function page() {
     const p = (window.location.pathname || '').toLowerCase();
     const file = p.split('/').pop() || 'index.html';
     return file;
   }
   function isEmbedded() { try { return window.self !== window.top; } catch (e) { return true; } }
-  // Finance and Meal Prep have their own internal bottom tab bars.
-  function shouldShowNav() { return ['finance.html', 'mealprep.html'].indexOf(page()) === -1 && !isEmbedded(); }
+  function shouldShowNav() { return !isEmbedded(); }
   function activeKey() {
     const f = page();
     const hit = NAV.find((n) => n.href === f);
-    return hit ? hit.key : (f === '' || f === 'index.html' ? 'efi' : '');
+    return hit ? hit.key : PARENT[f] || (f === '' || f === 'index.html' ? 'efi' : '');
   }
 
   function icon(name) { return window.EFI && window.EFI.icon ? window.EFI.icon(name, 22, 1.9) : ''; }
@@ -102,14 +105,17 @@ body.topbar-modal-open { overflow: hidden; touch-action: none; }
     el._t = setTimeout(() => el.classList.remove('show'), ms || 2400);
   }
 
-  // iOS Safari sometimes ignores user-scalable=no; block pinch gestures.
-  // (Double-tap zoom is already disabled by touch-action above — the old
-  // touchend preventDefault hack also swallowed fast repeated taps.)
-  function lockGestures() {
-    const block = (e) => e.preventDefault();
-    document.addEventListener('gesturestart', block, { passive: false });
-    document.addEventListener('gesturechange', block, { passive: false });
-    document.addEventListener('gestureend', block, { passive: false });
+  // Service worker: cached pages/scripts, offline start. Skipped on
+  // localhost (so edits show up at once) unless efi_local:sw_dev is set.
+  function registerSW() {
+    if (!('serviceWorker' in navigator) || isEmbedded()) return;
+    const local = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
+    let dev = false; try { dev = !!localStorage.getItem('efi_local:sw_dev'); } catch (e) {}
+    if (local ? !dev : location.protocol !== 'https:') return;
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+    navigator.serviceWorker.addEventListener('message', (e) => {
+      if (e.data && e.data.type === 'efi-updated') toast('E.F.I. updated — the new version loads on your next tap', 3600);
+    });
   }
 
   // Lock page scroll while any known modal/overlay is open.
@@ -130,7 +136,7 @@ body.topbar-modal-open { overflow: hidden; touch-action: none; }
     window.EFI.toast = toast;
     injectTheme();
     injectNav();
-    lockGestures();
+    registerSW();
     startModalLock();
   }
 
