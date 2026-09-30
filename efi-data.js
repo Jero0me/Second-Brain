@@ -426,9 +426,12 @@
     label(x) { return SYMPTOM_KINDS[x.kind] + (x.region && x.region !== 'general' && !(x.kind === 'headache' && x.region === 'head') ? ' · ' + BODY_REGIONS[x.region] : ''); },
   };
 
-  // ---------- recent training (gym page, po_coach_v1) ----------
+  // ---------- recent training (Hevy, else the old gym log po_coach_v1) ----------
   // Which muscle groups were trained lately — used to explain soreness.
   function recentTraining(days) {
+    if (window.Hevy && window.Hevy.cached()) {
+      return window.Hevy.recent(days || 5).map((w) => ({ date: w.date, split: w.muscles.join('/'), title: w.title, exercises: w.exercises.map((x) => x.name), sets: w.sets }));
+    }
     const st = S.get('po_coach_v1', null);
     if (!st || !Array.isArray(st.exercises) || !st.logs) return [];
     const cut = D.dateKey(D.addDays(new Date(), -(days || 5)));

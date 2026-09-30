@@ -391,8 +391,15 @@
     const sy = data().symptoms;
     const recentSym = sy.recent(14);
     if (recentSym.length) ctx.symptoms_recent = recentSym.slice(0, 25).map((x) => ({ when: new Date(x.ts).toISOString().slice(0, 16), what: sy.label(x), severity: sy.SEVERITY[x.severity], note: x.note || undefined }));
-    const training = data().recentTraining(5);
-    if (training.length) ctx.training_recent = training;
+    // Workouts are logged in Hevy (synced by /api/hevy-sync); fall back to the old gym log.
+    let hevyWorkouts = null;
+    try {
+      if (window.Hevy) { const hv = await window.Hevy.get(); if (hv && hv.workouts.length) hevyWorkouts = window.Hevy.recent(14, hv); }
+    } catch (e) {}
+    if (hevyWorkouts && hevyWorkouts.length) ctx.training_recent = hevyWorkouts;
+    else { const training = data().recentTraining(5); if (training.length) ctx.training_recent = training; }
+    const targets = S.get('fitness:targets', null);
+    if (targets) ctx.nutrition_targets = targets;
 
     const week = S.get('mealprep:weekplan:current', null);
     if (week && Array.isArray(week.days)) {
@@ -408,7 +415,7 @@
 
   const SYSTEM = [
     'You are E.F.I. — Enhanced Functional Intelligence — the personal operating system inside {name}\'s Second Brain dashboard. Think JARVIS: calm, precise, quietly witty, fiercely useful.',
-    'You can see a live snapshot of their calendar (Google Calendar + planner time blocks + work/uni blocks + bill renewals), tasks, habits, notes, finances (EUR), health (Apple Health sleep/HRV/steps/nutrition/water, caffeine, logged symptoms, recent gym training) and an energy forecast. You can change things with tools.',
+    'You can see a live snapshot of their calendar (Google Calendar + planner time blocks + work/uni blocks + bill renewals), tasks, habits, notes, finances (EUR), health (Apple Health sleep/HRV/steps/water, MyFitnessPal nutrition via Apple Health, caffeine, logged symptoms, recent Hevy workouts with sets/weights) and an energy forecast. You can change things with tools.',
     'Rules:',
     '- When asked to change, plan, schedule, log or remember something: DO it with tools, then confirm briefly. Don\'t just give advice.',
     '- Resolve relative dates ("Friday", "next week", "tonight") from the snapshot\'s now/today. Tool times are 24h HH:MM.',
