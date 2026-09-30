@@ -26,6 +26,7 @@
 <script src="sync.js" defer></script>
 <script src="topbar.js" defer></script>
 <script src="applehealth.js" defer></script>
+<script src="hevy.js" defer></script>
 <style>
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; }
@@ -476,7 +477,7 @@ body.efi-typing .composer { bottom: calc(8px + env(safe-area-inset-bottom)); }
     { href: 'main.html', icon: 'list', t: 'Routines', s: 'Habits, shift templates, auto-schedule', c: '#9B8AFB' },
     { href: 'finance.html', icon: 'wallet', t: 'Finance', s: 'Net worth & subscriptions', c: '#F5C065' },
     { href: 'health.html', icon: 'heart', t: 'Health', s: 'Energy, sleep, vitals, caffeine', c: '#FF8A7A' },
-    { href: 'gym.html', icon: 'dumbbell', t: 'Fitness', s: 'Workouts & calories', c: '#5AB8F5' },
+    { href: 'gym.html', icon: 'dumbbell', t: 'Fitness', s: 'Hevy workouts & macros', c: '#5AB8F5' },
     { href: 'mealprep.html', icon: 'chef', t: 'Meal Prep', s: 'Recipes & weekly plan', c: '#A3E36B' },
   ];
   $('modules').innerHTML = MODULES.map((m) => '<a class="mod" href="' + m.href + '" style="--mc:' + m.c + '"><span class="ic">' + I(m.icon, 19) + '</span><span><b>' + m.t + '</b><span>' + m.s + '</span></span></a>').join('');

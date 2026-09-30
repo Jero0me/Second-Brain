@@ -171,6 +171,7 @@ export default async function handler(req, res) {
     resp: lastQty('respiratory_rate'),
     spo2,
     activeKcal: sumDay(newestDay, 'active_energy'),
+    basalKcal: sumDay(newestDay, 'basal_energy_burned', 'resting_energy'),
     steps: sumDay(newestDay, 'step_count'),
     exerciseMin: sumDay(newestDay, 'apple_exercise_time'),
     sleep,
@@ -205,6 +206,11 @@ export default async function handler(req, res) {
       steps: latest.steps != null ? Math.round(latest.steps) : null,
       activeKcal: latest.activeKcal != null ? Math.round(latest.activeKcal) : null,
       calories: latest.nutrition.calories != null ? Math.round(latest.nutrition.calories) : null,
+      // macros + resting burn for the Fitness page's 7-day fuel chart
+      proteinG: latest.nutrition.proteinG != null ? Math.round(latest.nutrition.proteinG) : null,
+      carbsG: latest.nutrition.carbsG != null ? Math.round(latest.nutrition.carbsG) : null,
+      fatG: latest.nutrition.fatG != null ? Math.round(latest.nutrition.fatG) : null,
+      basalKcal: latest.basalKcal != null ? Math.round(latest.basalKcal) : null,
       caffeineMg: cafToday != null ? Math.round(cafToday * cafMult) : null,
       // vitals the Health body view trends over the last week
       spo2: spo2 != null ? Math.round(spo2 * 10) / 10 : null,

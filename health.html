@@ -22,6 +22,7 @@
 <script src="sync.js" defer></script>
 <script src="topbar.js" defer></script>
 <script src="applehealth.js" defer></script>
+<script src="hevy.js" defer></script>
 <style>
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; }
@@ -201,7 +202,7 @@ h1 { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -0.03em; colo
       <li>Install <b>Health Auto Export – JSON+CSV</b> from the App Store.</li>
       <li>Create a <b>REST API</b> automation with URL <code id="setupUrl">—</code></li>
       <li>Add header <code>Authorization: Bearer &lt;HEALTH_IMPORT_SECRET&gt;</code> (the value set in Vercel).</li>
-      <li>Include HRV, Resting Heart Rate, Respiratory Rate, Blood Oxygen, Active Energy, Step Count, Exercise Time, Sleep Analysis and <b>Dietary Caffeine</b> (+ Dietary Energy, Protein, Carbs, Fat for MyFitnessPal; optionally Dietary Water, Body Mass, Body Fat Percentage). Turn <b>off</b> “Aggregate data” for caffeine.</li>
+      <li>Include HRV, Resting Heart Rate, Respiratory Rate, Blood Oxygen, Active Energy, Resting Energy, Step Count, Exercise Time, Sleep Analysis and <b>Dietary Caffeine</b> (+ Dietary Energy, Protein, Carbs, Fat for MyFitnessPal; optionally Dietary Water, Body Mass, Body Fat Percentage). Turn <b>off</b> “Aggregate data” for caffeine.</li>
       <li>Turn the automation on (e.g. every morning).</li>
     </ol>
   </div>
@@ -595,11 +596,14 @@ h1 { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -0.03em; colo
     { k: 'exerciseMin', label: 'Exercise', unit: 'min', fmt: f0, better: 1, zone: (v) => v >= 30 ? 'good' : null, sub: 'today' },
   ];
   const num = (v) => (v == null || v === '' || isNaN(Number(v)) ? null : Number(v));
-  // Weight: Apple Health (smart scale) first, else the gym page's bodyweight log.
+  // Weight: Apple Health (smart scale) first, then Hevy measurements, else the Fitness page's log.
   function weightSeries() {
     const hk = ((health && health.history) || []).map((h) => num(h.bodyMassKg)).filter((v) => v != null);
     const hkNow = num(latest() && latest().bodyMassKg);
     if (hkNow != null || hk.length) return { now: hkNow != null ? hkNow : hk[hk.length - 1], series: hk.slice(-7) };
+    const hv = window.Hevy && window.Hevy.cached();
+    const hvBody = ((hv && hv.body) || []).map((b) => num(b.kg)).filter((v) => v != null);
+    if (hvBody.length) return { now: hvBody[hvBody.length - 1], series: hvBody.slice(-7) };
     const log = (EFI.store.get('po_coach_weights', []) || []).filter((w) => w && num(w.weight) != null).sort((a, b) => (a.dateKey < b.dateKey ? -1 : 1));
     return { now: log.length ? num(log[log.length - 1].weight) : null, series: log.slice(-7).map((w) => num(w.weight)) };
   }
@@ -686,7 +690,7 @@ h1 { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -0.03em; colo
     'You are E.F.I., the health assistant inside the user\'s personal dashboard. They just logged a symptom.',
     'Using ONLY the JSON data, name the 1-3 most likely contributors, each on its own line starting with "• " and citing the number that supports it (e.g. "• **Short sleep** — 3.8 h vs your 7.1 h average").',
     'Then one final line starting with "→ " with one concrete thing to do now.',
-    'Guidance: soreness in a muscle group trained 12-72 h earlier is normal DOMS (push = chest/shoulders/triceps, pull = back/biceps/forearms, legs = quads/hamstrings/glutes/calves). Headaches: consider short sleep, low water, caffeine well above or below baseline (withdrawal), late caffeine, skipped food, low HRV or high resting HR. If water is "not tracked", say hydration is unknown rather than blaming it.',
+    'Guidance: soreness in a muscle group trained 12-72 h earlier is normal DOMS (gym_training_last_5_days lists the muscles each workout hit; push = chest/shoulders/triceps, pull = back/biceps/forearms, legs = quads/hamstrings/glutes/calves). Headaches: consider short sleep, low water, caffeine well above or below baseline (withdrawal), late caffeine, skipped food, low HRV or high resting HR. If water is "not tracked", say hydration is unknown rather than blaming it.',
     'If nothing in the data explains it, say so plainly and suggest what to watch. Mention a pattern if other_symptoms_14d shows one.',
     'You are not a doctor. For red flags (sudden or worst-ever headache, chest pain, numbness or weakness, fainting, pain after an injury, fever with a stiff neck) the final line must tell them to get medical help.',
     'Max 4 lines. No headings, no preamble.',

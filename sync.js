@@ -33,7 +33,11 @@
     goals:    { syncedPrefixes: ['goals:', 'habits:', 'templates:', 'plan:'], syncedKeys: ['goal_streak_v1'] },
     finance:  { syncedPrefixes: ['nw:'], syncedKeys: ['subs', 'wishlist', 'incoming_orders'] },
     mealprep: { syncedPrefixes: ['mealprep:'], syncedKeys: [] },
-    efi:      { syncedPrefixes: [], syncedKeys: ['profile:v1', 'efi:events', 'efi:notes', 'efi:caffeine', 'efi:symptoms', 'efi:settings'] },
+    efi:      { syncedPrefixes: [], syncedKeys: ['profile:v1', 'efi:events', 'efi:notes', 'efi:caffeine', 'efi:symptoms', 'efi:settings', 'fitness:targets'] },
+    // The Fitness page's own row. po_coach_v1 / _workout_done are the old
+    // in-app lift log (workouts now come from Hevy) — kept so that history
+    // isn't wiped from the cloud. Photos are stored as Storage URLs only.
+    'po-coach': { syncedPrefixes: [], syncedKeys: ['po_coach_v1', 'po_coach_workout_done', 'po_coach_weights', 'po_coach_photos'] },
   };
 
   const enabled = typeof window !== 'undefined' && !!window.supabase && !!SUPABASE_URL && !!SUPABASE_KEY &&

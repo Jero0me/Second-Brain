@@ -2,8 +2,8 @@
 
 **E.F.I. (Enhanced Functional Intelligence)** is a static dashboard (plain HTML/JS) that deploys on
 **Vercel**, syncs across your devices with **Supabase**, thinks with **Google Gemini**, and reads/writes
-your **Google Calendar + Google Tasks**. Apple Health (sleep, HRV, MyFitnessPal nutrition, caffeine) is an
-optional add-on.
+your **Google Calendar + Google Tasks**. Apple Health (sleep, HRV, MyFitnessPal nutrition, caffeine) and
+**Hevy** (workouts) are optional add-ons.
 
 ---
 
@@ -97,8 +97,8 @@ create policy "owner manage photos" on storage.objects
 random URLs without extra requests.)
 
 Rows used: `goals` (planner), `finance`, `mealprep`, `efi` (profile, notes,
-E.F.I. calendar events, manually logged caffeine, settings), `po-coach` (fitness), `apple_health`
-(written by the server). API keys and Google logins are **never** stored here.
+E.F.I. calendar events, manually logged caffeine, settings, nutrition targets), `po-coach` (body weight,
+progress photos, and the old in-app lift log), `apple_health` and `hevy` (both written by the server). API keys and Google logins are **never** stored here.
 
 ### Sign-in settings (Supabase → Authentication)
 1. **URL Configuration** → *Site URL*: `https://your-app.vercel.app`, and add
@@ -128,7 +128,7 @@ then redeploy:
 |---|---|
 | `SUPABASE_URL` | your Project URL |
 | `SUPABASE_ANON_KEY` | the anon / publishable key (public — shipped to the browser) |
-| `SUPABASE_SERVICE_ROLE_KEY` | the **service_role / secret** key — server only, used by the Apple Health import (it has no user to sign in as) |
+| `SUPABASE_SERVICE_ROLE_KEY` | the **service_role / secret** key — server only, used by the Apple Health import and the Hevy sync to write their rows |
 
 > The service-role key bypasses the owner lock, so it must **only** live in Vercel's environment
 > variables — never in any `.html`/`.js` file.
@@ -205,8 +205,8 @@ iOS app pushes your data to the dashboard on a schedule. No login involved; it's
    - Method: `POST`
    - Header: `Authorization: Bearer <the HEALTH_IMPORT_SECRET value>`
    - Metrics: Heart Rate Variability, Resting Heart Rate, Respiratory Rate, Blood Oxygen Saturation,
-     Active Energy, Step Count, Apple Exercise Time, Sleep Analysis, **Dietary Caffeine**,
-     Dietary Energy, Protein, Carbohydrates, Total Fat. Optional: **Dietary Water** (if you log water in
+     Active Energy, **Resting Energy**, Step Count, Apple Exercise Time, Sleep Analysis, **Dietary Caffeine**,
+     Dietary Energy, Protein, Carbohydrates, Total Fat (optional: Fiber, Dietary Sugar, Sodium). Optional: **Dietary Water** (if you log water in
      Apple Health or an app that writes to it), **Body Mass** and **Body Fat Percentage** (smart scale) —
      the Health body map shows them and E.F.I. uses them when explaining symptoms.
    - Turn **off** "Aggregate data" (at least for caffeine) so every drink keeps its own timestamp —
@@ -215,7 +215,8 @@ iOS app pushes your data to the dashboard on a schedule. No login involved; it's
 
 ### MyFitnessPal
 MFP → **More → Settings → Sharing & Privacy → HealthKit** → allow it to write nutrition. Calories and
-macros then flow MFP → Apple Health → dashboard (Fitness page Calories card, E.F.I.).
+macros then flow MFP → Apple Health → dashboard (Fitness page **Fuel** card, E.F.I.). MFP doesn't share
+its goals with Apple Health, so set your calorie/macro targets on the Fitness page (**Targets**).
 
 ### Caffeine (automatic)
 The old manual Caffeine page is gone. Caffeine now comes in automatically from Apple Health's
@@ -230,7 +231,35 @@ Every source feeds the same energy model used by the Day Ring and Auto-schedule.
 
 ---
 
-## 6. Put E.F.I. on your iPhone
+## 6. Hevy — workouts (optional)
+
+Log workouts in **Hevy**; the Fitness page shows your week, the last workout (with PRs), sets per muscle
+group, estimated-1RM progress per lift and your full history. E.F.I. sees them too (with sets and
+weights), and the Health page uses the muscles you trained to explain soreness.
+
+1. The Hevy API is a **Hevy Pro** feature. Copy your API key from
+   [hevy.com/settings?developer](https://hevy.com/settings?developer).
+2. Add it in Vercel and redeploy:
+
+| Variable | Value |
+|---|---|
+| `HEVY_API_KEY` | your Hevy API key (server only — it never reaches the browser) |
+| `HEVY_SYNC_SECRET` | optional — any random string, lets a webhook or scheduler trigger a sync |
+
+3. Open **Fitness**. The first sync pulls roughly the last year of workouts plus your Hevy body-weight
+   entries (Profile → Measurements). After that `/api/hevy-sync` only asks Hevy what changed, and it runs
+   whenever you open Fitness (if the last sync is over 15 min old) or tap ↻.
+
+Optional push instead of pull: if your Hevy developer settings offer a webhook, point it at
+`https://your-app.vercel.app/api/hevy-sync` with header `Authorization: Bearer <HEVY_SYNC_SECRET>`.
+Any external cron can hit the same URL the same way (POST).
+
+The old in-app lift logger is gone. Its history (`po_coach_v1`) is still kept in the `po-coach` row;
+it just isn't shown any more.
+
+---
+
+## 7. Put E.F.I. on your iPhone
 
 Open the site in **Safari** → Share → **Add to Home Screen**. It launches full-screen straight into the
 E.F.I. assistant (tap the mic to talk, or type), with Calendar, Planner, Health and Fitness in the bottom bar.
@@ -252,4 +281,5 @@ E.F.I. assistant (tap the mic to talk, or type), with Calendar, Planner, Health 
 3. Gemini key from AI Studio → paste in E.F.I. settings.
 4. Google OAuth client → `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` → Connect Google.
 5. (Optional) Apple Health: `HEALTH_IMPORT_SECRET` + Health Auto Export automation.
-6. Add to Home Screen.
+6. (Optional) Hevy: `HEVY_API_KEY` (Hevy Pro) → open Fitness.
+7. Add to Home Screen.

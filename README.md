@@ -4,7 +4,7 @@ Jerome's second brain: a set of small, self-contained HTML apps with one AI assi
 E.F.I. runs on **Google Gemini**, syncs with **Google Calendar / Google Tasks**, and can change
 anything in the dashboard by chat or voice — calendar, plans, notes, finances, subscriptions.
 
-Setup (Vercel, Supabase, Gemini key, Google OAuth, Apple Health): **[SETUP.md](SETUP.md)**.
+Setup (Vercel, Supabase, Gemini key, Google OAuth, Apple Health, Hevy): **[SETUP.md](SETUP.md)**.
 
 | File | What it is |
 |---|---|
@@ -12,7 +12,7 @@ Setup (Vercel, Supabase, Gemini key, Google OAuth, Apple Health): **[SETUP.md](S
 | [calendar.html](calendar.html) | Calendar — day timeline, week, month; merges Google Calendar, planner time-blocks, shift templates, bill renewals, orders |
 | [main.html](main.html) | Routines — habits, shift templates, time-blocking grid, AI Auto-schedule (daily setup itself runs everywhere via `EFI.data.daily`) |
 | [health.html](health.html) | Health — energy gauge + today's call, body map (Apple Watch vitals with 7-day trends around a front/back figure, tap to log headaches/soreness/pain; E.F.I. explains the likely cause), energy curve & windows, day-vs-energy, sleep, caffeine (`energy.html` redirects here) |
-| [gym.html](gym.html) | Progressive-overload gym tracker, bodyweight, calories (MyFitnessPal via Health) |
+| [gym.html](gym.html) | Fitness — read-only view: MyFitnessPal calories & macros vs targets (via Apple Health), Hevy workouts (week, last workout + PRs, sets per muscle, e1RM progress per lift, history), body weight, progress photos |
 | [finance.html](finance.html) | Net worth, subscriptions, wishlist, incoming orders (EUR) |
 | [mealprep.html](mealprep.html) | Recipes, fridge, AI chef, weekly meal plan |
 
@@ -30,4 +30,5 @@ Shared code:
 | [sync.js](sync.js) | Supabase cross-device sync (multi-row) |
 | [energy.js](energy.js) | Circadian + sleep-pressure + caffeine energy model |
 | [applehealth.js](applehealth.js) | Reader for the Apple Health snapshot |
-| [api/](api) | Vercel functions: config, Apple Health import, Google OAuth |
+| [hevy.js](hevy.js) | Reader for the Hevy workout snapshot + lift maths (e1RM, volume, PRs, muscle sets) |
+| [api/](api) | Vercel functions: config, Apple Health import, Hevy sync, Google OAuth |
