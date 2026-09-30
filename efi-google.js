@@ -14,6 +14,7 @@
   const TOKEN_LS = 'efi_local:gtoken';        // {t, exp} — per device, never synced
   const CAL_LIST_LS = 'efi_local:gcals';      // cached calendar list {ts, items}
   const EVENTS_CACHE_LS = 'efi_local:gevents'; // last fetched events, for instant paint/offline
+  const STATUS_LS = 'efi_local:gstatus';       // last known {configured, connected}, for instant paint
   const CAL = 'https://www.googleapis.com/calendar/v3';
   const TASKS = 'https://tasks.googleapis.com/tasks/v1';
 
@@ -21,15 +22,31 @@
   let tokenInflight = null;
 
   function isHttp() { return /^https?:$/.test(location.protocol); }
+  function setStatus(s) { statusCache = s; store.set(STATUS_LS, s); return s; }
 
-  async function status(force) {
-    if (!isHttp()) return { configured: false, connected: false };
-    if (statusCache && !force) return statusCache;
-    try {
-      const r = await fetch('/api/google?action=status', { credentials: 'same-origin', cache: 'no-store' });
-      statusCache = r.ok ? await r.json() : { configured: false, connected: false };
-    } catch (e) { statusCache = { configured: false, connected: false }; }
-    return statusCache;
+  let statusInflight = null;
+  function status(force) {
+    if (!isHttp()) return Promise.resolve({ configured: false, connected: false });
+    if (statusCache && !force) return Promise.resolve(statusCache);
+    // Several widgets ask at once while a page opens — share one request.
+    if (statusInflight) return statusInflight;
+    statusInflight = (async () => {
+      try {
+        const r = await fetch('/api/google?action=status', { credentials: 'same-origin', cache: 'no-store' });
+        if (r.ok) return setStatus(await r.json());
+        statusCache = { configured: false, connected: false };
+      } catch (e) {
+        // Offline: keep the last known status rather than flipping to "not connected".
+        statusCache = store.get(STATUS_LS, null) || { configured: false, connected: false };
+      }
+      return statusCache;
+    })().finally(() => { statusInflight = null; });
+    return statusInflight;
+  }
+  // Last known status with no network call — for the instant first paint.
+  function cachedStatus() {
+    if (statusCache) return statusCache;
+    return (isHttp() && store.get(STATUS_LS, null)) || { configured: false, connected: false };
   }
 
   async function token() {
@@ -39,7 +56,7 @@
     tokenInflight = (async () => {
       try {
         const r = await fetch('/api/google?action=token', { credentials: 'same-origin', cache: 'no-store' });
-        if (r.status === 401) { statusCache = { configured: true, connected: false }; store.del(TOKEN_LS); return null; }
+        if (r.status === 401) { setStatus({ configured: true, connected: false }); store.del(TOKEN_LS); return null; }
         if (!r.ok) return null;
         const j = await r.json();
         store.set(TOKEN_LS, { t: j.access_token, exp: Date.now() + (j.expires_in || 3600) * 1000 });
@@ -68,7 +85,7 @@
   async function disconnect() {
     try { await fetch('/api/google?action=disconnect', { credentials: 'same-origin' }); } catch (e) {}
     store.del(TOKEN_LS); store.del(CAL_LIST_LS); store.del(EVENTS_CACHE_LS);
-    statusCache = { configured: true, connected: false };
+    setStatus({ configured: true, connected: false });
   }
 
   // ---------- Calendar ----------
@@ -178,7 +195,7 @@
   }
 
   EFI.google = {
-    status, connect, disconnect, token,
+    status, cachedStatus, connect, disconnect, token,
     calendars, listEvents, cachedEvents, createEvent, updateEvent, deleteEvent,
     listTasks, createTask, completeTask,
     async isConnected() { const s = await status(); return !!s.connected; },

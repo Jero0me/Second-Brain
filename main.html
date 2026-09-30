@@ -3,10 +3,16 @@
 <head>
 <script src="/api/config"></script>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#05090A">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/efi-180.png">
 <title>Routines · E.F.I.</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
 <script src="efi-auth.js"></script>
 <script src="efi-core.js"></script>
 <script src="efi-google.js"></script>
@@ -17,14 +23,15 @@
 <script src="applehealth.js" defer></script>
 <style>
 :root {
-  --text-primary: #FAFAFA;
-  --text-secondary: #B8B6B0;
-  --text-tertiary: #76746E;
-  --success: #6BE3A4;
-  --warning: #F2C063;
-  --danger: #FF6B6B;
-  --font: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --text-primary: var(--efi-text, #F2F7F6);
+  --text-secondary: var(--efi-text-2, #A7B6B3);
+  --text-tertiary: var(--efi-text-3, #6B7C79);
+  --success: var(--efi-accent, #34D8A0);
+  --warning: var(--efi-warn, #F5C065);
+  --danger: var(--efi-danger, #FF7A70);
+  /* One typeface everywhere (the old monospace labels are gone). */
+  --font: var(--efi-font, 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif);
+  --font-mono: var(--efi-font, 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif);
 }
 
 * { box-sizing: border-box; }
@@ -43,29 +50,15 @@ body {
   overflow-x: hidden;
   padding: max(28px, env(safe-area-inset-top)) 20px 60px;
 }
+/* Same backdrop as the other E.F.I. pages. (The old one was a blurred layer
+   drifting forever plus a dot grain — a constant repaint for no benefit.) */
 body::before {
   content: '';
   position: fixed; inset: 0;
-  background:
-    radial-gradient(circle at 82% 14%, rgba(224, 118, 88, 0.16), transparent 45%),
-    radial-gradient(circle at 18% 90%, rgba(180, 180, 200, 0.06), transparent 50%);
-  filter: blur(40px);
-  pointer-events: none;
-  z-index: -2;
-  animation: drift 36s ease-in-out infinite alternate;
-}
-body::after {
-  content: '';
-  position: fixed; inset: 0;
-  background-image: radial-gradient(rgba(255,255,255,0.014) 1px, transparent 1px);
-  background-size: 3px 3px;
   pointer-events: none;
   z-index: -1;
 }
-@keyframes drift {
-  0%   { transform: translate3d(0,0,0); }
-  100% { transform: translate3d(-22px, 14px, 0); }
-}
+body::after { display: none; }
 
 .page {
   max-width: 1100px;
@@ -73,18 +66,22 @@ body::after {
 }
 
 /* ===== Component 1: page title ===== */
-.dash-title {
-  margin: 0 0 14px;
-  font-size: 28px;
-  font-weight: 700;
-  letter-spacing: -0.025em;
-  background: linear-gradient(180deg, #FFFFFF 0%, #C7C4BC 120%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  color: transparent;
+.rt-top { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.dash-title { margin: 0; font-size: 24px; font-weight: 800; letter-spacing: -0.02em; color: var(--text-primary); }
+.rt-sub { font-size: 12.5px; color: var(--text-tertiary); font-weight: 600; margin-top: 1px; }
+.rt-back {
+  width: 42px; height: 42px; border-radius: 50%; flex-shrink: 0; display: grid; place-items: center;
+  background: var(--efi-surface, rgba(255,255,255,0.045)); border: 1px solid var(--efi-border, rgba(255,255,255,0.08));
+  color: var(--text-secondary); text-decoration: none; -webkit-tap-highlight-color: transparent;
 }
-@media (max-width: 480px) { .dash-title { font-size: 22px; } }
+.rt-back:active { transform: scale(0.94); }
+/* Inline line icons (replacing the old emoji). */
+[data-i] { display: inline-flex; vertical-align: -2px; }
+.tb-ai-btn [data-i], .gm-polish [data-i] { margin-right: 6px; }
+.gm-streak-icon { color: var(--warning); }
+/* Cards match the rest of E.F.I. (hairline border, 20px corners). */
+.goal-ticker, .day-ring-wrap, .gm-card { border: 1px solid var(--efi-border, rgba(255,255,255,0.08)) !important; }
+.day-ring-wrap, .gm-card { border-radius: var(--efi-radius, 20px) !important; }
 
 /* ===== Component 2: Goal Ticker ===== */
 .ticker-row {
@@ -734,7 +731,10 @@ body::after {
 <body>
 <div class="page">
 
-  <h1 class="dash-title">Routines</h1>
+  <header class="rt-top">
+    <a href="calendar.html" class="rt-back" aria-label="Back to Calendar"><span data-i="chevronLeft"></span></a>
+    <div><h1 class="dash-title">Routines</h1><div class="rt-sub">Habits, shift templates &amp; your time-blocked day</div></div>
+  </header>
 
   <div class="ticker-row">
     <div class="goal-ticker" id="goalTicker" aria-live="polite" aria-atomic="true">
@@ -790,14 +790,14 @@ body::after {
           </div>
         </div>
         <div class="gm-streak" id="gmStreak">
-          <span class="gm-streak-icon">⚡</span>
+          <span class="gm-streak-icon" data-i="bolt"></span>
           <span class="gm-streak-num" id="gmStreakNum">0</span>
           <span>day streak</span>
         </div>
       </div>
       <div class="gm-bar" id="gmBar"></div>
       <div class="tb-ai-row">
-        <button type="button" id="todayAutoBtn" class="tb-ai-btn" disabled>✨ Auto-schedule</button>
+        <button type="button" id="todayAutoBtn" class="tb-ai-btn" disabled><span data-i="sparkle"></span>Auto-schedule</button>
         <span class="tb-ai-status" id="todayAutoStatus">Checking today's sleep sync…</span>
       </div>
       <div class="tb-grid-wrap">
@@ -813,7 +813,7 @@ body::after {
       <div class="goal-input-wrap gm-input-wrap">
         <input id="goalInput" class="gm-input" type="text" placeholder="Add a goal for today…" autocomplete="off">
         <button type="button" id="goalAddBtn"    class="gm-add">+ Add</button>
-        <button type="button" id="goalPolishBtn" class="gm-polish">✨ Polish</button>
+        <button type="button" id="goalPolishBtn" class="gm-polish"><span data-i="sparkle"></span>Polish</button>
         <div class="gm-status" id="polishStatus"></div>
       </div>
     </div>
@@ -828,7 +828,7 @@ body::after {
         <div class="gm-tomorrow-count" id="gmTomorrowCount">0 planned</div>
       </div>
       <div class="tb-ai-row">
-        <button type="button" id="tomorrowAutoBtn" class="tb-ai-btn" disabled>✨ Auto-schedule</button>
+        <button type="button" id="tomorrowAutoBtn" class="tb-ai-btn" disabled><span data-i="sparkle"></span>Auto-schedule</button>
         <span class="tb-ai-status" id="tomorrowAutoStatus">Available once tomorrow arrives and syncs</span>
       </div>
       <div class="tb-grid-wrap">
@@ -843,7 +843,7 @@ body::after {
       <div class="goal-input-wrap gm-input-wrap">
         <input id="tomorrowInput" class="gm-input" type="text" placeholder="Add a goal for tomorrow…" autocomplete="off">
         <button type="button" id="tomorrowAddBtn"    class="gm-add">+ Add</button>
-        <button type="button" id="tomorrowPolishBtn" class="gm-polish">✨ Polish</button>
+        <button type="button" id="tomorrowPolishBtn" class="gm-polish"><span data-i="sparkle"></span>Polish</button>
         <div class="gm-status" id="tomorrowStatus"></div>
       </div>
     </div>
@@ -1005,6 +1005,9 @@ body::after {
 
   // All AI here (Polish + Auto-schedule) runs on Google Gemini via
   // efi-core.js, using the key saved in E.F.I. settings.
+
+  // Line icons shared with the rest of E.F.I.
+  document.querySelectorAll('[data-i]').forEach((s) => { s.innerHTML = window.EFI.icon(s.dataset.i, s.parentNode.classList.contains('rt-back') ? 20 : 14, 2); });
 
   // Fallback window used only until EnergyModel.computeContext() resolves
   // with real Apple Health wake/bed times (or if AppleHealth isn't synced yet).
@@ -1262,7 +1265,7 @@ body::after {
     const edit = document.createElement('button');
     edit.type = 'button';
     edit.className = 'gm-queue-btn';
-    edit.textContent = '✎';
+    edit.innerHTML = window.EFI.icon('pen', 13);
     edit.title = 'Edit template';
     edit.addEventListener('click', () => startEditTemplate(t));
     li.appendChild(edit);
@@ -1490,7 +1493,7 @@ body::after {
       fillEl.style.stroke = '#4D4B47';
       percentEl.textContent = '—';
       phaseEl.textContent   = 'SLEEPING';
-      statusEl.textContent  = '😴 Still sleeping';
+      statusEl.textContent  = 'Still sleeping';
       const minsUntil = (ctx.wakeHour - hours) * 60;
       remainingEl.textContent = formatRemaining(minsUntil) + ' until wake-up';
       return;
@@ -1499,9 +1502,9 @@ body::after {
     if (hours >= ctx.bedHour) {
       fillEl.setAttribute('stroke-dashoffset', 0);
       fillEl.style.stroke = '#E25D7A';
-      percentEl.textContent = '100%';
+      percentEl.textContent = '—';
       phaseEl.textContent   = 'PAST BEDTIME';
-      statusEl.textContent  = '⚠️ Past bedtime';
+      statusEl.textContent  = 'Past bedtime';
       remainingEl.textContent = 'Sleep!';
       return;
     }
@@ -1510,17 +1513,17 @@ body::after {
     const color = window.EnergyModel ? window.EnergyModel.energyColor(percent) : '#F2C063';
     fillEl.setAttribute('stroke-dashoffset', C * (1 - percent / 100));
     fillEl.style.stroke = color;
-    percentEl.textContent = Math.round(percent) + '%';
+    percentEl.textContent = Math.round(percent); // same 0–100 scale as Health, no %
 
     const phaseWord = window.EnergyModel ? window.EnergyModel.stateWord(percent) : 'STEADY';
     const statusByPhase = {
-      Peak:   '🔥 Peak energy — push it',
-      High:   '⚡ High energy — keep moving',
-      Steady: '☀️ Steady — good working state',
-      Dip:    '⏳ Energy dip — lighter tasks',
-      Low:    '🌙 Low energy — wind down',
+      Peak:   'Peak energy — push it',
+      High:   'High energy — keep moving',
+      Steady: 'Steady — good working state',
+      Dip:    'Energy dip — lighter tasks',
+      Low:    'Low energy — wind down',
     };
-    phaseEl.textContent  = phaseWord.toUpperCase();
+    phaseEl.textContent  = 'ENERGY';
     statusEl.textContent = statusByPhase[phaseWord] || '—';
 
     const minsLeft = (ctx.bedHour - hours) * 60;
@@ -1677,7 +1680,8 @@ body::after {
 
     const label = document.createElement('div');
     label.className = 'tb-block-label';
-    label.textContent = (opts.locked ? '🔒 ' : '') + opts.label;
+    label.textContent = opts.label;
+    if (opts.locked) label.insertAdjacentHTML('afterbegin', window.EFI.icon('pin', 11) + ' ');
     el.appendChild(label);
 
     const time = document.createElement('div');
@@ -1783,7 +1787,7 @@ body::after {
     if (plan.napSuggestion) {
       const nap = plan.napSuggestion;
       body.appendChild(buildGridBlock({
-        label: '💤 Nap — ' + nap.reason, start: nap.start, end: nap.end, kind: 'nap',
+        label: 'Nap — ' + nap.reason, start: nap.start, end: nap.end, kind: 'nap',
         onDismiss: () => {
           setPlan(dateStr, Object.assign({}, getPlan(dateStr), { napSuggestion: null }));
           if (dateStr === getActiveDateString()) loadToday(); else loadTomorrow();
@@ -1817,7 +1821,7 @@ body::after {
     events.forEach((ev) => {
       const s = Math.max(GRID_START_HOUR * 60, timeToMin(ev.start));
       if (s >= GRID_END_HOUR * 60) return;
-      const el = buildGridBlock({ label: '📅 ' + ev.label, start: minToTime(s), end: ev.end, kind: 'gcal' });
+      const el = buildGridBlock({ label: ev.label, start: minToTime(s), end: ev.end, kind: 'gcal' });
       body.appendChild(el);
     });
   }
@@ -1989,7 +1993,7 @@ body::after {
     if (goal.sourceHabitId) {
       const icon = document.createElement('span');
       icon.className = 'gm-habit-icon';
-      icon.textContent = '🔁';
+      icon.innerHTML = window.EFI.icon('repeat', 14);
       icon.title = 'From a habit';
       li.appendChild(icon);
     }

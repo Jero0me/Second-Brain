@@ -140,6 +140,23 @@ body.has-efi-nav { padding-bottom: calc(var(--efi-nav-h) + 34px + env(safe-area-
 }
 .efi-toast.show { opacity: 1; transform: translate(-50%, 0); }
 
+/* ---------- wide screens ---------- */
+/* Card pages (.page.efi-columns) flow into two columns on a desktop
+   instead of one phone-width strip down the middle. */
+@media (min-width: 1100px) {
+  .efi-columns { max-width: 1180px !important; columns: 2; column-gap: 18px; }
+  .efi-columns > * { break-inside: avoid; }
+  .efi-columns > .hd, .efi-columns > .banner { column-span: all; }
+}
+
+/* ---------- page transitions ---------- */
+/* Pages cross-fade instead of flashing blank; the nav stays put. */
+@media (prefers-reduced-motion: no-preference) {
+  @view-transition { navigation: auto; }
+  ::view-transition-old(root), ::view-transition-new(root) { animation-duration: 0.18s; }
+}
+.efi-nav { view-transition-name: efi-nav; }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
 }

@@ -3,7 +3,7 @@
 <head>
 <script src="/api/config"></script>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#05090A">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -16,7 +16,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
 <link rel="stylesheet" id="efi-theme" href="efi-theme.css">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
 <script src="efi-auth.js"></script>
 <script src="efi-core.js"></script>
 <script src="efi-google.js"></script>
@@ -141,11 +141,10 @@ body.thinking .orb .wave { animation-duration: 1.8s; }
 .bar { height: 6px; border-radius: 3px; background: rgba(255,255,255,0.07); margin-top: 12px; overflow: hidden; }
 .bar > i { display: block; height: 100%; border-radius: 3px; background: linear-gradient(90deg, #25C08C, #6BF5C6); box-shadow: 0 0 10px var(--efi-glow); }
 
-/* modules — horizontally scrolling cards like "Popular topics" */
-.modules { display: flex; gap: 12px; overflow-x: auto; margin: 0 -18px; padding: 2px 18px 6px; scroll-snap-type: x mandatory; scrollbar-width: none; }
-.modules::-webkit-scrollbar { display: none; }
+/* modules — the sections that aren't in the bottom nav */
+.modules { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .mod {
-  flex: 0 0 146px; height: 132px; scroll-snap-align: start; display: flex; flex-direction: column; justify-content: space-between;
+  min-height: 132px; display: flex; flex-direction: column; justify-content: space-between; gap: 12px;
   padding: 14px; border-radius: var(--efi-radius); text-decoration: none; color: var(--efi-text);
   background: linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.03)); border: 1px solid var(--efi-border);
   transition: transform 0.15s, border-color 0.15s;
@@ -210,6 +209,14 @@ body.chatting .orb-status { margin-top: 10px; }
   bottom: calc(var(--efi-nav-h) + 22px + env(safe-area-inset-bottom));
   display: flex; justify-content: center; padding: 0 12px; pointer-events: none;
 }
+/* Fade the page out under the composer + nav so cards don't show through
+   the gap between them. */
+.composer-fade {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 50; pointer-events: none;
+  height: calc(var(--efi-nav-h) + 110px + env(safe-area-inset-bottom));
+  background: linear-gradient(180deg, rgba(5,9,10,0) 0%, rgba(5,9,10,0.88) 38%, #05090A 70%);
+}
+body.efi-typing .composer-fade { height: calc(90px + env(safe-area-inset-bottom)); }
 .composer-inner {
   pointer-events: auto; width: 100%; max-width: 520px; display: flex; align-items: center; gap: 8px;
   padding: 6px 6px 6px 18px; border-radius: 26px;
@@ -279,6 +286,15 @@ body.efi-typing .composer { bottom: calc(8px + env(safe-area-inset-bottom)); }
 
 @media (max-width: 380px) { .greet { font-size: 23px; } .brief { grid-template-columns: 1fr; } .brief .card.wide { grid-column: span 1; } }
 @media (min-width: 900px) { .app { padding-top: 28px; } .greet { font-size: 32px; } }
+/* Desktop: the briefing spreads out — Up next on top, four cards in a row. */
+@media (min-width: 1100px) {
+  .app { max-width: 1040px; }
+  .brief { grid-template-columns: repeat(4, 1fr); }
+  .brief .card.wide { grid-column: span 4; }
+  .modules { grid-template-columns: repeat(4, 1fr); }
+  .notes { display: grid; grid-template-columns: 1fr 1fr; }
+  body.chatting .app { max-width: 720px; }
+}
 </style>
 </head>
 <body>
@@ -341,7 +357,7 @@ body.efi-typing .composer { bottom: calc(8px + env(safe-area-inset-bottom)); }
       </a>
     </div>
 
-    <div class="sec-head"><h2>Modules</h2></div>
+    <div class="sec-head"><h2>More</h2></div>
     <div class="modules" id="modules"></div>
 
     <div class="sec-head"><h2>Notes &amp; ideas</h2><button type="button" id="notesAsk">+ New idea</button></div>
@@ -351,6 +367,7 @@ body.efi-typing .composer { bottom: calc(8px + env(safe-area-inset-bottom)); }
   <section class="thread" id="thread" aria-live="polite"></section>
 </div>
 
+<div class="composer-fade" aria-hidden="true"></div>
 <div class="composer">
   <div class="composer-inner">
     <textarea id="input" rows="1" placeholder="Ask E.F.I. anything…" autocomplete="off" enterkeyhint="send"></textarea>
@@ -473,13 +490,10 @@ body.efi-typing .composer { bottom: calc(8px + env(safe-area-inset-bottom)); }
     else { $('input').value = c.fill; autosize(); $('input').focus(); }
   });
 
+  // The main sections live in the bottom nav; these two are the ones it doesn't show.
   const MODULES = [
-    { href: 'calendar.html', icon: 'calendar', t: 'Calendar', s: 'Day, week & month', c: '#34D8A0' },
     { href: 'main.html', icon: 'list', t: 'Routines', s: 'Habits, shift templates, auto-schedule', c: '#9B8AFB' },
-    { href: 'finance.html', icon: 'wallet', t: 'Finance', s: 'Net worth & subscriptions', c: '#F5C065' },
-    { href: 'health.html', icon: 'heart', t: 'Health', s: 'Energy, sleep, vitals, caffeine', c: '#FF8A7A' },
-    { href: 'gym.html', icon: 'dumbbell', t: 'Fitness', s: 'Hevy workouts & macros', c: '#5AB8F5' },
-    { href: 'mealprep.html', icon: 'chef', t: 'Meal Prep', s: 'Recipes & weekly plan', c: '#A3E36B' },
+    { href: 'mealprep.html', icon: 'chef', t: 'Meal Prep', s: 'Recipes, fridge & weekly plan', c: '#A3E36B' },
   ];
   $('modules').innerHTML = MODULES.map((m) => '<a class="mod" href="' + m.href + '" style="--mc:' + m.c + '"><span class="ic">' + I(m.icon, 19) + '</span><span><b>' + m.t + '</b><span>' + m.s + '</span></span></a>').join('');
 
@@ -520,7 +534,7 @@ body.efi-typing .composer { bottom: calc(8px + env(safe-area-inset-bottom)); }
       const ctx = await window.EnergyModel.computeContext();
       const h = window.EnergyModel.nowHour();
       const v = Math.round(window.EnergyModel.energyAt(h, ctx, true));
-      $('bEnergyBig').innerHTML = v + '<small>%</small>';
+      $('bEnergyBig').innerHTML = v + '<small> energy</small>'; // same 0–100 scale as Health
       $('bEnergyBig').style.color = window.EnergyModel.energyColor(v);
       const later = Math.round(window.EnergyModel.energyAt(h + 2, ctx, true));
       $('bEnergyLine').textContent = window.EnergyModel.stateWord(v) + ' · ' + (later > v + 4 ? 'rising' : later < v - 4 ? 'dipping' : 'steady') + ' next 2h';
@@ -706,17 +720,22 @@ body.efi-typing .composer { bottom: calc(8px + env(safe-area-inset-bottom)); }
     input.blur(); // drop the keyboard so the reply is visible
     if (!document.body.classList.contains('chatting')) { restoreLog(); setChatting(true); }
     addUser(text); saveLog({ role: 'user', text });
-    const bubble = addEfi('<span class="dots"><i></i><i></i><i></i></span>');
+    const bubble = addEfi('<div class="btxt"><span class="dots"><i></i><i></i><i></i></span></div>');
+    const textEl = bubble.firstChild;
     const actionsEl = document.createElement('div'); actionsEl.className = 'actions';
     setState('thinking', 'Thinking…');
     try {
-      if (window.CloudSync) await window.CloudSync.ready();
       const res = await EFI.agent.send(text, {
+        // Wait for the first cloud pull before reading local data (Gemini and
+        // the other network reads start meanwhile).
+        waitFor: window.CloudSync ? window.CloudSync.ready() : null,
+        // The reply streams in as Gemini writes it.
+        onText(t) { textEl.innerHTML = md(t); scrollDown(); setState('thinking', 'Answering…'); },
         onAction(a) { actionsEl.insertAdjacentHTML('beforeend', actionHtml(a)); if (!actionsEl.parentNode) bubble.appendChild(actionsEl); scrollDown(); },
         confirm(label) { return askConfirm(bubble, label); },
       });
-      bubble.innerHTML = md(res.text);
-      if (res.actions.length) bubble.appendChild(actionsEl);
+      textEl.innerHTML = md(res.text);
+      if (res.actions.length && !actionsEl.parentNode) bubble.appendChild(actionsEl);
       saveLog({ role: 'efi', text: res.text, actions: res.actions });
       speak(res.text);
       if (res.actions.length) { renderNotes(); scheduleBriefing(); }

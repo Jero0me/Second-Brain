@@ -3,7 +3,7 @@
 <head>
 <script src="/api/config"></script>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#05090A">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -13,7 +13,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
 <link rel="stylesheet" id="efi-theme" href="efi-theme.css">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
 <script src="efi-auth.js"></script>
 <script src="efi-core.js"></script>
 <script src="efi-google.js"></script>
@@ -51,11 +51,14 @@ button, input, select, textarea { font-family: inherit; }
 .g-status { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 600; color: var(--efi-text-3); text-decoration: none; }
 .g-status i { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
 .g-status.ok { color: var(--efi-accent); }
+.rt-link { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; color: var(--efi-text); text-decoration: none; background: rgba(155,138,251,0.12); border: 1px solid rgba(155,138,251,0.3); }
+.rt-link .efi-ico { color: #9B8AFB; }
 .g-status button { border: 0; background: none; color: var(--efi-accent); font: inherit; cursor: pointer; padding: 0; text-decoration: underline; }
 
 /* ask bar */
 .ask { display: flex; align-items: center; gap: 8px; margin-top: 14px; padding: 5px 5px 5px 14px; border-radius: 18px; background: rgba(255,255,255,0.05); border: 1px solid var(--efi-border); }
 .ask .efi-ico { color: var(--efi-accent); flex-shrink: 0; }
+.ask button .efi-ico { color: var(--efi-accent-ink); } /* was mint on mint — invisible */
 .ask input { flex: 1; min-width: 0; border: 0; outline: none; background: transparent; color: var(--efi-text); font-size: 14px; padding: 8px 0; }
 .ask input::placeholder { color: var(--efi-text-3); }
 .ask button { width: 36px; height: 36px; border-radius: 50%; border: 0; background: linear-gradient(180deg, #5EF0BC, #1FB58A); color: var(--efi-accent-ink); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
@@ -249,7 +252,7 @@ textarea.inp { resize: vertical; min-height: 60px; }
       <button type="button" data-v="month">Month</button>
     </div>
     <span class="g-status" id="gStatus"></span>
-    <a class="g-status" href="main.html" title="Habits, shift templates and the time-block planner">Routines →</a>
+    <a class="rt-link" href="main.html" title="Habits, shift templates and the time-block planner"><span data-icon="list"></span>Routines</a>
   </div>
 
   <form class="ask" id="askForm" autocomplete="off">

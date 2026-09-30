@@ -17,16 +17,23 @@
 <!--   3. Give each section its own SECTION_ID (see the script at   -->
 <!--      the bottom) so it saves + syncs independently.            -->
 <!-- ============================================================= -->
+<script src="/api/config"></script>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#050506">
-<title>New Section · Dashboard</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#05090A">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/efi-180.png">
+<title>New Section · E.F.I.</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" id="efi-theme" href="efi-theme.css">
 
-<!-- Shared dashboard scripts. Keep these in this order. -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="efi-auth.js"></script>
+<!-- Shared scripts. Keep these in this order. -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
+<script src="efi-auth.js"></script>       <!-- sign-in + the Supabase project config -->
+<script src="efi-core.js"></script>       <!-- storage/date helpers, icons (EFI.icon), Gemini -->
 <script src="sync.js" defer></script>     <!-- cloud sync across devices -->
-<script src="topbar.js" defer></script>   <!-- top water bar + bottom tab nav -->
+<script src="topbar.js" defer></script>   <!-- theme, bottom nav, toasts, offline cache -->
 
 <style>
 /* ============================================================= */
@@ -35,21 +42,21 @@
 /*  other pages. Use the variables (var(--text-primary), etc.)    */
 /*  instead of hard-coding colors.                                */
 /* ============================================================= */
+/* The real values live in efi-theme.css (--efi-*); these names are
+   shortcuts to them. */
 :root {
-  --text-primary: #FAFAFA;   /* headings, key numbers   */
-  --text-secondary: #B8B6B0; /* body text               */
-  --text-tertiary: #76746E;  /* labels, captions, hints */
-  --success: #6BE3A4;        /* green  — done / good    */
-  --warning: #F2C063;        /* amber  — caution        */
-  --danger:  #FF6B6B;        /* red    — bad / delete   */
-  --font: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --text-primary: var(--efi-text);     /* headings, key numbers   */
+  --text-secondary: var(--efi-text-2); /* body text               */
+  --text-tertiary: var(--efi-text-3);  /* labels, captions, hints */
+  --success: var(--efi-accent);        /* mint   — done / good    */
+  --warning: var(--efi-warn);          /* amber  — caution        */
+  --danger:  var(--efi-danger);        /* red    — bad / delete   */
+  --font: var(--efi-font);
 }
 
 * { box-sizing: border-box; }
 html, body {
   margin: 0; padding: 0;
-  background: #050506;
   color: var(--text-secondary);
   font-family: var(--font);
   -webkit-font-smoothing: antialiased;
@@ -60,46 +67,15 @@ body {
   min-height: 100vh;
   position: relative;
   overflow-x: hidden;
-  padding: max(28px, env(safe-area-inset-top)) 20px 60px;
+  padding: max(20px, env(safe-area-inset-top)) 16px 24px;
 }
-/* Soft drifting color glow behind everything. */
-body::before {
-  content: '';
-  position: fixed; inset: 0;
-  background:
-    radial-gradient(circle at 82% 14%, rgba(224, 118, 88, 0.16), transparent 45%),
-    radial-gradient(circle at 18% 90%, rgba(180, 180, 200, 0.06), transparent 50%);
-  filter: blur(40px);
-  pointer-events: none;
-  z-index: -2;
-  animation: drift 36s ease-in-out infinite alternate;
-}
-/* Faint dot texture. */
-body::after {
-  content: '';
-  position: fixed; inset: 0;
-  background-image: radial-gradient(rgba(255,255,255,0.014) 1px, transparent 1px);
-  background-size: 3px 3px;
-  pointer-events: none;
-  z-index: -1;
-}
-@keyframes drift {
-  0%   { transform: translate3d(0,0,0); }
-  100% { transform: translate3d(-22px, 14px, 0); }
-}
+/* The soft teal glow behind every page (colors come from efi-theme.css). */
+body::before { content: ''; position: fixed; inset: 0; pointer-events: none; z-index: -1; }
 
-.page { max-width: 1100px; margin: 0 auto; }
+/* .efi-columns: cards flow into two columns on a desktop. */
+.page { max-width: 760px; margin: 0 auto; }
 
-/* Big gradient page title. */
-.dash-title {
-  margin: 0 0 14px;
-  font-size: 28px; font-weight: 700;
-  letter-spacing: -0.025em;
-  background: linear-gradient(180deg, #FFFFFF 0%, #C7C4BC 120%);
-  -webkit-background-clip: text; background-clip: text;
-  -webkit-text-fill-color: transparent; color: transparent;
-}
-@media (max-width: 480px) { .dash-title { font-size: 22px; } }
+.dash-title { margin: 0 0 14px; font-size: 24px; font-weight: 800; letter-spacing: -0.02em; color: var(--text-primary); }
 
 /* Small uppercase section heading with a divider line. */
 .section { margin-top: 8px; }
@@ -149,7 +125,7 @@ body::after {
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.045em; color: var(--text-primary); line-height: 1;
 }
-.gm-progress-total { font-family: var(--font-mono); font-size: 18px; color: var(--text-tertiary); }
+.gm-progress-total { font-size: 18px; color: var(--text-tertiary); }
 .gm-progress-label {
   font-size: 11px; font-weight: 600;
   letter-spacing: 0.10em; text-transform: uppercase;
@@ -317,7 +293,7 @@ body::after {
             <span class="gm-progress-label">score</span>
           </div>
         </div>
-        <span class="gm-streak">🔥 5 day streak</span>
+        <span class="gm-streak">5 day streak</span>
       </div>
 
       <div class="stat-grid">
@@ -492,7 +468,7 @@ body::after {
   ║        <div class="stat-label">Label</div></div>               ║
   ║    </div>                                                      ║
   ║                                                                ║
-  ║  Pill / tag:   <span class="gm-streak">🔥 Tag</span>           ║
+  ║  Pill / tag:   <span class="gm-streak">Tag</span>             ║
   ║  Buttons:      <button class="gm-add">Primary</button>         ║
   ║                <button class="gm-ghost">Secondary</button>     ║
   ║  Input:        <input class="gm-input" placeholder="…">        ║
