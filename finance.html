@@ -12,6 +12,7 @@
 <script src="efi-auth.js"></script>
 <script src="sync.js" defer></script>
 <script src="topbar.js" defer></script>
+<script src="wallet.js" defer></script>
 <style>
 :root {
   --bg: #0A0A0B;
@@ -130,12 +131,12 @@ body::after {
   pointer-events: none;
 }
 .bot-tab {
-  flex: 1; max-width: 140px;
+  flex: 1; max-width: 140px; min-width: 0;
   display: flex; flex-direction: column; align-items: center; gap: 2px;
   background: transparent;
   border: 1px solid transparent;
   color: var(--text-tertiary);
-  padding: 9px 14px 8px;
+  padding: 9px 4px 8px; /* five tabs have to fit a 375px phone */
   border-radius: 12px;
   font-family: inherit;
   cursor: pointer;
@@ -151,8 +152,9 @@ body::after {
 .bot-tab-icon { font-size: 18px; line-height: 1; }
 .bot-tab-label {
   font-size: 10px; font-weight: 700;
-  letter-spacing: 0.10em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 
 /* Sections: hide non-active when bottom tabs are in use */
@@ -694,6 +696,54 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
 }
 .nw-activity-empty.hidden { display: none; }
 .nw-activity-list.hidden { display: none; }
+
+/* ============================================================
+   SPENDING — Apple Pay payments (wallet.js), sorted by Gemini
+   ============================================================ */
+.spend-hero-row { display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 12px; }
+.spend-eyebrow { font-size: 11px; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: 0.04em; font-weight: 500; }
+.spend-total { font-size: 34px; font-weight: 700; color: var(--text-primary); line-height: 1.05; margin-top: 2px; font-variant-numeric: tabular-nums; }
+.spend-sub { font-size: 11px; color: var(--text-tertiary); margin-top: 4px; }
+.spend-status { font-size: 11px; color: var(--text-tertiary); font-family: var(--font-mono); text-align: right; max-width: 220px; }
+.spend-status.err { color: #F2C063; }
+.spend-cats { display: flex; flex-direction: column; gap: 9px; margin-top: 16px; }
+.spend-cat { display: grid; grid-template-columns: 96px 1fr auto; gap: 10px; align-items: center; font-size: 12px; }
+.spend-cat-name { color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.spend-cat-track { height: 6px; border-radius: 3px; background: rgba(255,255,255,0.05); overflow: hidden; }
+.spend-cat-fill { height: 100%; border-radius: 3px; }
+.spend-cat-amt { font-family: var(--font-mono); font-variant-numeric: tabular-nums; color: var(--text-primary); font-weight: 600; }
+.spend-list { display: flex; flex-direction: column; gap: 6px; }
+.spend-row {
+  display: grid; grid-template-columns: 4px 1fr auto auto;
+  gap: 10px; align-items: center;
+  padding: 9px 8px 9px 12px;
+  background: rgba(255,255,255,0.025);
+  border-radius: 8px;
+}
+.spend-row-bar { width: 4px; height: 28px; border-radius: 2px; }
+.spend-row-info { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.spend-row-name { color: var(--text-primary); font-weight: 600; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.spend-row-meta { display: flex; align-items: center; gap: 8px; font-size: 10.5px; color: var(--text-tertiary); font-family: var(--font-mono); min-width: 0; }
+.spend-row-meta span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Category pill: the text is a span, the real <select> lies invisible on top
+   of it — selects are forced to 16px on phones (no zoom on focus), far too
+   big for a pill. */
+.spend-pill {
+  position: relative; flex-shrink: 0;
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08);
+  color: var(--text-secondary); border-radius: 999px;
+  font-size: 10px; letter-spacing: 0.04em; text-transform: uppercase;
+  padding: 2px 8px; cursor: pointer;
+}
+.spend-pill select { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+.spend-row-amt { font-size: 13px; font-weight: 700; font-family: var(--font-mono); font-variant-numeric: tabular-nums; color: var(--text-primary); white-space: nowrap; }
+.spend-row-del { background: transparent; border: none; color: var(--text-tertiary); cursor: pointer; font-size: 15px; padding: 4px 6px; line-height: 1; font-family: inherit; }
+.spend-row-del:hover { color: #FF8A8A; }
+.spend-more {
+  display: block; width: 100%; margin-top: 8px; padding: 9px;
+  background: transparent; border: 1px solid rgba(255,255,255,0.08); border-radius: 8px;
+  color: var(--text-tertiary); font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.10em; text-transform: uppercase; cursor: pointer;
+}
 
 /* ============================================================
    ORDERS — full-spec form (name, cost, ccy, from-category, date)
@@ -1723,6 +1773,36 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   </div>
 </div>
 
+<!-- ===== SPENDING (Apple Pay payments, pushed by an iOS Shortcut) ===== -->
+<div class="section" data-section="spend">
+  <div class="section-title">
+    <span class="section-title-text">SPENDING</span>
+  </div>
+  <div class="card">
+    <div class="spend-hero-row">
+      <div>
+        <div class="spend-eyebrow">Spent this month</div>
+        <div class="spend-total" id="spendTotal">€0</div>
+        <div class="spend-sub" id="spendSub"></div>
+      </div>
+      <div class="spend-status" id="spendStatus"></div>
+    </div>
+    <div class="spend-cats" id="spendCats"></div>
+  </div>
+
+  <div class="ord-section-h">
+    <span class="ord-section-label">PAYMENTS</span>
+    <span class="ord-section-count" id="spendCount">0 payments</span>
+  </div>
+  <div class="spend-list" id="spendList"></div>
+  <button class="spend-more" id="spendMore" type="button" hidden>Show more</button>
+  <div class="ord-empty-card" id="spendEmpty">
+    <div class="ord-empty-icon">💳</div>
+    <div class="ord-empty-title">No payments yet</div>
+    <div class="ord-empty-sub">Pay with Apple Pay and it shows up here on its own — E.F.I. sorts it into a category. One-time setup: the "Apple Pay" section of SETUP.md.</div>
+  </div>
+</div>
+
 <!-- ===== ACTIVE SUBSCRIPTIONS ===== -->
 <div class="section" data-section="subs">
   <div class="section-title">
@@ -1849,6 +1929,10 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     <span class="bot-tab-icon">📊</span>
     <span class="bot-tab-label">Net Worth</span>
   </button>
+  <button class="bot-tab" data-tab="spend">
+    <span class="bot-tab-icon">💳</span>
+    <span class="bot-tab-label">Spend</span>
+  </button>
   <button class="bot-tab" data-tab="subs">
     <span class="bot-tab-icon">🔁</span>
     <span class="bot-tab-label">Subs</span>
@@ -1910,7 +1994,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   }
   tabs.forEach(b => b.addEventListener('click', () => setActiveTab(b.dataset.tab)));
   const savedTab = storeGet(TAB_KEY);
-  setActiveTab(savedTab && ['net','subs','incoming','wish'].includes(savedTab) ? savedTab : 'net');
+  setActiveTab(savedTab && ['net','spend','subs','incoming','wish'].includes(savedTab) ? savedTab : 'net');
 
   // ============================================================
   // NET WORTH (copied from the main dashboard, verbatim logic)
@@ -2544,6 +2628,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     if (deductReady) return;
     deductReady = true;
     try { renderSubs(); } catch (e) {}
+    try { loadSpending(); } catch (e) {}
   };
   setTimeout(function () { window.__financeSyncReady(); }, 8000); // offline fallback
 
@@ -3297,6 +3382,114 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   safeRenderTicker();
   setInterval(safeRenderTicker, 1500);
 
+  // ============================================================
+  // SPENDING — Apple Pay payments from the 'wallet' row (wallet.js).
+  // The list itself is written by /api/wallet-import; this page only
+  // adds categories (Gemini, once per new merchant) and lets you fix
+  // a category or remove a payment. Starts after the finance row's
+  // first pull (__financeSyncReady) so a category write can't be
+  // overwritten by that pull.
+  // ============================================================
+  const SPEND_PAGE = 30;
+  let spendShown = SPEND_PAGE;
+  let spendStatus = { text: '', err: false };
+  const WL = () => window.Wallet; // wallet.js is deferred — look it up when used
+
+  function renderSpending() {
+    const list = document.getElementById('spendList');
+    if (!list || !WL()) return;
+    const W = WL();
+    const all = W.visible();
+    const cur = W.month(null, 0), prev = W.month(null, -1);
+    const meta = W.meta();
+
+    document.getElementById('spendTotal').textContent = fmtMoney(cur.total);
+    document.getElementById('spendSub').textContent =
+      cur.count + (cur.count === 1 ? ' payment' : ' payments') + (prev.count ? ' · last month ' + fmtMoney(prev.total) : '');
+    const st = document.getElementById('spendStatus');
+    st.textContent = spendStatus.text;
+    st.classList.toggle('err', !!spendStatus.err);
+
+    const max = cur.categories.length ? cur.categories[0].total : 0;
+    document.getElementById('spendCats').innerHTML = cur.categories.map(c => {
+      const color = W.COLORS[c.name] || '#52525B';
+      return '<div class="spend-cat">'
+        + '<span class="spend-cat-name">' + escapeHtml(c.name) + '</span>'
+        + '<span class="spend-cat-track"><span class="spend-cat-fill" style="display:block;width:' + (max ? Math.max(2, (c.total / max) * 100) : 0).toFixed(1) + '%;background:' + color + '"></span></span>'
+        + '<span class="spend-cat-amt">' + fmtMoney(c.total) + '</span>'
+        + '</div>';
+    }).join('');
+
+    document.getElementById('spendEmpty').style.display = all.length ? 'none' : '';
+    document.getElementById('spendCount').textContent = all.length + (all.length === 1 ? ' payment' : ' payments');
+    const more = document.getElementById('spendMore');
+    more.hidden = all.length <= spendShown;
+
+    list.innerHTML = all.slice(0, spendShown).map(t => {
+      const cat = W.categoryOf(t, meta);
+      const color = (cat && W.COLORS[cat]) || '#52525B';
+      const options = (cat ? '' : '<option value="" selected>Unsorted</option>')
+        + W.CATEGORIES.map(c => '<option value="' + c + '"' + (c === cat ? ' selected' : '') + '>' + c + '</option>').join('');
+      const extra = [t.card, t.currency && t.currency !== 'EUR' ? t.currency : '', fmtActivityDate(t.ts)].filter(Boolean).join(' · ');
+      return '<div class="spend-row">'
+        + '<span class="spend-row-bar" style="background:' + color + '"></span>'
+        + '<div class="spend-row-info">'
+        +   '<div class="spend-row-name">' + escapeHtml(t.merchant) + '</div>'
+        +   '<div class="spend-row-meta"><label class="spend-pill" title="Category — applies to every payment at this merchant">' + (cat || 'Unsorted') + ' ▾<select data-spend-cat="' + escapeHtml(t.id) + '">' + options + '</select></label><span>' + escapeHtml(extra) + '</span></div>'
+        + '</div>'
+        + '<span class="spend-row-amt">' + fmtMoney(t.amount) + '</span>'
+        + '<button class="spend-row-del" data-spend-del="' + escapeHtml(t.id) + '" type="button" title="Remove this payment">×</button>'
+        + '</div>';
+    }).join('');
+  }
+
+  (function wireSpending() {
+    const list = document.getElementById('spendList');
+    if (!list) return;
+    const byId = (id) => WL().visible().find(t => t.id === id);
+    list.addEventListener('change', (e) => {
+      const sel = e.target.closest('[data-spend-cat]');
+      if (!sel || !sel.value) return;
+      const t = byId(sel.dataset.spendCat);
+      if (t) WL().setCategory(t.merchant, sel.value);
+      sel.blur();
+      renderSpending();
+    });
+    list.addEventListener('click', (e) => {
+      const del = e.target.closest('[data-spend-del]');
+      if (!del) return;
+      const t = byId(del.dataset.spendDel);
+      if (!t || !confirm('Remove ' + t.merchant + ' · ' + fmtMoney(t.amount) + ' from your spending?')) return;
+      WL().hide(t.id);
+      renderSpending();
+    });
+    document.getElementById('spendMore').addEventListener('click', () => { spendShown += SPEND_PAGE; renderSpending(); });
+  })();
+
+  // New merchants → one Gemini call → categories saved per merchant.
+  function sortSpending(res) {
+    const W = WL();
+    const n = W.uncategorized(res).length;
+    if (!n) return;
+    spendStatus = { text: '✨ E.F.I. is sorting ' + n + ' new merchant' + (n === 1 ? '' : 's') + '…', err: false };
+    renderSpending();
+    W.categorize(res).then((r) => {
+      spendStatus = r.ok ? { text: '', err: false } : { text: r.error, err: true };
+      renderSpending();
+    });
+  }
+
+  let spendStarted = false;
+  function loadSpending(force) {
+    if (!WL()) return;
+    WL().get(force).then((res) => { renderSpending(); sortSpending(res); });
+    if (spendStarted) return;
+    spendStarted = true;
+    // A payment made while the page is open appears (and gets sorted) right away.
+    WL().subscribe((res) => { renderSpending(); sortSpending(res); });
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) loadSpending(true); });
+  }
+
   // Re-paint when cloud sync (or E.F.I. in another tab) changes the data.
   // This page never listened before, so remote changes only showed after a
   // reload — and the stale screen could then overwrite them. Deferred while
@@ -3306,7 +3499,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     const ae = document.activeElement;
     if (ae && /^(INPUT|SELECT|TEXTAREA)$/.test(ae.tagName)) { pendingRemote = true; return; }
     pendingRemote = false;
-    try { renderAllNetWorth(); renderSubs(); renderWishlist(); renderOrders(); safeRenderTicker(); } catch (e) { console.error(e); }
+    try { renderAllNetWorth(); renderSubs(); renderWishlist(); renderOrders(); safeRenderTicker(); renderSpending(); } catch (e) { console.error(e); }
   }
   window.addEventListener('storage', rerenderFromStorage);
   document.addEventListener('focusout', () => setTimeout(() => { if (pendingRemote) rerenderFromStorage(); }, 0), true);

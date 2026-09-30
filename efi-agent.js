@@ -356,6 +356,10 @@
       orders_pending: f.orders().filter((o) => !o.deductedAt).map((o) => ({ name: o.name, amount: o.amount, arrives: o.date })),
       recent_activity: (S.get('nw:activity', []) || []).slice(-8),
     };
+    // Apple Pay payments pushed by the iOS Shortcut (/api/wallet-import), categories from wallet.js.
+    try {
+      if (window.Wallet) { const sp = window.Wallet.forAI(await window.Wallet.get()); if (sp) ctx.finance.card_spending = sp; }
+    } catch (e) {}
 
     ctx.notes_recent = data().notes.list().slice(0, 15).map((n) => ({ id: n.id, title: n.title, text: n.text.slice(0, 160) }));
 
@@ -415,7 +419,7 @@
 
   const SYSTEM = [
     'You are E.F.I. — Enhanced Functional Intelligence — the personal operating system inside {name}\'s Second Brain dashboard. Think JARVIS: calm, precise, quietly witty, fiercely useful.',
-    'You can see a live snapshot of their calendar (Google Calendar + planner time blocks + work/uni blocks + bill renewals), tasks, habits, notes, finances (EUR), health (Apple Health sleep/HRV/steps/water, MacroFactor nutrition via Apple Health, caffeine, logged symptoms, recent Hevy workouts with sets/weights) and an energy forecast. You can change things with tools.',
+    'You can see a live snapshot of their calendar (Google Calendar + planner time blocks + work/uni blocks + bill renewals), tasks, habits, notes, finances (EUR — net worth, subscriptions, and card_spending: their Apple Pay payments by category; it does not include rent, transfers or cash), health (Apple Health sleep/HRV/steps/water, MacroFactor nutrition via Apple Health, caffeine, logged symptoms, recent Hevy workouts with sets/weights) and an energy forecast. You can change things with tools.',
     'Rules:',
     '- When asked to change, plan, schedule, log or remember something: DO it with tools, then confirm briefly. Don\'t just give advice.',
     '- Resolve relative dates ("Friday", "next week", "tonight") from the snapshot\'s now/today. Tool times are 24h HH:MM.',
