@@ -98,7 +98,7 @@ random URLs without extra requests.)
 
 Rows used: `goals` (planner), `finance`, `mealprep`, `efi` (profile, notes,
 E.F.I. calendar events, manually logged caffeine, settings, nutrition targets), `po-coach` (body weight,
-progress photos, and the old in-app lift log), `apple_health` and `hevy` (both written by the server). API keys and Google logins are **never** stored here.
+progress photos, and the old in-app lift log), `apple_health`, `hevy` and `wallet` (all three written by the server). API keys and Google logins are **never** stored here.
 
 ### Sign-in settings (Supabase → Authentication)
 1. **URL Configuration** → *Site URL*: `https://your-app.vercel.app`, and add
@@ -260,7 +260,64 @@ it just isn't shown any more.
 
 ---
 
-## 7. Put E.F.I. on your iPhone
+## 7. Apple Pay — automatic spending (optional)
+
+Every time you pay with Apple Pay, an iOS Shortcut sends the merchant and amount to the dashboard. The
+payment appears on **Finance → Spend**, E.F.I. (Gemini) sorts it into a category, and you can ask things
+like *"how much did I spend on eating out this month?"*. Same idea as Apple Health: a one-way webhook, no
+bank login.
+
+**What it catches:** contactless Apple Pay payments with the cards in your Wallet. **What it doesn't:**
+the physical card, bank transfers, direct debits, cash, and refunds.
+
+### Server
+1. Pick a shared secret (any long random string) and add it in Vercel, then redeploy:
+
+| Variable | Value |
+|---|---|
+| `WALLET_IMPORT_SECRET` | any random string you choose |
+
+(`SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` from §2 must already be set.)
+
+### The shortcut (iPhone, about 3 minutes)
+1. Open **Shortcuts** → **Automation** tab → **+** (New Automation).
+2. Scroll to **Transaction** and tap it (needs iOS 17 or later).
+3. **Card:** tick every card you pay with. **Category:** leave all selected. **Merchant:** leave *Any*.
+4. Choose **Run Immediately** and leave **Notify When Run** off → **Next**.
+5. Tap **New Blank Automation**.
+6. Search for the action **Get Contents of URL** and add it. Tap the **›** arrow on the action to
+   expand it and fill in:
+   - **URL:** `https://your-app.vercel.app/api/wallet-import`
+   - **Method:** `POST`
+   - **Headers** → *Add new header*: key `Authorization`, value `Bearer <the WALLET_IMPORT_SECRET value>`
+     (the word `Bearer`, a space, then your secret).
+   - **Request Body:** `JSON`, then *Add new field* → **Text** three times:
+
+| Key | Value |
+|---|---|
+| `merchant` | tap the value → pick **Shortcut Input** from the variable bar → tap the blue *Shortcut Input* chip → choose **Merchant** |
+| `amount` | **Shortcut Input** → tap the chip → **Amount** |
+| `card` | **Shortcut Input** → tap the chip → **Card or Pass** |
+
+7. Tap **Done**.
+
+### Test it
+- Buy something with Apple Pay, then open **Finance → Spend** — the payment should be there within a
+  couple of seconds, and get a category a moment later.
+- Nothing there? Open the automation and press ▶ once: Shortcuts shows the server's answer.
+  `unauthorized` = the header doesn't match `WALLET_IMPORT_SECRET` (check for a missing `Bearer ` or a
+  stray space). `no amount in payload` = the `amount` field isn't linked to *Shortcut Input → Amount*
+  (pressing ▶ by hand always gives this — there is no transaction — so it also proves the URL and secret work).
+
+### Categories
+Gemini is asked once per new merchant, using the key from §3 on whichever device opens Finance first.
+Tap the category pill on a payment to change it — that applies to every payment at that merchant, past
+and future. **×** removes a payment from your totals. The page is EUR-only: a payment in another
+currency is listed with its currency code but added to the totals as-is.
+
+---
+
+## 8. Put E.F.I. on your iPhone
 
 Open the site in **Safari** → Share → **Add to Home Screen**. It launches full-screen straight into the
 E.F.I. assistant (tap the mic to talk, or type), with Calendar, Planner, Health and Fitness in the bottom bar.
@@ -283,4 +340,5 @@ E.F.I. assistant (tap the mic to talk, or type), with Calendar, Planner, Health 
 4. Google OAuth client → `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` → Connect Google.
 5. (Optional) Apple Health: `HEALTH_IMPORT_SECRET` + Health Auto Export automation.
 6. (Optional) Hevy: `HEVY_API_KEY` (Hevy Pro) → open Fitness.
-7. Add to Home Screen.
+7. (Optional) Apple Pay: `WALLET_IMPORT_SECRET` + the Shortcuts *Transaction* automation.
+8. Add to Home Screen.

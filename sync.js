@@ -31,7 +31,8 @@
   // is deliberately NOT here — it must never leave the device.
   const ROWS = {
     goals:    { syncedPrefixes: ['goals:', 'habits:', 'templates:', 'plan:'], syncedKeys: ['goal_streak_v1'] },
-    finance:  { syncedPrefixes: ['nw:'], syncedKeys: ['subs', 'wishlist', 'incoming_orders'] },
+    // spend_meta = categories + removed payments for the Apple Pay feed (wallet.js).
+    finance:  { syncedPrefixes: ['nw:'], syncedKeys: ['subs', 'wishlist', 'incoming_orders', 'spend_meta'] },
     mealprep: { syncedPrefixes: ['mealprep:'], syncedKeys: [] },
     efi:      { syncedPrefixes: [], syncedKeys: ['profile:v1', 'efi:events', 'efi:notes', 'efi:caffeine', 'efi:symptoms', 'efi:settings', 'fitness:targets'] },
     // The Fitness page's own row. po_coach_v1 / _workout_done are the old

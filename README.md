@@ -13,7 +13,7 @@ Setup (Vercel, Supabase, Gemini key, Google OAuth, Apple Health, Hevy): **[SETUP
 | [main.html](main.html) | Routines — habits, shift templates, time-blocking grid, AI Auto-schedule (daily setup itself runs everywhere via `EFI.data.daily`) |
 | [health.html](health.html) | Health — energy gauge + today's call, body map (Apple Watch vitals with 7-day trends around a front/back figure, tap to log headaches/soreness/pain; E.F.I. explains the likely cause), energy curve & windows, day-vs-energy, sleep, caffeine (`energy.html` redirects here) |
 | [gym.html](gym.html) | Fitness — read-only view: MacroFactor calories & macros vs targets (via Apple Health), Hevy workouts (week, last workout + PRs, sets per muscle, e1RM progress per lift, history), body weight, progress photos |
-| [finance.html](finance.html) | Net worth, subscriptions, wishlist, incoming orders (EUR) |
+| [finance.html](finance.html) | Net worth, spending (Apple Pay payments logged automatically by an iOS Shortcut, sorted into categories by Gemini), subscriptions, wishlist, incoming orders (EUR) |
 | [mealprep.html](mealprep.html) | Recipes, fridge, AI chef, weekly meal plan |
 
 Shared code:
@@ -31,4 +31,5 @@ Shared code:
 | [energy.js](energy.js) | Circadian + sleep-pressure + caffeine energy model |
 | [applehealth.js](applehealth.js) | Reader for the Apple Health snapshot |
 | [hevy.js](hevy.js) | Reader for the Hevy workout snapshot + lift maths (e1RM, volume, PRs, muscle sets) |
-| [api/](api) | Vercel functions: config, Apple Health import, Hevy sync, Google OAuth |
+| [wallet.js](wallet.js) | Reader for the Apple Pay payment feed + Gemini categories + monthly sums |
+| [api/](api) | Vercel functions: config, Apple Health import, Hevy sync, Apple Pay import, Google OAuth |
