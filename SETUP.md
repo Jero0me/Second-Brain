@@ -263,7 +263,7 @@ it just isn't shown any more.
 ## 7. Apple Pay — automatic spending (optional)
 
 Every time you pay with Apple Pay, an iOS Shortcut sends the merchant and amount to the dashboard. The
-payment appears on **Finance → Spend**, E.F.I. (Gemini) sorts it into a category, and you can ask things
+payment appears on **Finance → Money**, E.F.I. (Gemini) sorts it into a category, and you can ask things
 like *"how much did I spend on eating out this month?"*. Same idea as Apple Health: a one-way webhook, no
 bank login.
 
@@ -302,17 +302,20 @@ the physical card, bank transfers, direct debits, cash, and refunds.
 7. Tap **Done**.
 
 ### Test it
-- Buy something with Apple Pay, then open **Finance → Spend** — the payment should be there within a
+- Buy something with Apple Pay, then open **Finance → Money** — the payment should be there within a
   couple of seconds, and get a category a moment later.
 - Nothing there? Open the automation and press ▶ once: Shortcuts shows the server's answer.
   `unauthorized` = the header doesn't match `WALLET_IMPORT_SECRET` (check for a missing `Bearer ` or a
   stray space). `no amount in payload` = the `amount` field isn't linked to *Shortcut Input → Amount*
   (pressing ▶ by hand always gives this — there is no transaction — so it also proves the URL and secret work).
 
-### Categories
+### Categories, budgets, manual expenses
 Gemini is asked once per new merchant, using the key from §3 on whichever device opens Finance first.
-Tap the category pill on a payment to change it — that applies to every payment at that merchant, past
-and future. **×** removes a payment from your totals. The page is EUR-only: a payment in another
+Tap a payment to change its category — that applies to every payment at that merchant, past and
+future — or to remove it from your totals. Payments Apple Pay can't see (cash, rent, transfers) go in
+with **+ → Add expense**, or just tell E.F.I. (*"paid 750 rent"*). Set a monthly budget, per-category
+budgets and your income under **Budget**; budgets measure everyday spending, so anything in the
+**Bills** category (rent…) is counted separately. The page is EUR-only: a payment in another
 currency is listed with its currency code but added to the totals as-is.
 
 ---

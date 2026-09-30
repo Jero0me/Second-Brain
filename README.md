@@ -13,7 +13,7 @@ Setup (Vercel, Supabase, Gemini key, Google OAuth, Apple Health, Hevy): **[SETUP
 | [main.html](main.html) | Routines — habits, shift templates, time-blocking grid, AI Auto-schedule (daily setup itself runs everywhere via `EFI.data.daily`) |
 | [health.html](health.html) | Health — energy gauge + today's call, body map (Apple Watch vitals with 7-day trends around a front/back figure, tap to log headaches/soreness/pain; E.F.I. explains the likely cause), energy curve & windows, day-vs-energy, sleep, caffeine (`energy.html` redirects here) |
 | [gym.html](gym.html) | Fitness — read-only view: MacroFactor calories & macros vs targets (via Apple Health), Hevy workouts (week, last workout + PRs, sets per muscle, e1RM progress per lift, history), body weight, progress photos |
-| [finance.html](finance.html) | Net worth, spending (Apple Pay payments logged automatically by an iOS Shortcut, sorted into categories by Gemini), subscriptions, wishlist, incoming orders (EUR) |
+| [finance.html](finance.html) | Finance (EUR) — **Money**: net worth, accounts, this month vs budget, all transactions (Apple Pay logged automatically by an iOS Shortcut + expenses you add; Gemini sorts categories) · **Insights**: spending pace vs last month, categories vs budgets, habits, top places, savings rate, E.F.I. review · **Bills**: subscriptions with auto-pay · **Wishlist**: savings goals + orders on the way |
 | [mealprep.html](mealprep.html) | Recipes, fridge, AI chef, weekly meal plan |
 
 Shared code:

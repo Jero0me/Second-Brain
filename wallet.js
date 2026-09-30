@@ -1,20 +1,27 @@
 // =============================================================
-// Shared reader for Apple Pay payments, pushed by an iOS Shortcut to
-// /api/wallet-import and stored in Supabase (public.app_state, key
-// 'wallet'). Same pattern as hevy.js / applehealth.js.
+// Shared spending data for Finance and E.F.I.
 //
-//   Wallet.get(force)      → { tx, updatedAt } | null
-//   Wallet.subscribe(cb)   → called when a new payment lands (realtime)
-//   Wallet.cached()        → last copy seen on this device (sync, may be null)
-//   Wallet.visible(res)    → payments minus the ones you removed, newest first
+// Two sources of payments, merged into one feed:
+//   - Apple Pay: pushed by an iOS Shortcut to /api/wallet-import and
+//     stored in Supabase (public.app_state, key 'wallet'). Read-only here.
+//   - Manual: expenses you add yourself (cash, card swipes, transfers),
+//     or tell E.F.I. about — localStorage `fin:manual`, synced in the
+//     'finance' row by sync.js.
+//
+//   Wallet.get(force)      → { tx, updatedAt } | null   (the Apple Pay row)
+//   Wallet.subscribe(cb)   → called when a new Apple Pay payment lands
+//   Wallet.visible(res)    → every payment you haven't removed, newest first
 //   Wallet.categorize(res) → asks Gemini to sort merchants it hasn't seen yet
-//   Wallet.month(res)      → this month's total, last month's, per category
+//   Wallet.month(res, off) → one calendar month: totals, per category, per day
+//   Wallet.budget()        → { monthly, income, cats: { Groceries: 250, … } }
 //   Wallet.forAI(res)      → compact summary for E.F.I.
 //
-// The server row is append-only. What YOU decide — a merchant's category,
-// payments you removed — lives in localStorage under `spend_meta`, which
-// sync.js mirrors in the 'finance' row. Categories are kept per merchant,
-// so Gemini is asked once per new shop, and fixing one fixes them all.
+// What YOU decide lives in the synced 'finance' row too:
+//   spend_meta  — { cats: { merchant → category }, hidden: [apple pay ids] }
+//   fin:budget  — the budget above
+// Apple Pay categories are kept per merchant, so Gemini is asked once per
+// new shop and fixing one payment fixes them all. A manual expense carries
+// its own category.
 //
 // Requires (loaded before this file):
 //   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -29,13 +36,22 @@
   const ROW_KEY = 'wallet';
   const CACHE_LS = 'efi_local:wallet_cache';
   const META_LS = 'spend_meta';
+  const MANUAL_LS = 'fin:manual';
+  const BUDGET_LS = 'fin:budget';
   const CACHE_MS = 60 * 1000;
   const MAX_PER_ASK = 40; // merchants per Gemini call
+  const MANUAL_KEEP_DAYS = 400;
 
   const CATEGORIES = ['Groceries', 'Eating out', 'Coffee', 'Transport', 'Shopping', 'Health', 'Entertainment', 'Bills', 'Travel', 'Other'];
+  // Eight categorical slots in fixed order (colorblind-checked on the dark
+  // surface); Bills and Other are neutral greys. Always shown with a label.
   const COLORS = {
-    'Groceries': '#6EE7B7', 'Eating out': '#FBBF24', 'Coffee': '#D6A77A', 'Transport': '#7DD3FC', 'Shopping': '#B794F4',
-    'Health': '#FF8A8A', 'Entertainment': '#F472B6', 'Bills': '#94A3B8', 'Travel': '#5EEAD4', 'Other': '#A1A1AA',
+    'Groceries': '#3987e5', 'Eating out': '#d95926', 'Coffee': '#199e70', 'Transport': '#c98500', 'Shopping': '#d55181',
+    'Health': '#008300', 'Entertainment': '#9085e9', 'Travel': '#e66767', 'Bills': '#8b9592', 'Other': '#5f6b68', 'Unsorted': '#3a4644',
+  };
+  const ICONS = {
+    'Groceries': 'cart', 'Eating out': 'utensils', 'Coffee': 'coffee', 'Transport': 'pin', 'Shopping': 'package',
+    'Health': 'heart', 'Entertainment': 'star', 'Bills': 'bolt', 'Travel': 'plane', 'Other': 'grid', 'Unsorted': 'card',
   };
 
   let supa = null;
@@ -50,12 +66,12 @@
     return supa;
   }
 
-  function readCache() {
-    try { const v = JSON.parse(localStorage.getItem(CACHE_LS) || 'null'); return v && Array.isArray(v.tx) ? v : null; } catch (e) { return null; }
+  function readJSON(key, fallback) {
+    try { const v = JSON.parse(localStorage.getItem(key) || 'null'); return v == null ? fallback : v; } catch (e) { return fallback; }
   }
-  function writeCache(res) {
-    try { localStorage.setItem(CACHE_LS, JSON.stringify(res)); } catch (e) { /* quota — the live copy still works */ }
-  }
+  function writeJSON(key, v) { try { localStorage.setItem(key, JSON.stringify(v)); } catch (e) {} }
+
+  function readCache() { const v = readJSON(CACHE_LS, null); return v && Array.isArray(v.tx) ? v : null; }
   function normalize(row) {
     const d = (row && row.data) || {};
     return {
@@ -76,7 +92,7 @@
         if (error) return cached || readCache();
         if (!data || !data.data) return null;
         cached = normalize(data); cachedAt = Date.now();
-        writeCache(cached);
+        writeJSON(CACHE_LS, cached);
         return cached;
       } catch (e) { return cached || readCache(); } finally { inflight = null; }
     })();
@@ -91,7 +107,7 @@
       .on('postgres_changes', { event: '*', schema: 'public', table: 'app_state', filter: 'key=eq.' + ROW_KEY }, (payload) => {
         if (!payload.new || !payload.new.data) return;
         cached = normalize(payload.new); cachedAt = Date.now();
-        writeCache(cached);
+        writeJSON(CACHE_LS, cached);
         cb(cached);
       })
       .subscribe(); };
@@ -99,43 +115,107 @@
     return function () { stopped = true; try { if (ch) c.removeChannel(ch); } catch (e) {} };
   }
 
-  // ---------- your side: categories + removed payments ----------
+  // ---------- your side: categories, removed payments, manual expenses ----------
   function meta() {
-    let m = null;
-    try { m = JSON.parse(localStorage.getItem(META_LS) || 'null'); } catch (e) {}
+    let m = readJSON(META_LS, {});
     m = m && typeof m === 'object' ? m : {};
     return { cats: m.cats && typeof m.cats === 'object' ? m.cats : {}, hidden: Array.isArray(m.hidden) ? m.hidden : [] };
   }
-  function saveMeta(m) { try { localStorage.setItem(META_LS, JSON.stringify(m)); } catch (e) {} }
+  function saveMeta(m) { writeJSON(META_LS, m); }
   const merchantKey = (name) => String(name || '').toLowerCase().replace(/\s+/g, ' ').trim();
+  const isCat = (c) => CATEGORIES.indexOf(c) !== -1;
 
-  function categoryOf(tx, m) { return (m || meta()).cats[merchantKey(tx.merchant)] || null; }
-  function setCategory(merchant, cat) {
-    if (CATEGORIES.indexOf(cat) === -1) return;
+  function manual() {
+    const v = readJSON(MANUAL_LS, []);
+    return (Array.isArray(v) ? v : []).filter((t) => t && t.id && typeof t.amount === 'number' && t.ts);
+  }
+  function saveManual(list) {
+    const cut = Date.now() - MANUAL_KEEP_DAYS * 864e5;
+    writeJSON(MANUAL_LS, list.filter((t) => t.ts >= cut).sort((a, b) => a.ts - b.ts));
+  }
+  function addManual(e) {
+    const amount = Math.round(Math.abs(Number(e.amount) || 0) * 100) / 100;
+    if (!amount) return null;
+    const item = {
+      id: 'm_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      ts: Number(e.ts) || Date.now(),
+      merchant: String(e.merchant || '').trim().slice(0, 80) || 'Expense',
+      amount,
+      cat: isCat(e.cat) ? e.cat : null,
+      note: e.note ? String(e.note).slice(0, 200) : undefined,
+    };
+    const list = manual(); list.push(item); saveManual(list);
+    return item;
+  }
+  function updateManual(id, patch) {
+    const list = manual(), t = list.find((x) => x.id === id);
+    if (!t) return null;
+    if (patch.merchant != null) t.merchant = String(patch.merchant).trim().slice(0, 80) || t.merchant;
+    if (patch.amount != null && Number(patch.amount)) t.amount = Math.round(Math.abs(Number(patch.amount)) * 100) / 100;
+    if (patch.cat !== undefined) t.cat = isCat(patch.cat) ? patch.cat : null;
+    if (patch.ts) t.ts = Number(patch.ts);
+    saveManual(list);
+    return t;
+  }
+
+  function categoryOf(tx, m) {
+    if (tx.cat && isCat(tx.cat)) return tx.cat;
+    return (m || meta()).cats[merchantKey(tx.merchant)] || null;
+  }
+  // A manual expense keeps its own category; an Apple Pay one sets its merchant's.
+  function setCategory(tx, cat) {
+    if (!isCat(cat)) return;
+    if (tx && tx.manual) { updateManual(tx.id, { cat }); return; }
     const m = meta();
-    m.cats[merchantKey(merchant)] = cat;
+    m.cats[merchantKey(typeof tx === 'string' ? tx : tx.merchant)] = cat;
     saveMeta(m);
   }
-  function hide(id) {
+  // Manual expenses are deleted; Apple Pay payments (server-owned) are hidden.
+  function remove(tx) {
+    if (!tx) return;
+    if (tx.manual) { saveManual(manual().filter((x) => x.id !== tx.id)); return; }
     const m = meta();
-    if (m.hidden.indexOf(id) === -1) m.hidden.push(id);
+    if (m.hidden.indexOf(tx.id) === -1) m.hidden.push(tx.id);
     saveMeta(m);
   }
+  function hide(id) { remove({ id }); }
 
   function visible(res) {
     res = res || cached || readCache();
-    if (!res || !res.tx) return [];
     const hidden = meta().hidden;
-    return res.tx.filter((t) => hidden.indexOf(t.id) === -1).sort((a, b) => b.ts - a.ts);
+    const apple = (res && res.tx ? res.tx : []).filter((t) => hidden.indexOf(t.id) === -1);
+    const own = manual().map((t) => Object.assign({ manual: true }, t));
+    return apple.concat(own).sort((a, b) => b.ts - a.ts);
   }
   function uncategorized(res) {
     const m = meta(), seen = {}, out = [];
     visible(res).forEach((t) => {
+      if (t.manual) return;
       const k = merchantKey(t.merchant);
       if (!k || m.cats[k] || seen[k]) return;
       seen[k] = true; out.push(t.merchant);
     });
     return out;
+  }
+
+  // ---------- budget ----------
+  function budget() {
+    const b = readJSON(BUDGET_LS, {}) || {};
+    const cats = {};
+    if (b.cats && typeof b.cats === 'object') Object.keys(b.cats).forEach((k) => { const v = Number(b.cats[k]); if (isCat(k) && v > 0) cats[k] = v; });
+    return { monthly: Number(b.monthly) > 0 ? Number(b.monthly) : null, income: Number(b.income) > 0 ? Number(b.income) : null, cats };
+  }
+  function setBudget(patch) {
+    const b = budget();
+    if (patch.monthly !== undefined) b.monthly = Number(patch.monthly) > 0 ? Math.round(Number(patch.monthly) * 100) / 100 : null;
+    if (patch.income !== undefined) b.income = Number(patch.income) > 0 ? Math.round(Number(patch.income) * 100) / 100 : null;
+    if (patch.cats) Object.keys(patch.cats).forEach((k) => {
+      if (!isCat(k)) return;
+      const v = Number(patch.cats[k]);
+      if (v > 0) b.cats[k] = Math.round(v * 100) / 100; else delete b.cats[k];
+    });
+    writeJSON(BUDGET_LS, b);
+    return b;
   }
 
   // ---------- Gemini: sort new merchants into categories ----------
@@ -184,42 +264,60 @@
   const round2 = (n) => Math.round(n * 100) / 100;
   function localDay(ts) { const d = new Date(ts); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
 
-  // offset 0 = this calendar month, -1 = last month.
+  // One calendar month. offset 0 = this month, -1 = last month …
+  //   total, count, days (in month), elapsed (days so far, = days for past months),
+  //   bills (the Bills category) and everyday (= total − bills — what budgets measure),
+  //   daily[i] = everyday spending on day i+1, categories [{name,total,count}],
+  //   merchants [{name,total,count}], tx []
   function month(res, offset) {
     const now = new Date();
-    const from = new Date(now.getFullYear(), now.getMonth() + (offset || 0), 1).getTime();
-    const to = new Date(now.getFullYear(), now.getMonth() + (offset || 0) + 1, 1).getTime();
-    const m = meta(), by = {};
-    let total = 0, count = 0;
+    const start = new Date(now.getFullYear(), now.getMonth() + (offset || 0), 1);
+    const from = start.getTime();
+    const to = new Date(start.getFullYear(), start.getMonth() + 1, 1).getTime();
+    const days = new Date(start.getFullYear(), start.getMonth() + 1, 0).getDate();
+    const elapsed = (offset || 0) < 0 ? days : (offset || 0) > 0 ? 0 : now.getDate();
+    const m = meta(), by = {}, merch = {}, daily = new Array(days).fill(0), tx = [];
+    let total = 0, bills = 0;
     visible(res).forEach((t) => {
       if (t.ts < from || t.ts >= to) return;
+      tx.push(t);
       const cat = categoryOf(t, m) || 'Unsorted';
-      by[cat] = (by[cat] || 0) + t.amount;
-      total += t.amount; count++;
+      (by[cat] = by[cat] || { name: cat, total: 0, count: 0 }).total += t.amount; by[cat].count++;
+      const k = merchantKey(t.merchant);
+      (merch[k] = merch[k] || { name: t.merchant, total: 0, count: 0 }).total += t.amount; merch[k].count++;
+      if (cat === 'Bills') bills += t.amount; else daily[new Date(t.ts).getDate() - 1] += t.amount;
+      total += t.amount;
     });
-    const categories = Object.keys(by).map((name) => ({ name, total: round2(by[name]) })).sort((a, b) => b.total - a.total);
-    return { total: round2(total), count, categories };
+    const fix = (o) => Object.keys(o).map((k) => Object.assign(o[k], { total: round2(o[k].total) })).sort((a, b) => b.total - a.total);
+    return {
+      start, days, elapsed, total: round2(total), bills: round2(bills), everyday: round2(total - bills), count: tx.length,
+      daily: daily.map(round2), categories: fix(by), merchants: fix(merch), tx,
+    };
   }
 
-  // Compact spending summary for E.F.I. (card payments only — not rent, transfers or cash).
+  // Compact spending summary for E.F.I.
   function forAI(res) {
     const list = visible(res);
-    if (!list.length) return null;
+    const b = budget();
+    if (!list.length && !b.monthly) return null;
     const m = meta();
     const cur = month(res, 0), prev = month(res, -1);
     const weekAgo = Date.now() - 7 * 864e5;
     const byCat = (mo) => { const o = {}; mo.categories.forEach((c) => { o[c.name] = c.total; }); return o; };
     return {
-      source: 'Apple Pay payments only',
-      this_month: { total: cur.total, payments: cur.count, by_category: byCat(cur) },
-      last_month: { total: prev.total, payments: prev.count, by_category: byCat(prev) },
+      source: 'Apple Pay payments (automatic) + expenses logged by hand — not rent, transfers or cash unless logged',
+      budget: b.monthly || Object.keys(b.cats).length ? { monthly: b.monthly, per_category: b.cats, monthly_income: b.income } : undefined,
+      budget_counts: 'everyday spending = every category except Bills',
+      this_month: { total: cur.total, everyday: cur.everyday, payments: cur.count, day_of_month: cur.elapsed, days_in_month: cur.days, by_category: byCat(cur), top_merchants: cur.merchants.slice(0, 5).map((x) => ({ name: x.name, total: x.total, visits: x.count })) },
+      last_month: { total: prev.total, everyday: prev.everyday, payments: prev.count, by_category: byCat(prev) },
       last_7_days_total: round2(list.filter((t) => t.ts >= weekAgo).reduce((a, t) => a + t.amount, 0)),
-      recent: list.slice(0, 25).map((t) => ({ date: localDay(t.ts), merchant: t.merchant, amount: t.amount, category: categoryOf(t, m) || undefined, currency: t.currency && t.currency !== 'EUR' ? t.currency : undefined })),
+      recent: list.slice(0, 25).map((t) => ({ date: localDay(t.ts), merchant: t.merchant, amount: t.amount, category: categoryOf(t, m) || undefined, by_hand: t.manual || undefined, currency: t.currency && t.currency !== 'EUR' ? t.currency : undefined })),
     };
   }
 
   window.Wallet = {
     get, subscribe, cached: () => cached || readCache(),
-    CATEGORIES, COLORS, meta, categoryOf, setCategory, hide, visible, uncategorized, categorize, month, forAI, localDay,
+    CATEGORIES, COLORS, ICONS, meta, merchantKey, categoryOf, setCategory, remove, hide, visible, uncategorized, categorize,
+    manual, addManual, updateManual, budget, setBudget, month, forAI, localDay,
   };
 })();
