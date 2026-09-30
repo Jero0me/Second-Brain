@@ -18,6 +18,7 @@
   const data = () => EFI.data;
 
   const HISTORY_LS = 'efi_local:history';
+  const EXPENSE_CATS = ['Groceries', 'Eating out', 'Coffee', 'Transport', 'Shopping', 'Health', 'Entertainment', 'Bills', 'Travel', 'Other'];
   const MAX_HISTORY = 30;
 
   // ---------- helpers ----------
@@ -250,6 +251,33 @@
       async run(a) { return { ok: true, order: data().finance.addOrder({ name: a.name, amount: a.amount, date: a.arrival_date ? normDate(a.arrival_date) : null, fromAccount: a.from_account }) }; },
       label: (a) => 'Order · ' + a.name + ' ' + eur(a.amount) + (a.arrival_date ? ' — arrives ' + nice(a.arrival_date) : ''),
     },
+    log_expense: {
+      decl: {
+        description: 'Log money the user spent that Apple Pay did not catch (cash, physical card, transfer, rent…). Apple Pay payments are logged automatically — never log those again.',
+        parameters: obj({ merchant: str('Where / what, e.g. "Rent" or "Kebab place"'), amount: num('EUR spent'), category: str('', { enum: EXPENSE_CATS }), date: str('YYYY-MM-DD, default today') }, ['merchant', 'amount']),
+      },
+      async run(a) {
+        const day = normDate(a.date);
+        const ts = day === D.dateKey() ? Date.now() : D.parseKey(day).getTime() + 12 * 3600000;
+        const e = data().finance.addExpense({ merchant: a.merchant, amount: a.amount, category: a.category, ts });
+        return e ? { ok: true, expense: e } : { ok: false, error: 'Amount must be more than 0' };
+      },
+      label: (a) => 'Expense · ' + a.merchant + ' ' + eur(a.amount) + (a.category ? ' · ' + a.category : '') + (a.date ? ' · ' + nice(a.date) : ''),
+    },
+    set_budget: {
+      decl: {
+        description: 'Set the monthly spending budget (everyday spending, bills excluded), monthly income, or a budget for one spending category. 0 removes it.',
+        parameters: obj({ monthly: num('Total monthly spending budget EUR'), income: num('Monthly take-home income EUR'), category: str('', { enum: EXPENSE_CATS }), category_amount: num('Monthly budget EUR for that category') }),
+      },
+      async run(a) {
+        const patch = {};
+        if (a.monthly != null) patch.monthly = a.monthly;
+        if (a.income != null) patch.income = a.income;
+        if (a.category) { patch.category = a.category; patch.amount = a.category_amount; }
+        return { ok: true, budget: data().finance.setBudget(patch) };
+      },
+      label: (a) => 'Budget · ' + [a.monthly != null ? eur(a.monthly) + '/month' : '', a.income != null ? 'income ' + eur(a.income) : '', a.category ? a.category + ' ' + eur(a.category_amount) : ''].filter(Boolean).join(' · '),
+    },
     log_caffeine: {
       decl: { description: 'Log caffeine the user just had (only when they tell you — Apple Health syncs the rest automatically).', parameters: obj({ mg: num('Milligrams'), time: str('HH:MM today, default now'), label: str('e.g. "double espresso"') }, ['mg']) },
       async run(a) {
@@ -419,7 +447,7 @@
 
   const SYSTEM = [
     'You are E.F.I. — Enhanced Functional Intelligence — the personal operating system inside {name}\'s Second Brain dashboard. Think JARVIS: calm, precise, quietly witty, fiercely useful.',
-    'You can see a live snapshot of their calendar (Google Calendar + planner time blocks + work/uni blocks + bill renewals), tasks, habits, notes, finances (EUR — net worth, subscriptions, and card_spending: their Apple Pay payments by category; it does not include rent, transfers or cash), health (Apple Health sleep/HRV/steps/water, MacroFactor nutrition via Apple Health, caffeine, logged symptoms, recent Hevy workouts with sets/weights) and an energy forecast. You can change things with tools.',
+    'You can see a live snapshot of their calendar (Google Calendar + planner time blocks + work/uni blocks + bill renewals), tasks, habits, notes, finances (EUR — net worth, subscriptions, and card_spending: Apple Pay payments plus expenses logged by hand, by category, with their budget), health (Apple Health sleep/HRV/steps/water, MacroFactor nutrition via Apple Health, caffeine, logged symptoms, recent Hevy workouts with sets/weights) and an energy forecast. You can change things with tools.',
     'Rules:',
     '- When asked to change, plan, schedule, log or remember something: DO it with tools, then confirm briefly. Don\'t just give advice.',
     '- Resolve relative dates ("Friday", "next week", "tonight") from the snapshot\'s now/today. Tool times are 24h HH:MM.',

@@ -350,6 +350,37 @@
       S.set('incoming_orders', list);
       return item;
     },
+    // Hand-logged expenses and budgets — same keys and shapes wallet.js reads.
+    EXPENSE_CATS: ['Groceries', 'Eating out', 'Coffee', 'Transport', 'Shopping', 'Health', 'Entertainment', 'Bills', 'Travel', 'Other'],
+    addExpense(e) {
+      const amount = Math.round(Math.abs(Number(e.amount) || 0) * 100) / 100;
+      if (!amount) return null;
+      const list = S.get('fin:manual', []) || [];
+      const item = {
+        id: 'm_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+        ts: Number(e.ts) || Date.now(),
+        merchant: String(e.merchant || '').trim().slice(0, 80) || 'Expense',
+        amount,
+        cat: this.EXPENSE_CATS.indexOf(e.category) !== -1 ? e.category : null,
+      };
+      list.push(item);
+      S.set('fin:manual', list);
+      return item;
+    },
+    budget() { const b = S.get('fin:budget', null); return b && typeof b === 'object' ? b : {}; },
+    setBudget(patch) {
+      const b = this.budget();
+      b.cats = b.cats && typeof b.cats === 'object' ? b.cats : {};
+      const val = (v) => (Number(v) > 0 ? Math.round(Number(v) * 100) / 100 : null);
+      if (patch.monthly !== undefined) b.monthly = val(patch.monthly);
+      if (patch.income !== undefined) b.income = val(patch.income);
+      if (patch.category && this.EXPENSE_CATS.indexOf(patch.category) !== -1) {
+        const v = val(patch.amount);
+        if (v) b.cats[patch.category] = v; else delete b.cats[patch.category];
+      }
+      S.set('fin:budget', b);
+      return b;
+    },
   };
 
   // ---------- caffeine ----------
