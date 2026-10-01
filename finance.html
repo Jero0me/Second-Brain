@@ -179,6 +179,9 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .more { display: block; width: 100%; padding: 12px; margin-top: 8px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); color: var(--t2); font-weight: 700; font-size: 13px; }
 .status-line { font-size: 12px; color: var(--t3); margin: -4px 4px 8px; }
 .status-line.err { color: var(--warn); }
+.sync-line { display: block; width: 100%; text-align: center; font-size: 12px; color: var(--t3); padding: 14px 0 4px; }
+.sync-line.err { color: var(--warn); }
+.sync-log { font: 11px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--t2); background: var(--surface-2); border-radius: 12px; padding: 10px; max-height: 50vh; overflow: auto; white-space: pre-wrap; word-break: break-word; margin-bottom: 12px; }
 
 /* ---------- Insights ---------- */
 .month-nav { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
@@ -413,6 +416,7 @@ input[type=date].inp { color-scheme: dark; min-height: 48px; }
     </div>
     <div class="sec-h"><h2>Next up</h2><span class="sub" id="billsCount"></span></div>
     <div id="billsList"></div>
+    <button class="sync-line" type="button" id="syncLine"></button>
   </section>
 
   <!-- ===================== WISHLIST ===================== -->
@@ -1090,7 +1094,46 @@ input[type=date].inp { color-scheme: dark; min-height: 48px; }
   // ============================================================
   // BILLS
   // ============================================================
+  // Cloud sync status under the bills — tap for the device's sync log.
+  function renderSyncLine() {
+    const el = $('syncLine'), CS = window.CloudSync;
+    if (!el) return;
+    if (!CS || !CS.enabled) { el.textContent = 'Cloud sync off — saved on this device only'; el.className = 'sync-line'; return; }
+    const st = CS.status('finance');
+    let t, err = false;
+    if (!st || !st.pulled) t = 'Cloud sync: connecting…';
+    else if (st.lastError) { t = 'Cloud sync: last save failed — tap for details'; err = true; }
+    else if (st.pending) t = 'Cloud sync: saving…';
+    else t = 'Cloud sync: up to date' + (st.lastPush ? ' · saved ' + timeLabel(st.lastPush) : '');
+    el.textContent = t;
+    el.className = 'sync-line' + (err ? ' err' : '');
+  }
+  function sheetSyncLog() {
+    const CS = window.CloudSync;
+    const lines = (CS && CS.log ? CS.log() : []).slice(-60).map((x) => {
+      const d = new Date(x.t);
+      const hms = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0') + ':' + String(d.getSeconds()).padStart(2, '0');
+      return hms + '  ' + x.p + '  ' + x.r + '  ' + x.e + (x.d ? '  ' + x.d : '');
+    });
+    const info = 'build ' + ((CS && CS.BUILD) || '?') + ' · bills on this device: ' + subs().length + ' · ' + new Date().toISOString();
+    const text = info + '\n' + lines.join('\n');
+    openSheet('Sync log',
+      '<p class="note">What cloud sync did on this device, newest last. Copy it and paste it to whoever is helping you.</p>'
+      + '<div class="sync-log" id="slText">' + esc(text) + '</div>'
+      + '<button class="btn primary" type="button" id="slCopy">' + ico('check', 16) + 'Copy log</button>',
+      () => {
+        const box = $('slText'); box.scrollTop = box.scrollHeight;
+        $('slCopy').addEventListener('click', () => {
+          const done = () => toast('Copied');
+          if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, () => { selectText(box); });
+          else selectText(box);
+        });
+      });
+  }
+  function selectText(el) { const r = document.createRange(); r.selectNodeContents(el); const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r); toast('Selected — tap Copy'); }
+
   function renderBills() {
+    renderSyncLine();
     const list = subs();
     const monthly = list.reduce((a, s) => a + monthlyEq(s), 0);
     $('billsMonthly').innerHTML = money(monthly) + '<span class="muted" style="font-size:15px;font-weight:700"> / month</span>';
@@ -1535,6 +1578,8 @@ input[type=date].inp { color-scheme: dark; min-height: 48px; }
     $('mPrev').addEventListener('click', () => { monthOffset = Math.max(-12, monthOffset - 1); renderInsights(); });
     $('mNext').addEventListener('click', () => { monthOffset = Math.min(0, monthOffset + 1); renderInsights(); });
     $('sheetClose').addEventListener('click', closeSheet);
+    $('syncLine').addEventListener('click', sheetSyncLog);
+    setInterval(() => { if (view === 'bills' && !document.hidden) renderSyncLine(); }, 1500);
     $('sheetBg').addEventListener('click', (e) => { if (e.target === $('sheetBg')) closeSheet(); });
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeSheet(); });
     setView(view);

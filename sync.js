@@ -32,6 +32,10 @@
 // Also: CloudSync.reader(rowKey, opts) — read-only access to a row the
 // server writes (apple_health, hevy, wallet), with a per-device cache.
 //
+// CloudSync.log() — the last sync events on this device (pulls, edits,
+// pushes, cloud overwrites), kept in efi_local:sync_log for troubleshooting.
+// CloudSync.status(appKey) → { pulled, lastPush, lastError, pending }.
+//
 // Requires (efi-auth.js provides the client and the project config):
 //   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
 //   <script src="efi-auth.js"></script>
@@ -64,6 +68,9 @@
   const TOMBSTONE_MS = 60 * 864e5;
   const BOOT_GRACE_MS = 3000;              // stamp writes once the page has settled, pulled or not
   const bootAt = Date.now();
+  const BUILD = '2026-10-01.3';           // shown in the sync log — bump on sync changes
+  const LOG_LS = 'efi_local:sync_log', LOG_MAX = 150;
+  const pageName = () => { try { return location.pathname.split('/').pop() || 'index.html'; } catch (e) { return '?'; } };
 
   const enabled = typeof window !== 'undefined' && !!window.supabase && !!SUPABASE_URL && !!SUPABASE_KEY &&
     SUPABASE_URL.indexOf('PASTE-') !== 0 && SUPABASE_KEY.indexOf('PASTE-') !== 0;
@@ -87,9 +94,21 @@
 
   const rows = {};      // appKey -> row state
   let supa = null;
-  let origSet = null, origRemove = null;
-  const rawSet = (k, v) => (origSet || localStorage.setItem.bind(localStorage))(k, v);
-  const rawRemove = (k) => (origRemove || localStorage.removeItem.bind(localStorage))(k);
+  // The real Storage methods, captured before patching.
+  const protoSet = Storage.prototype.setItem, protoRemove = Storage.prototype.removeItem;
+  let patched = false;
+  const rawSet = (k, v) => protoSet.call(localStorage, k, v);
+  const rawRemove = (k) => protoRemove.call(localStorage, k);
+
+  function log(row, ev, detail) {
+    try {
+      const arr = JSON.parse(localStorage.getItem(LOG_LS) || '[]');
+      arr.push({ t: Date.now(), p: pageName(), r: row, e: ev, d: detail == null ? undefined : String(detail).slice(0, 240) });
+      if (arr.length > LOG_MAX) arr.splice(0, arr.length - LOG_MAX);
+      rawSet(LOG_LS, JSON.stringify(arr));
+    } catch (e) {}
+  }
+  const errText = (e) => (e && typeof e === 'object') ? [e.message, e.code && '[' + e.code + ']', e.status].filter(Boolean).join(' ') || JSON.stringify(e) : String(e);
 
   function rowsMatching(k) {
     const out = [];
@@ -99,17 +118,22 @@
   }
 
   let suppress = 0;
+  // Patched on Storage.prototype, not on the localStorage object: assigning
+  // localStorage.setItem = fn may just store an item called "setItem" (the
+  // spec says so and some browsers do it) — then no write would ever be
+  // noticed or synced. sessionStorage passes straight through.
   function patchStorage() {
-    if (origSet) return;
-    origSet = localStorage.setItem.bind(localStorage);
-    origRemove = localStorage.removeItem.bind(localStorage);
-    localStorage.setItem = function (k, v) {
-      origSet(k, v);
-      try { if (!suppress) rowsMatching(k).forEach((r) => r.changed(k)); } catch (e) {}
+    if (patched) return;
+    patched = true;
+    Storage.prototype.setItem = function (k, v) {
+      protoSet.call(this, k, v);
+      if (this !== window.localStorage) return;
+      try { if (!suppress) rowsMatching(String(k)).forEach((r) => r.changed(String(k))); } catch (e) {}
     };
-    localStorage.removeItem = function (k) {
-      origRemove(k);
-      try { if (!suppress) rowsMatching(k).forEach((r) => r.changed(k)); } catch (e) {}
+    Storage.prototype.removeItem = function (k) {
+      protoRemove.call(this, k);
+      if (this !== window.localStorage) return;
+      try { if (!suppress) rowsMatching(String(k)).forEach((r) => r.changed(String(k))); } catch (e) {}
     };
     // Another tab of this app changed something: it stamped the change in the
     // shared meta already — just push.
@@ -131,6 +155,7 @@
     let pulled = false;       // initial cloud pull succeeded
     let remote = null;        // last row seen: { data, updated_at } | { data: null } for "no row yet"
     let pushing = false, pushAgain = false;
+    let lastPush = null, lastError = null;
     let resolveReady;
     const ready = new Promise((r) => { resolveReady = r; });
 
@@ -161,6 +186,9 @@
         const m = loadMeta();
         m.ts[k] = Math.max(Date.now(), (m.ts[k] || 0) + 1);
         saveMeta(m);
+        log(appKey, 'edit', k + (pulled ? '' : ' (before pull)'));
+      } else {
+        log(appKey, 'edit-boot', k + ' (page still loading, cloud copy wins)');
       }
       schedulePush();
     }
@@ -203,22 +231,24 @@
     // Make localStorage match a merged row. `base` = the local stamps the
     // merge was computed from: a key edited since (while a push was in
     // flight) keeps its newer local value — the next push sends it.
-    function applyLocal(data, base) {
+    function applyLocal(data, base, why) {
       const cur = loadMeta().ts;
       const editedSince = (k) => !!base && (cur[k] || 0) !== (base[k] || 0);
       let changedAny = false;
+      const touched = [];
       suppress++;
       try {
         for (const k of Object.keys(data)) {
           if (k === META || !matches(k) || editedSince(k)) continue;
           const local = localStorage.getItem(k);
           if (local != null && stable(parseMaybe(local)) === stable(data[k])) continue;
-          try { rawSet(k, JSON.stringify(data[k])); changedAny = true; } catch (e) {}
+          try { rawSet(k, JSON.stringify(data[k])); changedAny = true; touched.push(k); } catch (e) { log(appKey, 'local-write-failed', k + ': ' + errText(e)); }
         }
         for (const k of listAllKeys()) {
-          if (!(k in data) && !editedSince(k)) { try { rawRemove(k); changedAny = true; } catch (e) {} }
+          if (!(k in data) && !editedSince(k)) { try { rawRemove(k); changedAny = true; touched.push('-' + k); } catch (e) {} }
         }
       } finally { suppress--; }
+      if (touched.length) log(appKey, 'cloud-applied', (why || '?') + ': ' + touched.join(', '));
       const m = loadMeta();
       m.ts = Object.assign({}, (data[META] && data[META].ts) || {});
       Object.keys(cur).forEach((k) => { if (editedSince(k)) m.ts[k] = cur[k]; });
@@ -234,19 +264,20 @@
       const clean = {};
       Object.keys(data).forEach((k) => { if (k !== META) clean[k] = data[k]; });
       clean[META] = { ts: (data[META] && data[META].ts) || {} };
-      applyLocal(clean);
+      applyLocal(clean, null, 'first sync on this device');
     }
 
     const sameRow = (a, b) => stable(a || {}) === stable(b || {});
 
     // Received a row (pull or realtime): merge it in, push back if we hold newer edits.
-    function receive(row) {
+    function receive(row, why) {
       remote = { data: row && row.data ? row.data : null, updated_at: row ? row.updated_at : null };
       const hasRemote = remote.data && Object.keys(remote.data).some((k) => k !== META);
       const m = loadMeta();
       if (hasRemote && !m.migrated && !Object.keys(m.ts).length) { adoptRemote(remote.data); return; }
+      if (hasRemote && !remote.data[META]) log(appKey, 'legacy-row', 'cloud row has no change stamps: written by an old version of the app at ' + remote.updated_at);
       const merged = merge(remote.data, remote.updated_at);
-      applyLocal(merged.data, merged.base);
+      applyLocal(merged.data, merged.base, why);
       if (!sameRow(merged.data, remote.data) && !(isEmptyRow(merged.data) && !remote.data)) schedulePush();
     }
 
@@ -266,7 +297,8 @@
     async function pushNow() {
       // Never push before this device has seen the cloud copy — pushing
       // stale local data first would overwrite newer edits from elsewhere.
-      if (!supa || !pulled) return;
+      if (!supa) return;
+      if (!pulled) { log(appKey, 'push-wait', 'not pulled yet'); return; }
       if (pushing) { pushAgain = true; return; }
       pushing = true;
       try {
@@ -274,19 +306,23 @@
           if (attempt) {
             // Someone else wrote since we last looked: read it and merge again.
             const { data: row, error } = await supa.from('app_state').select('data, updated_at').eq('key', appKey).maybeSingle();
-            if (error) return;
+            if (error) { lastError = errText(error); log(appKey, 'push-reread-error', lastError); return; }
             remote = { data: row ? row.data : null, updated_at: row ? row.updated_at : null };
           }
           const merged = merge(remote && remote.data, remote && remote.updated_at);
-          if (sameRow(merged.data, remote && remote.data) || (isEmptyRow(merged.data) && !(remote && remote.data))) { applyLocal(merged.data, merged.base); return; }
+          if (sameRow(merged.data, remote && remote.data) || (isEmptyRow(merged.data) && !(remote && remote.data))) { applyLocal(merged.data, merged.base, 'push (nothing new)'); return; }
+          const sent = Object.keys(merged.data[META].ts).filter((k) => merged.data[META].ts[k] > ((remote && remote.data && remote.data[META] && remote.data[META].ts[k]) || 0));
           const res = await writeRow(merged.data, remote && remote.updated_at ? remote : null);
-          if (res.error) return;
-          if (res.conflict) continue;
+          if (res.error) { lastError = errText(res.error); log(appKey, 'push-error', lastError); return; }
+          if (res.conflict) { log(appKey, 'push-conflict', 'attempt ' + (attempt + 1)); continue; }
           remote = { data: merged.data, updated_at: res.updated_at };
-          applyLocal(merged.data, merged.base);
+          lastPush = Date.now(); lastError = null;
+          log(appKey, 'push-ok', sent.join(', '));
+          applyLocal(merged.data, merged.base, 'push');
           return;
         }
-      } catch (e) { /* offline — retried on the next change / reconnect */ }
+        log(appKey, 'push-gave-up', 'conflicted 4 times');
+      } catch (e) { lastError = errText(e); log(appKey, 'push-error', lastError); /* offline — retried on the next change / reconnect */ }
       finally {
         pushing = false;
         if (pushAgain) { pushAgain = false; schedulePush(); }
@@ -294,7 +330,7 @@
     }
     function schedulePush() {
       clearTimeout(pushTimer);
-      pushTimer = setTimeout(pushNow, 250);
+      pushTimer = setTimeout(() => { pushTimer = null; pushNow(); }, 250);
     }
     // The page is going away: no time for read-merge-write, so send our merge
     // on top of the last row we saw (kept current by realtime).
@@ -314,21 +350,25 @@
           body: JSON.stringify({ key: appKey, data: merged.data, updated_at: new Date().toISOString() }),
           keepalive: true,
         }).catch(() => {});
+        log(appKey, 'flush', 'page closing, sent unsaved edits');
         remote = { data: merged.data, updated_at: null }; // next push re-reads first
       } catch (e) {}
     }
     async function start() {
       // Signed-in session first — the database only answers the owner.
+      const t0 = Date.now();
       if (window.EFIAuth) await window.EFIAuth.whenReady();
+      const tAuth = Date.now();
       async function pull() {
         for (let attempt = 0; attempt < 4 && !pulled; attempt++) {
           if (attempt) await new Promise((r) => setTimeout(r, 1500 * attempt));
           try {
             const { data, error } = await supa.from('app_state').select('data, updated_at').eq('key', appKey).maybeSingle();
-            if (error) continue;
+            if (error) { lastError = errText(error); log(appKey, 'pull-error', lastError); continue; }
             pulled = true;
-            receive(data);
-          } catch (e) { /* offline — retried below */ }
+            log(appKey, 'pulled', 'sign-in ' + (tAuth - t0) + 'ms, pull ' + (Date.now() - tAuth) + 'ms' + (data ? '' : ', no cloud row yet'));
+            receive(data, 'pull');
+          } catch (e) { lastError = errText(e); log(appKey, 'pull-error', lastError); }
         }
       }
       await pull();
@@ -348,12 +388,13 @@
         .on('postgres_changes', { event: '*', schema: 'public', table: 'app_state', filter: 'key=eq.' + appKey }, (payload) => {
           if (!payload.new || !payload.new.data || !pulled) return;
           if (remote && sameRow(payload.new.data, remote.data)) { remote.updated_at = payload.new.updated_at || remote.updated_at; return; } // our own echo
-          receive(payload.new);
+          receive(payload.new, 'realtime (another device or page)');
         })
         .subscribe();
     }
 
     return { appKey, matches, changed, schedulePush, flushOnUnload, listeners, ready, start, resolveReady,
+      status: () => ({ pulled, lastPush, lastError, pending: !!pushTimer }),
       _merge: merge, _receive: receive, _push: pushNow, _state: () => ({ pulled, remote }) };
   }
 
@@ -368,6 +409,7 @@
       else {
         patchStorage();
         if (!supa) supa = sharedClient();
+        log(appKey, 'start', 'build ' + BUILD);
         row.start();
       }
     }
@@ -462,7 +504,9 @@
   }
 
   window.CloudSync = {
-    ROWS, enabled, init, ready, fetchRow, reader,
+    ROWS, enabled, init, ready, fetchRow, reader, BUILD,
+    log() { try { return JSON.parse(localStorage.getItem(LOG_LS) || '[]'); } catch (e) { return []; } },
+    status(appKey) { return rows[appKey] ? rows[appKey].status() : null; },
     initAll(opts) { return Promise.all(Object.keys(ROWS).map((k) => init(k, opts))); },
     _rows: rows,
   };
