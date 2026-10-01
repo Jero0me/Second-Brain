@@ -82,12 +82,15 @@ export default async function handler(req, res) {
     if (d && /^\d{4}-\d{2}-\d{2}$/.test(d) && (!newestDay || d > newestDay) && (m.name || '').toLowerCase() !== 'sleep_analysis') newestDay = d;
   }));
 
+  // Newest sample that has a number (heart-rate style metrics send Avg/Min/Max).
   function lastQty(...names) {
     const data = samples(...names);
-    if (!data.length) return null;
-    const v = data[data.length - 1];
-    const n = v && (v.qty != null ? v.qty : v.avg);
-    return typeof n === 'number' ? n : null;
+    for (let i = data.length - 1; i >= 0; i--) {
+      const v = data[i];
+      const n = v && [v.qty, v.avg, v.Avg].find((x) => typeof x === 'number');
+      if (n != null) return n;
+    }
+    return null;
   }
   function sumDay(day, ...names) {
     const data = samples(...names);
@@ -164,12 +167,18 @@ export default async function handler(req, res) {
   });
   const caffeine = Array.from(cafMap.values()).sort((a, b) => a.ts - b.ts);
 
+  // Point-in-time vitals: the Watch records HRV, blood oxygen and breathing
+  // rate a few times a day and resting HR about once, so most exports carry
+  // none of them. Keep the last known value instead of blanking it.
+  const prevLatest = previous.latest || {};
+  const keep = (v, k) => (v != null ? v : (typeof prevLatest[k] === 'number' ? prevLatest[k] : null));
+
   const latest = {
     day: newestDay,
-    hrv: lastQty('heart_rate_variability'),
-    rhr: lastQty('resting_heart_rate'),
-    resp: lastQty('respiratory_rate'),
-    spo2,
+    hrv: keep(lastQty('heart_rate_variability'), 'hrv'),
+    rhr: keep(lastQty('resting_heart_rate'), 'rhr'),
+    resp: keep(lastQty('respiratory_rate'), 'resp'),
+    spo2: keep(spo2, 'spo2'),
     activeKcal: sumDay(newestDay, 'active_energy'),
     basalKcal: sumDay(newestDay, 'basal_energy_burned', 'resting_energy'),
     steps: sumDay(newestDay, 'step_count'),
@@ -197,12 +206,14 @@ export default async function handler(req, res) {
   const hist = new Map((Array.isArray(previous.history) ? previous.history : []).map((h) => [h.date, h]));
   if (newestDay) {
     const cafToday = sumDay(newestDay, 'dietary_caffeine', 'caffeine');
+    const hrvNow = lastQty('heart_rate_variability'), rhrNow = lastQty('resting_heart_rate'), respNow = lastQty('respiratory_rate');
     const prevDay = hist.get(newestDay) || {};
     hist.set(newestDay, Object.assign({}, prevDay, {
       date: newestDay,
       sleepMin: sleep && sleep.asleepMin != null ? Math.round(sleep.asleepMin) : (prevDay.sleepMin != null ? prevDay.sleepMin : null),
-      hrv: latest.hrv != null ? Math.round(latest.hrv) : null,
-      rhr: latest.rhr != null ? Math.round(latest.rhr) : null,
+      // Vitals only from samples in this export — a day keeps what it had.
+      hrv: hrvNow != null ? Math.round(hrvNow) : (prevDay.hrv != null ? prevDay.hrv : null),
+      rhr: rhrNow != null ? Math.round(rhrNow) : (prevDay.rhr != null ? prevDay.rhr : null),
       steps: latest.steps != null ? Math.round(latest.steps) : null,
       activeKcal: latest.activeKcal != null ? Math.round(latest.activeKcal) : null,
       calories: latest.nutrition.calories != null ? Math.round(latest.nutrition.calories) : null,
@@ -213,8 +224,8 @@ export default async function handler(req, res) {
       basalKcal: latest.basalKcal != null ? Math.round(latest.basalKcal) : null,
       caffeineMg: cafToday != null ? Math.round(cafToday * cafMult) : null,
       // vitals the Health body view trends over the last week
-      spo2: spo2 != null ? Math.round(spo2 * 10) / 10 : null,
-      resp: latest.resp != null ? Math.round(latest.resp * 10) / 10 : null,
+      spo2: spo2 != null ? Math.round(spo2 * 10) / 10 : (prevDay.spo2 != null ? prevDay.spo2 : null),
+      resp: respNow != null ? Math.round(respNow * 10) / 10 : (prevDay.resp != null ? prevDay.resp : null),
       exerciseMin: latest.exerciseMin != null ? Math.round(latest.exerciseMin) : null,
       waterMl: latest.waterMl,
       bodyMassKg: latest.bodyMassKg != null ? latest.bodyMassKg : (prevDay.bodyMassKg != null ? prevDay.bodyMassKg : null),
