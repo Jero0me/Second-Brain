@@ -23,9 +23,11 @@
 // Writes are conditional on the row's updated_at: if another device wrote
 // in between, we re-read, merge again and retry.
 //
-// Writes made while the page boots, before the first pull (daily setup,
-// migrations), are not stamped: the cloud copy wins for those, as it
-// always has, and pages re-run their setup after the pull.
+// Writes made in the first moments of a page load, before the first pull
+// (daily setup, migrations), are not stamped: the cloud copy wins for those,
+// as it always has, and pages re-run their setup after the pull. Anything
+// later is the user's — stamped even while the pull is still running (slow
+// sign-in, weak signal), or the pull would quietly undo it.
 //
 // Also: CloudSync.reader(rowKey, opts) — read-only access to a row the
 // server writes (apple_health, hevy, wallet), with a per-device cache.
@@ -60,7 +62,7 @@
 
   const META = '__meta';                  // per-key change stamps inside the row
   const TOMBSTONE_MS = 60 * 864e5;
-  const BOOT_GRACE_MS = 3000;              // offline: stamp writes once the page has settled
+  const BOOT_GRACE_MS = 3000;              // stamp writes once the page has settled, pulled or not
   const bootAt = Date.now();
 
   const enabled = typeof window !== 'undefined' && !!window.supabase && !!SUPABASE_URL && !!SUPABASE_KEY &&
@@ -127,7 +129,6 @@
     const listeners = [];
     let pushTimer = null;
     let pulled = false;       // initial cloud pull succeeded
-    let pullFailed = false;   // …or it failed at least once (offline)
     let remote = null;        // last row seen: { data, updated_at } | { data: null } for "no row yet"
     let pushing = false, pushAgain = false;
     let resolveReady;
@@ -156,7 +157,7 @@
 
     // A local write. Stamp it unless the page is still booting (see header).
     function changed(k) {
-      if (pulled || (pullFailed && Date.now() - bootAt > BOOT_GRACE_MS)) {
+      if (pulled || Date.now() - bootAt > BOOT_GRACE_MS) {
         const m = loadMeta();
         m.ts[k] = Math.max(Date.now(), (m.ts[k] || 0) + 1);
         saveMeta(m);
@@ -324,10 +325,10 @@
           if (attempt) await new Promise((r) => setTimeout(r, 1500 * attempt));
           try {
             const { data, error } = await supa.from('app_state').select('data, updated_at').eq('key', appKey).maybeSingle();
-            if (error) { pullFailed = true; continue; }
+            if (error) continue;
             pulled = true;
             receive(data);
-          } catch (e) { pullFailed = true; }
+          } catch (e) { /* offline — retried below */ }
         }
       }
       await pull();
