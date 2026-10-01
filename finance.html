@@ -1544,8 +1544,10 @@ input[type=date].inp { color-scheme: dark; min-height: 48px; }
     // Cloud sync (or E.F.I. in another tab) changed the data — repaint.
     window.addEventListener('storage', () => renderAll());
   }
+  // No timer fallback: CloudSync.init resolves offline too (after its retries).
+  // Auto-pay must never run on data that might be stale while a pull is still
+  // on its way — its writes would win, and a bill could be paid twice.
   document.addEventListener('DOMContentLoaded', boot);
-  setTimeout(function () { window.__financeSyncReady(); }, 8000); // offline fallback
 })();
 </script>
 
